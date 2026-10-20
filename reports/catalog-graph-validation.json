@@ -1,0 +1,23 @@
+{
+  "plannedCourses": 36,
+  "firstPhase": 10,
+  "secondPhase": 26,
+  "readyCourses": 14,
+  "importedCourses": 14,
+  "totalKnowledge": 4146,
+  "totalExercises": 4807,
+  "coveredKnowledge": 2545,
+  "pendingReview": 14,
+  "variantGroups": 0,
+  "duplicatePaths": 0,
+  "preservedOrder": true,
+  "fullCourseKnowledgePoints": 232,
+  "fullCourseSections": 26,
+  "fullGraphNodes": 259,
+  "fullGraphSharedEdges": 55,
+  "graphChapter": "第8章 辛流形",
+  "nodes": 34,
+  "sharedExerciseEdges": 11,
+  "inventedPrerequisiteEdges": 0,
+  "sourceDataUnchanged": true
+}

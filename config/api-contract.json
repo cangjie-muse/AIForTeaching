@@ -1,0 +1,38 @@
+{
+  "contractVersion": "1.0",
+  "status": "reserved-not-connected",
+  "basePath": "/api/v1",
+  "endpoints": [
+    { "method": "GET", "path": "/courses", "response": { "items": ["CourseSummary"], "nextCursor": null } },
+    { "method": "GET", "path": "/courses/{courseId}", "response": "Course" },
+    { "method": "POST", "path": "/courses/import/validate", "request": "multipart: 知识节点.xlsx + 知识点.md + 习题.md + optional assets", "response": { "validationId": "string", "stats": "CourseStats", "warnings": [], "errors": [] } },
+    { "method": "POST", "path": "/courses/import/commit", "request": { "validationId": "string", "replaceExisting": false }, "response": "CourseSummary" },
+    { "method": "GET", "path": "/courses/{courseId}/knowledge", "query": ["chapterId", "q", "cursor"], "response": { "items": ["KnowledgeNode"] } },
+    { "method": "GET", "path": "/courses/{courseId}/graph", "response": { "nodes": ["KnowledgeNode"], "relationships": ["Relationship"] } },
+    { "method": "GET", "path": "/courses/{courseId}/exercises", "query": ["nodeId", "chapterId", "difficulty", "q", "cursor"], "response": { "items": ["ExerciseWithoutAnswer"], "total": "integer" } },
+    { "method": "GET", "path": "/courses/{courseId}/exercises/{exerciseId}/solution", "response": "Solution; server enforces answer visibility" },
+    { "method": "GET", "path": "/courses/{courseId}/resources", "response": { "items": ["Resource"] } },
+    { "method": "GET", "path": "/courses/{courseId}/chapters/{chapterId}/courseware", "response": { "versions": ["CoursewareVersion"], "sourceSha256": "string" } },
+    { "method": "POST", "path": "/courses/{courseId}/chapters/{chapterId}/courseware/generations", "request": { "mode": "create|revise", "baseVersionId": null, "instruction": "string", "audience": "string", "formulaMode": "office-math-omml", "sourceSha256": "string", "sourceNodeIds": [], "sourceExerciseIds": [] }, "response": { "jobId": "string", "status": "queued" } },
+    { "method": "GET", "path": "/courseware/jobs/{jobId}", "response": { "status": "queued|running|needs-review|failed", "versionId": null, "error": null } },
+    { "method": "POST", "path": "/courses/{courseId}/chapters/{chapterId}/courseware/versions/{versionId}/feedback", "request": { "instruction": "string", "slideNumbers": [] }, "response": { "feedbackId": "string", "status": "saved" } },
+    { "method": "POST", "path": "/ai/chat", "request": { "courseId": "string", "nodeId": null, "exerciseId": null, "question": "string", "mode": "hint|explain|proof|connect", "messages": [] }, "response": { "answerMarkdown": "string", "citations": [{ "courseId": "string", "nodeId": "string", "resourceId": "string", "page": null, "excerpt": "string" }], "model": "string", "requestId": "string" } },
+    { "method": "GET", "path": "/classes", "query": ["courseId", "term"], "response": { "items": ["TeachingClass"] } },
+    { "method": "GET|POST", "path": "/classes/{classId}/assignments", "response": "Assignment[] or Assignment" },
+    { "method": "POST", "path": "/assignments/{assignmentId}/submissions", "request": { "answers": [], "attachments": [] }, "response": "Submission" },
+    { "method": "GET|POST", "path": "/classes/{classId}/exams", "response": "Exam[] or Exam" },
+    { "method": "GET|POST", "path": "/classes/{classId}/activities", "response": "ClassActivity[] or ClassActivity" },
+    { "method": "GET|POST", "path": "/classes/{classId}/discussions", "response": "Discussion[] or Discussion" },
+    { "method": "GET|POST", "path": "/classes/{classId}/announcements", "response": "Announcement[] or Announcement" },
+    { "method": "GET|PUT", "path": "/me/learning/{courseId}", "request": { "bookmarks": [], "notes": [], "exerciseAttempts": [], "readNodes": [] }, "response": "LearningRecord" },
+    { "method": "GET", "path": "/classes/{classId}/analytics", "response": "ClassAnalytics" }
+  ],
+  "errorEnvelope": { "error": { "code": "string", "message": "string", "details": [] }, "requestId": "string" },
+  "rules": [
+    "All IDs are scoped by courseId. TeachingClass is separate from Course.",
+    "Answers, exams, submissions and class data require server-side authorization.",
+    "API keys remain server-side. Browser never receives model provider credentials.",
+    "Unreviewed content is not automatically published. Courseware versions are immutable, and each revision records its baseVersionId, feedback and changeLog. Learning self-assessments are not official grades.",
+    "The local prototype does not call these endpoints. The contract is independent of Rain Classroom private APIs."
+  ]
+}

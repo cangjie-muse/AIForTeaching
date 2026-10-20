@@ -1,0 +1,315 @@
+{
+  "schemaVersion": "1.0",
+  "courseId": "course-symplectic-math-physics",
+  "chapterId": "chapter-01",
+  "versionId": "v5",
+  "audience": "本科高年级",
+  "slides": [
+    {
+      "title": "第1章 实验事实",
+      "kind": "cover",
+      "bookPages": "Chapter 1, pp. 3–14",
+      "sourceNodeIds": [],
+      "speakerNote": "",
+      "equations": []
+    },
+    {
+      "title": "本章要回答什么",
+      "kind": "roadmap",
+      "bookPages": "pp. 3–14",
+      "sourceNodeIds": [
+        "kp-ch01-relativity",
+        "kp-ch01-newton-initial-value"
+      ],
+      "speakerNote": "",
+      "equations": []
+    },
+    {
+      "title": "相对性与确定性是经验前提",
+      "kind": "comparison",
+      "bookPages": "pp. 3–4",
+      "sourceNodeIds": [
+        "kp-ch01-relativity"
+      ],
+      "speakerNote": "",
+      "equations": []
+    },
+    {
+      "title": "列车实验：匀速平动无法在车厢内测出",
+      "kind": "diagram",
+      "bookPages": "pp. 3–4",
+      "sourceNodeIds": [
+        "kp-ch01-relativity"
+      ],
+      "speakerNote": "",
+      "equations": []
+    },
+    {
+      "title": "事件与时间映射",
+      "kind": "definition",
+      "bookPages": "pp. 4–5",
+      "sourceNodeIds": [
+        "kp-ch01-galilean-structure"
+      ],
+      "speakerNote": "",
+      "equations": [
+        "time"
+      ]
+    },
+    {
+      "title": "同时切片上才能谈空间距离",
+      "kind": "diagram",
+      "bookPages": "pp. 5–6",
+      "sourceNodeIds": [
+        "kp-ch01-galilean-structure"
+      ],
+      "speakerNote": "",
+      "equations": [
+        "simultaneous",
+        "distance"
+      ]
+    },
+    {
+      "title": "Galilei 变换保留时间差与同时距离",
+      "kind": "formula-table",
+      "bookPages": "p. 6",
+      "sourceNodeIds": [
+        "kp-ch01-galilean-structure"
+      ],
+      "speakerNote": "",
+      "equations": [
+        "galilei"
+      ]
+    },
+    {
+      "title": "速度改变，加速度只随坐标旋转",
+      "kind": "derivation",
+      "bookPages": "pp. 6, 9–10",
+      "sourceNodeIds": [
+        "kp-ch01-galilean-structure",
+        "kp-ch01-equivariance"
+      ],
+      "speakerNote": "",
+      "equations": [
+        "derivatives",
+        "acceltransform"
+      ]
+    },
+    {
+      "title": "运动、轨迹、世界线保留的信息不同",
+      "kind": "diagram",
+      "bookPages": "pp. 7–8",
+      "sourceNodeIds": [
+        "kp-ch01-kinematics"
+      ],
+      "speakerNote": "",
+      "equations": []
+    },
+    {
+      "title": "加速度分成切向与法向",
+      "kind": "image-explanation",
+      "bookPages": "p. 7",
+      "sourceNodeIds": [
+        "kp-ch01-kinematics"
+      ],
+      "speakerNote": "",
+      "equations": [
+        "acceleration"
+      ]
+    },
+    {
+      "title": "构形只有位置，状态还要速度",
+      "kind": "comparison",
+      "bookPages": "p. 8",
+      "sourceNodeIds": [
+        "kp-ch01-newton-initial-value"
+      ],
+      "speakerNote": "",
+      "equations": [
+        "configuration",
+        "state",
+        "firstorder"
+      ]
+    },
+    {
+      "title": "局部唯一性依赖方程右端的正则性",
+      "kind": "comparison",
+      "bookPages": "p. 8, footnote 8",
+      "sourceNodeIds": [
+        "kp-ch01-newton-initial-value"
+      ],
+      "speakerNote": "",
+      "equations": []
+    },
+    {
+      "title": "封闭系统的方程应以相对量描述",
+      "kind": "explanation",
+      "bookPages": "pp. 9–10",
+      "sourceNodeIds": [
+        "kp-ch01-equivariance"
+      ],
+      "speakerNote": "",
+      "equations": [
+        "relative"
+      ]
+    },
+    {
+      "title": "“旋转后仍是解”写成等变条件",
+      "kind": "formula-focus",
+      "bookPages": "p. 10",
+      "sourceNodeIds": [
+        "kp-ch01-equivariance"
+      ],
+      "speakerNote": "",
+      "equations": [
+        "equivariance"
+      ]
+    },
+    {
+      "title": "对称初值把运动约束在初始连线上",
+      "kind": "proof",
+      "bookPages": "p. 10, problem p010-2",
+      "sourceNodeIds": [
+        "kp-ch01-equivariance"
+      ],
+      "speakerNote": "",
+      "equations": []
+    },
+    {
+      "title": "保守力由构形空间上的势能决定",
+      "kind": "formula-explanation",
+      "bookPages": "pp. 13–14",
+      "sourceNodeIds": [
+        "kp-ch01-potential-models"
+      ],
+      "speakerNote": "",
+      "equations": [
+        "conservative"
+      ]
+    },
+    {
+      "title": "能量守恒：把方程沿运动方向相乘",
+      "kind": "derivation",
+      "bookPages": "pp. 12–14",
+      "sourceNodeIds": [
+        "kp-ch01-potential-models"
+      ],
+      "speakerNote": "",
+      "equations": [
+        "energy",
+        "energy-rate",
+        "energy-zero"
+      ]
+    },
+    {
+      "title": "三种势能模型对应三套尺度和零点",
+      "kind": "comparison-table",
+      "bookPages": "pp. 11–13",
+      "sourceNodeIds": [
+        "kp-ch01-potential-models"
+      ],
+      "speakerNote": "",
+      "equations": [
+        "potential-0",
+        "potential-1",
+        "potential-2"
+      ]
+    },
+    {
+      "title": "逃逸问题先限定物理模型",
+      "kind": "diagram",
+      "bookPages": "p. 12",
+      "sourceNodeIds": [
+        "kp-ch01-escape-velocity"
+      ],
+      "speakerNote": "",
+      "equations": [
+        "inverse"
+      ]
+    },
+    {
+      "title": "零能量是恰好逃逸的门槛",
+      "kind": "technical-chart",
+      "bookPages": "p. 12",
+      "sourceNodeIds": [
+        "kp-ch01-escape-velocity"
+      ],
+      "speakerNote": "",
+      "equations": []
+    },
+    {
+      "title": "由初始能量求逃逸速度",
+      "kind": "derivation",
+      "bookPages": "p. 12",
+      "sourceNodeIds": [
+        "kp-ch01-escape-velocity"
+      ],
+      "speakerNote": "",
+      "equations": [
+        "initialenergy",
+        "threshold",
+        "escapespeed"
+      ]
+    },
+    {
+      "title": "课堂练习：先写势能，再求最小初速",
+      "kind": "exercise",
+      "bookPages": "p. 12, problem p012-1",
+      "sourceNodeIds": [
+        "kp-ch01-escape-velocity"
+      ],
+      "speakerNote": "",
+      "equations": [
+        "exercise"
+      ]
+    },
+    {
+      "title": "练习解答：两次代入完成计算",
+      "kind": "solution",
+      "bookPages": "p. 12, answer to p012-1",
+      "sourceNodeIds": [
+        "kp-ch01-escape-velocity"
+      ],
+      "speakerNote": "",
+      "equations": [
+        "inverse-exercise",
+        "initialenergy-exercise",
+        "escapespeed-exercise"
+      ]
+    },
+    {
+      "title": "概念辨析：惯性系的“类”唯一吗",
+      "kind": "comparison",
+      "bookPages": "p. 11, problem p011-2",
+      "sourceNodeIds": [
+        "kp-ch01-relativity",
+        "kp-ch01-galilean-structure"
+      ],
+      "speakerNote": "",
+      "equations": []
+    },
+    {
+      "title": "本章结论依赖一条清楚的前提链",
+      "kind": "summary",
+      "bookPages": "pp. 3–14",
+      "sourceNodeIds": [
+        "kp-ch01-relativity",
+        "kp-ch01-equivariance",
+        "kp-ch01-escape-velocity"
+      ],
+      "speakerNote": "",
+      "equations": []
+    },
+    {
+      "title": "资料与出处",
+      "kind": "sources",
+      "bookPages": "pp. 3–14",
+      "sourceNodeIds": [
+        "kp-ch01-relativity",
+        "kp-ch01-escape-velocity"
+      ],
+      "speakerNote": "",
+      "equations": []
+    }
+  ]
+}

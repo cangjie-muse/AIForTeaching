@@ -1,0 +1,207 @@
+{
+  "schemaVersion": "1.0",
+  "courseId": "course-symplectic-math-physics",
+  "chapterId": "chapter-01",
+  "chapterTitle": "第1章 实验事实",
+  "audience": "本科高年级",
+  "sourceSha256": "28e623845ffab3aa3fbe6b7e1cd82d87405f76670451c14095bc9299ec9d1e38",
+  "origin": "offline-demo",
+  "notice": "V1—V4 为演示课件；V5 已重排并修复公式乱码，数学内容仍请教师终审。网站在线 AI 生成服务尚未接入。",
+  "versions": [
+    {
+      "id": "v1",
+      "number": 1,
+      "title": "初稿：建立课堂主线",
+      "slideCount": 5,
+      "status": "demo-generated",
+      "createdAt": "2026-10-11",
+      "basedOn": null,
+      "changes": [
+        "概述相对性与确定性",
+        "给出 Galilei 变换、Newton 初值问题和逃逸速度"
+      ],
+      "review": {
+        "author": "AI 自评（本次演示）",
+        "suggestion": "概念列得太快；应补 Galilei 时空结构，并区分轨迹和世界线。"
+      },
+      "files": {
+        "pptx": "v1/slides.pptx",
+        "cover": "v1/cover.png",
+        "previews": [
+          "v1/preview/slide-01.png",
+          "v1/preview/slide-02.png",
+          "v1/preview/slide-03.png",
+          "v1/preview/slide-04.png",
+          "v1/preview/slide-05.png"
+        ]
+      }
+    },
+    {
+      "id": "v2",
+      "number": 2,
+      "title": "补充定义与适用条件",
+      "slideCount": 7,
+      "status": "demo-generated",
+      "createdAt": "2026-10-11",
+      "basedOn": "v1",
+      "changes": [
+        "加入 Galilei 时空结构与正交变换范围",
+        "补充轨迹、世界线的区别",
+        "明确初值问题只保证局部唯一性，并补势能模型"
+      ],
+      "review": {
+        "author": "AI 自评（本次演示）",
+        "suggestion": "讲解更完整了，但缺少让学生亲自推导的习题，也未单列对称性如何约束方程。"
+      },
+      "files": {
+        "pptx": "v2/slides.pptx",
+        "cover": "v2/cover.png",
+        "previews": [
+          "v2/preview/slide-01.png",
+          "v2/preview/slide-02.png",
+          "v2/preview/slide-03.png",
+          "v2/preview/slide-04.png",
+          "v2/preview/slide-05.png",
+          "v2/preview/slide-06.png",
+          "v2/preview/slide-07.png"
+        ]
+      }
+    },
+    {
+      "id": "v3",
+      "number": 3,
+      "title": "加入练习与解答",
+      "slideCount": 10,
+      "status": "demo-generated",
+      "createdAt": "2026-10-11",
+      "basedOn": "v2",
+      "changes": [
+        "增加七个知识点的课堂主线",
+        "单列封闭系统的对称性约束",
+        "引入原题 p012-1，给出能量法推导和等号解释"
+      ],
+      "review": {
+        "author": "AI 自评（本次演示）",
+        "suggestion": "习题已有，但仍应区分坐标变化与物理运动；对开放系统、时间反向和全局存在的边界可再明确。"
+      },
+      "files": {
+        "pptx": "v3/slides.pptx",
+        "cover": "v3/cover.png",
+        "previews": [
+          "v3/preview/slide-01.png",
+          "v3/preview/slide-02.png",
+          "v3/preview/slide-03.png",
+          "v3/preview/slide-04.png",
+          "v3/preview/slide-05.png",
+          "v3/preview/slide-06.png",
+          "v3/preview/slide-07.png",
+          "v3/preview/slide-08.png",
+          "v3/preview/slide-09.png",
+          "v3/preview/slide-10.png"
+        ]
+      }
+    },
+    {
+      "id": "v4",
+      "number": 4,
+      "title": "补强概念辨析与模型边界",
+      "slideCount": 12,
+      "status": "demo-generated",
+      "createdAt": "2026-10-11",
+      "basedOn": "v3",
+      "changes": [
+        "重写物理前提与数学条件的区分",
+        "解释 Galilei 坐标变化不等于新物理运动",
+        "增补原题 p011-2 的惯性系辨析，并复核逃逸模型边界"
+      ],
+      "review": {
+        "author": "AI 自评（本次演示）",
+        "suggestion": "留待教师审核数学表述、课时分配和两道习题的课堂使用方式。"
+      },
+      "files": {
+        "pptx": "v4/slides.pptx",
+        "cover": "v4/cover.png",
+        "previews": [
+          "v4/preview/slide-01.png",
+          "v4/preview/slide-02.png",
+          "v4/preview/slide-03.png",
+          "v4/preview/slide-04.png",
+          "v4/preview/slide-05.png",
+          "v4/preview/slide-06.png",
+          "v4/preview/slide-07.png",
+          "v4/preview/slide-08.png",
+          "v4/preview/slide-09.png",
+          "v4/preview/slide-10.png",
+          "v4/preview/slide-11.png",
+          "v4/preview/slide-12.png"
+        ]
+      }
+    },
+    {
+      "id": "v5",
+      "number": 5,
+      "title": "教师建议：修复公式乱码与细化讲解",
+      "slideCount": 26,
+      "status": "needs-review",
+      "createdAt": "2026-10-11",
+      "basedOn": "v4",
+      "formulaMode": "office-math-omml",
+      "nativeEquationCount": 27,
+      "changes": [
+        "重做公式兼容结构，清除 WPS 中公式与备用图重叠造成的乱码",
+        "将 27 处展示公式设为 Office Math 对象，并以可编辑文字作兼容后备",
+        "依据 Arnold 原书第一章与课程资源包，重排为 26 页图解、推导、练习和解答",
+        "逐页更新网站预览，重点核对第 19—23 页的势能、分式与根号"
+      ],
+      "feedback": {
+        "id": "feedback-v4-teacher-2026-10-11",
+        "author": "杨老师",
+        "source": "user-message",
+        "baseVersionId": "v4",
+        "resultingVersionId": "v5",
+        "receivedAt": "2026-10-11",
+        "displayText": "建议将课件中的公式统一改为可编辑的公式格式，逐一核对并修正符号、推导及可能不准确的表达，同时改善公式呈现效果。请进一步优化页面排版，充实各知识点的解释和前后衔接；修订时参照原书 PDF 核实相关定义、例子与习题，使课件更完整、更适合课堂使用。",
+        "wording": "经用户要求润色的展示文案"
+      },
+      "review": {
+        "author": "待教师终审",
+        "suggestion": "请在 WPS 演示中复核公式编辑体验，并审核数学措辞、课堂节奏与习题难度。"
+      },
+      "files": {
+        "pptx": "v5/slides.pptx",
+        "cover": "v5/cover.png",
+        "previews": [
+          "v5/preview/slide-01.png",
+          "v5/preview/slide-02.png",
+          "v5/preview/slide-03.png",
+          "v5/preview/slide-04.png",
+          "v5/preview/slide-05.png",
+          "v5/preview/slide-06.png",
+          "v5/preview/slide-07.png",
+          "v5/preview/slide-08.png",
+          "v5/preview/slide-09.png",
+          "v5/preview/slide-10.png",
+          "v5/preview/slide-11.png",
+          "v5/preview/slide-12.png",
+          "v5/preview/slide-13.png",
+          "v5/preview/slide-14.png",
+          "v5/preview/slide-15.png",
+          "v5/preview/slide-16.png",
+          "v5/preview/slide-17.png",
+          "v5/preview/slide-18.png",
+          "v5/preview/slide-19.png",
+          "v5/preview/slide-20.png",
+          "v5/preview/slide-21.png",
+          "v5/preview/slide-22.png",
+          "v5/preview/slide-23.png",
+          "v5/preview/slide-24.png",
+          "v5/preview/slide-25.png",
+          "v5/preview/slide-26.png"
+        ],
+        "plan": "v5/slide-plan.json",
+        "feedback": "v5/feedback.json",
+        "equations": "v5/equations.json"
+      }
+    }
+  ]
+}

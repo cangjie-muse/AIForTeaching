@@ -1,0 +1,18 @@
+.catalog-group{margin-top:28px}
+.catalog-group+.catalog-group{margin-top:45px;padding-top:28px;border-top:1px solid #dfe7f2}
+.catalog-group-heading{display:flex;align-items:center;gap:15px;margin-bottom:20px}
+.phase-number{font:italic 28px Georgia,serif;color:#a9bbd6;min-width:42px}
+.catalog-group-heading h3{font-size:19px;font-weight:600;color:#38567e}
+.catalog-group-heading p{font-size:11px;color:#8f9fb5;margin-top:5px}
+.catalog-filters{flex-wrap:wrap}
+.filter-chip[data-filter="ready"]{border-color:#dbe6f5;color:#4b78ae}
+.filter-chip[data-filter="ready"].active{background:#2854a0;color:white;border-color:#2854a0}
+.card-category{flex-wrap:wrap;gap:5px}
+@media(max-width:720px){
+  .catalog-filters{gap:4px;overflow:visible}
+  .filter-chip{font-size:10px;padding:7px 10px}
+  .catalog-group-heading h3{font-size:16px}
+  .phase-number{font-size:24px;min-width:30px}
+  .catalog-group-heading{gap:10px}
+  .catalog-group+.catalog-group{margin-top:30px;padding-top:22px}
+}
