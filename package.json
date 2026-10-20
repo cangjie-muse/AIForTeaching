@@ -9,7 +9,9 @@
     "index:courseware": "node scripts/courseware-index.cjs",
     "start": "python3 scripts/serve.py",
     "check": "eslint js scripts/*.mjs scripts/*.cjs && node scripts/verify.cjs && node scripts/verify-catalog-graph.cjs && node scripts/courseware-index.cjs --check && node scripts/audit-source.cjs",
-    "audit:sources": "node scripts/audit-source.cjs"
+    "audit:sources": "node scripts/audit-source.cjs",
+    "seed:db": "python db/build_seed.py",
+    "verify:db": "node db/verify_seed.mjs"
   },
   "dependencies": {
     "dompurify": "3.4.16",
@@ -19,6 +21,7 @@
     "marked": "18.1.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.10",
     "eslint": "10.12.0"
   }
 }

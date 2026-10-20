@@ -106,15 +106,19 @@ def parse_source(ex: dict) -> dict:
     if no:
         out["source_no"] = no.group(1).strip()
 
-    if "自拟" in raw:
-        out["provenance"] = "self-authored"
-    elif "导出" in raw and ("xlsx" in raw.lower() or "导出表" in raw):
+    # 判据必须具体。典型反例：教材原题的解答写"自拟简解"，
+    # 若只看"自拟"二字，225 道教材原题会被误判成自拟题 3505 道。
+    if "导出" in raw and ("xlsx" in raw.lower() or "导出表" in raw):
         out["provenance"] = "colleague-export"
         if not out["source_no"]:
             row = re.search(r"第\s*(\d+)\s*行", raw)
             if row:
                 out["source_no"] = f"导出表第{row.group(1)}行"
-    elif out["source_book"] and out["source_no"]:
+    elif "自拟训练题" in raw or "教材页码不适用" in raw:
+        out["provenance"] = "self-authored"
+    elif out["source_book"] and out["source_no"] and out["source_page"]:
+        out["provenance"] = "textbook"
+    elif out["source_book"] and "原题" in raw:
         out["provenance"] = "textbook"
 
     return out
