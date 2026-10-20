@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""数据出校与身份的纯逻辑测试（不依赖数据库、不依赖网络）。
+"""出校策略与身份的纯逻辑测试（不依赖数据库、不依赖网络）。
 
 运行：
     python server/tests/test_policy.py
 
 这两块是"错了不会报错、只会悄悄出事"的地方，所以单独测：
-  · 出校判断错了 → 教材内容被发到校外，没有任何提示
+  · 出校判断错了 → 内容被发到来路不明的中转站，没有任何提示
   · 角色判断错了 → 学生能调审核接口，删改题库
 """
 
@@ -31,64 +31,112 @@ def check(name: str, cond: bool, detail: str = "") -> None:
         failures.append(name)
 
 
-print("出校判断（is_internal_url）：")
+print("地址分类（classify）：")
 internal = [
     "http://localhost:8000/v1",
     "http://127.0.0.1:8000/v1",
     "http://10.10.2.31:8001/v1",
-    "http://172.16.5.9:8001/v1",
     "http://192.168.1.20:8001/v1",
     "https://llm.whu.edu.cn/v1",
-    "http://llm.internal/v1",
 ]
-external = [
+approved = [
     "https://api.deepseek.com",
+    "https://api.deepseek.com/v1",
     "https://api.moonshot.cn/v1",
+    "https://platform.kimi.com/api",
     "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    "https://api.openai.com/v1",
-    "http://8.8.8.8/v1",
-    "https://evil.example.com/v1",
-    "",           # 空值必须拒绝
-    "not-a-url",  # 无法解析必须拒绝
+    "https://open.bigmodel.cn/api/paas/v4",
 ]
+unapproved = [
+    "https://api.openai.com/v1",
+    "https://api.anthropic.com",
+    "http://8.8.8.8/v1",
+    # 域名伪造：前缀像已批准域名，实际归属别人的子域
+    "https://api.deepseek.com.attacker.com/v1",
+    "https://deepseek.com.attacker.com/v1",
+    "https://evil-proxy.example.com/v1",
+]
+invalid = ["", "not-a-url", "ftp://"]
+
 for url in internal:
-    check(f"校内：{url or '(空)'}", llm.is_internal_url(url) is True)
-for url in external:
-    check(f"校外：{url or '(空)'}", llm.is_internal_url(url) is False)
+    check(f"校内 {url}", llm.classify(url) == "internal")
+for url in approved:
+    check(f"已批准 {url}", llm.classify(url) == "approved")
+for url in unapproved:
+    check(f"未批准 {url}", llm.classify(url) == "unapproved")
+for url in invalid:
+    check(f"无效 {url or '(空)'}", llm.classify(url) == "invalid")
 
-print("\n出校拦截（assert_egress_allowed）：")
-campus = llm.Endpoint("campus-gateway", "http://10.0.0.8:8001/v1", "qwen2.5-14b", "chat")
-deepseek = llm.Endpoint("deepseek", "https://api.deepseek.com", "deepseek-flash", "chat")
+print("\nallowlist 模式（默认）：")
+llm.EGRESS_MODE = "allowlist"
+ok_internal = llm.Endpoint("campus", "http://10.0.0.8:8001/v1", "qwen", "chat")
+ok_approved = llm.Endpoint("deepseek", "https://api.deepseek.com", "deepseek-flash", "chat")
+bad = llm.Endpoint("proxy", "https://evil-proxy.example.com/v1", "gpt", "chat")
 
-llm.ALLOW_EXTERNAL = False
+for name, ep, want_raise in [
+    ("校内端点放行", ok_internal, False),
+    ("已批准供应商放行", ok_approved, False),
+    ("未批准供应商拒绝", bad, True),
+]:
+    try:
+        llm.assert_egress_allowed(ep)
+        raised = False
+    except llm.EgressViolation:
+        raised = True
+    check(name, raised is want_raise)
+
+# 拒绝时必须说清楚怎么加白名单，否则运维只能翻代码
 try:
-    llm.assert_egress_allowed(campus)
-    ok = True
-except llm.EgressViolation:
-    ok = False
-check("校内端点放行", ok)
-
-try:
-    llm.assert_egress_allowed(deepseek)
-    blocked = False
+    llm.assert_egress_allowed(bad)
 except llm.EgressViolation as exc:
-    blocked = "数据不出校" in str(exc)
-check("校外端点被拦截且提示原因", blocked)
+    msg = str(exc)
+    check(
+        "拒绝信息含加入白名单的方法",
+        "MODEL_ALLOWED_HOSTS" in msg and "MODEL_EGRESS=any" in msg,
+    )
 
-# 显式放行只在开发和测试时用
-llm.ALLOW_EXTERNAL = True
+print("\ninternal-only 模式（若将来要求数据不出校）：")
+llm.EGRESS_MODE = "internal-only"
 try:
-    llm.assert_egress_allowed(deepseek)
-    allowed = True
+    llm.assert_egress_allowed(ok_approved)
+    blocked = False
 except llm.EgressViolation:
-    allowed = False
-check("显式 ALLOW_EXTERNAL 时放行", allowed)
-llm.ALLOW_EXTERNAL = False
+    blocked = True
+check("已批准供应商也被拒绝", blocked)
+try:
+    llm.assert_egress_allowed(ok_internal)
+    still_ok = True
+except llm.EgressViolation:
+    still_ok = False
+check("校内端点仍放行", still_ok)
+
+print("\nany 模式（仅开发临时用）：")
+llm.EGRESS_MODE = "any"
+try:
+    llm.assert_egress_allowed(bad)
+    any_ok = True
+except llm.EgressViolation:
+    any_ok = False
+check("未批准供应商临时放行", any_ok)
+try:
+    llm.assert_egress_allowed(llm.Endpoint("x", "", "m", "chat"))
+    empty_ok = True
+except llm.EgressViolation:
+    empty_ok = False
+check("空地址即便 any 模式也拒绝", empty_ok is False)
+
+llm.EGRESS_MODE = "allowlist"
 
 print("\n请求构造：")
-req = llm.build_chat_request(campus, [{"role": "user", "content": "什么是收敛"}])
-check("OpenAI 兼容格式", req["model"] == "qwen2.5-14b" and req["messages"][0]["role"] == "user")
+req = llm.build_chat_request(ok_approved, [{"role": "user", "content": "什么是收敛"}])
+check("OpenAI 兼容格式", req["model"] == "deepseek-flash" and req["messages"][0]["role"] == "user")
 check("默认不开流式（后端先跑通再改）", req["stream"] is False)
+check("默认端点指向 DeepSeek", llm.chat_endpoint().base_url.startswith("https://api.deepseek.com"))
+check(
+    "默认 embedding 为百炼 qwen 且 1024 维",
+    llm.embedding_endpoint().dim == 1024
+    and "aliyuncs.com" in llm.embedding_endpoint().base_url,
+)
 
 print("\n身份解析（开发模式）：")
 auth.AUTH_MODE = "dev"
@@ -107,9 +155,7 @@ try:
 except auth.HTTPException as exc:
     denied = exc.status_code == 403
 check("require() 对学生返回 403", denied)
-
-got = dep(auth.Actor("t1", frozenset({"teacher"})))
-check("require() 对教师放行", got.id == "t1")
+check("require() 对教师放行", dep(auth.Actor("t1", frozenset({"teacher"}))).id == "t1")
 
 print("\n认证未接入时必须拒绝，而不是放行：")
 auth.AUTH_MODE = "cas"

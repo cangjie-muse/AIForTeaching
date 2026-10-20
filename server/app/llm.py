@@ -1,16 +1,23 @@
-"""模型访问层：把"数据不出校"变成代码里的硬约束，而不是口头约定。
+"""模型访问层：控制"哪些供应商可以收到校内内容"。
 
-为什么要有这一层：
-  学院的要求是数据不出校，但校外可以访问网站。这两件事并不矛盾——
-  矛盾的是"随手调用外部 API"。RAG 每次问答都要把教材片段塞进提示词，
-  只要 base_url 指向校外，数据就已经出去了，而且没有任何人会发现。
+背景变化（2026-10-20）：
+    学院确认数据**可以**出校，使用国内大模型 API。所以不再需要"数据不出内网"的
+    硬拦截，但**不能退化成"想发就发"**。真正要防的三件事变成：
 
-所以判断依据不是"provider 叫什么名字"，而是 **base_url 的主机名**：
-  localhost / 127.0.0.1 / 10.x / 172.16-31.x / 192.168.x / *.edu.cn / *.local  → 校内
-  其他                                                                        → 校外
-校外一律拒绝，除非显式设置 ALLOW_EXTERNAL_MODELS=true（开发调试用，生产禁止）。
+      1. 接到来路不明的代理/中转站（很多"便宜 API"其实是转发，日志里能看到内容）
+      2. 供应商悄悄换域名，代码还按老地址发
+      3. 用了哪个模型、花了多少、发了什么，事后说不清
 
-未知情况一律拒绝（fail closed），不做"猜"。
+    所以策略是**允许清单（allowlist）**，不是"外网全禁"也不是"外网全通"：
+      · 校内地址       → 一律放行
+      · 已批准的供应商 → 放行（DeepSeek / Kimi / 阿里百炼 / 智谱）
+      · 其他外部地址   → 拒绝，并提示怎么加白名单
+
+    三种模式由 MODEL_EGRESS 控制：
+      allowlist（默认）| any（开发临时用）| internal-only（如果将来要求数据不出校）
+
+判断依据是 **base_url 的主机名**，不是 provider 名字——名字可以随便写，域名才是
+数据实际发往的地方。
 """
 
 from __future__ import annotations
@@ -24,42 +31,56 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any
 
-# 校内域名后缀。学校自己的域名可加进来，如 ".whu.edu.cn"
+# ---------------------------------------------------------------------------
+# 策略
+# ---------------------------------------------------------------------------
+
+# 已批准可用于含校内内容请求的供应商域名（含子域）
+APPROVED_HOSTS: frozenset[str] = frozenset(
+    h.strip().lower()
+    for h in os.environ.get(
+        "MODEL_ALLOWED_HOSTS",
+        "api.deepseek.com,api.moonshot.cn,platform.kimi.com,"
+        "dashscope.aliyuncs.com,dashscope-intl.aliyuncs.com,open.bigmodel.cn",
+    ).split(",")
+    if h.strip()
+)
+
 INTERNAL_SUFFIXES = (".edu.cn", ".local", ".internal", ".lan")
 
-# 开发期允许调用外部模型时置 true。生产环境必须为 false。
-ALLOW_EXTERNAL = os.environ.get("ALLOW_EXTERNAL_MODELS", "false").lower() in ("1", "true", "yes")
+EGRESS_MODE = os.environ.get("MODEL_EGRESS", "allowlist").lower()
+VALID_MODES = {"allowlist", "any", "internal-only"}
 
 
 class EgressViolation(RuntimeError):
-    """试图把校内数据发到校外。"""
+    """目标供应商未被批准接收校内内容。"""
 
 
 @dataclass(frozen=True)
 class Endpoint:
-    name: str           # campus-gateway / local-vllm / bge-m3 ...
-    base_url: str       # 必须含 scheme，如 http://10.0.0.8:8000/v1
+    name: str           # deepseek / kimi / bailian-qwen / campus-gateway
+    base_url: str       # 必须含 scheme，如 https://api.deepseek.com
     model: str
     kind: str           # chat | embedding
     dim: int | None = None   # embedding 维度
 
 
-def is_internal_url(base_url: str) -> bool:
-    """按主机名判断是否校内。无法判断时返回 False（fail closed）。"""
+def _host(base_url: str) -> str:
     try:
-        host = urllib.parse.urlparse(base_url).hostname
+        return (urllib.parse.urlparse(base_url).hostname or "").lower().rstrip(".")
     except ValueError:
-        return False
+        return ""
+
+
+def is_internal_url(base_url: str) -> bool:
+    """校内地址：本机、私网、校内域名。无法判断时返回 False。"""
+    host = _host(base_url)
     if not host:
         return False
-
-    host = host.lower().rstrip(".")
     if host in ("localhost", "127.0.0.1", "::1"):
         return True
     if host.endswith(INTERNAL_SUFFIXES):
         return True
-
-    # 私网与链路本地地址
     try:
         ip = ipaddress.ip_address(host)
     except ValueError:
@@ -67,41 +88,93 @@ def is_internal_url(base_url: str) -> bool:
     return ip.is_private or ip.is_loopback or ip.is_link_local
 
 
+def is_approved(base_url: str) -> bool:
+    """已批准的供应商：域名相同或是其子域。"""
+    host = _host(base_url)
+    if not host:
+        return False
+    return any(host == allowed or host.endswith("." + allowed) for allowed in APPROVED_HOSTS)
+
+
+def classify(base_url: str) -> str:
+    """返回 internal / approved / unapproved / invalid。"""
+    if not _host(base_url):
+        return "invalid"
+    if is_internal_url(base_url):
+        return "internal"
+    if is_approved(base_url):
+        return "approved"
+    return "unapproved"
+
+
 def assert_egress_allowed(endpoint: Endpoint) -> None:
-    """校外端点一律拒绝，除非显式放行。"""
-    if is_internal_url(endpoint.base_url):
+    """按当前模式判断是否允许调用。未知情况一律拒绝（fail closed）。
+
+    判断顺序不能随意调换，这里踩过一次：
+      internal-only 模式必须挡在 approved 之前，否则"已批准供应商"会先被放行，
+      而这个模式的全部意义就是禁止一切外部调用。
+    """
+    category = classify(endpoint.base_url)
+
+    if category == "internal":
         return
-    if ALLOW_EXTERNAL:
+
+    # 地址无效时任何模式都拒绝：目标不明 = 不知道数据发去哪
+    if category == "invalid":
+        raise EgressViolation(
+            f"端点地址无效，拒绝调用：{endpoint.name} → {endpoint.base_url or '(空地址)'}"
+        )
+
+    if EGRESS_MODE == "internal-only":
+        raise EgressViolation(
+            f"当前模式为 internal-only，拒绝调用外部模型：{endpoint.name} → {endpoint.base_url}"
+        )
+
+    if category == "approved":
         return
+
+    if EGRESS_MODE == "any":
+        return
+
     raise EgressViolation(
-        f"拒绝调用校外模型：{endpoint.name} → {endpoint.base_url}\n"
-        f"学院要求数据不出校。RAG 会把教材片段与题目内容发给该地址。\n"
-        f"如果这是校内网关，请确认域名在 INTERNAL_SUFFIXES 里；\n"
-        f"如果确实只是开发调试，显式设置 ALLOW_EXTERNAL_MODELS=true。"
+        f"供应商未批准：{endpoint.name} → {endpoint.base_url}\n"
+        f"请求会包含校内教材片段与题目内容，必须先确认该供应商可接收。\n"
+        f"确认后加入白名单：MODEL_ALLOWED_HOSTS={','.join(sorted(APPROVED_HOSTS))},<新域名>\n"
+        f"临时调试可用 MODEL_EGRESS=any（生产禁止）。"
     )
 
 
+# ---------------------------------------------------------------------------
+# 端点配置（全部来自环境变量，不硬编码密钥）
+# ---------------------------------------------------------------------------
+
 def chat_endpoint() -> Endpoint:
     return Endpoint(
-        name=os.environ.get("LLM_NAME", "campus-gateway"),
-        base_url=os.environ.get("LLM_BASE_URL", "http://127.0.0.1:8001/v1"),
-        model=os.environ.get("LLM_MODEL", "qwen2.5-14b-instruct"),
+        name=os.environ.get("LLM_NAME", "deepseek"),
+        base_url=os.environ.get("LLM_BASE_URL", "https://api.deepseek.com"),
+        model=os.environ.get("LLM_MODEL", "deepseek-flash"),
         kind="chat",
     )
 
 
 def embedding_endpoint() -> Endpoint:
     return Endpoint(
-        name=os.environ.get("EMBEDDING_NAME", "local-bge-m3"),
-        base_url=os.environ.get("EMBEDDING_BASE_URL", "http://127.0.0.1:8002/v1"),
-        model=os.environ.get("EMBEDDING_MODEL", "bge-m3"),
+        name=os.environ.get("EMBEDDING_NAME", "bailian-qwen"),
+        base_url=os.environ.get(
+            "EMBEDDING_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        ),
+        model=os.environ.get("EMBEDDING_MODEL", "qwen3.7-text-embedding"),
         kind="embedding",
         dim=int(os.environ.get("EMBEDDING_DIM", "1024")),
     )
 
 
+# ---------------------------------------------------------------------------
+# 调用
+# ---------------------------------------------------------------------------
+
 def build_chat_request(endpoint: Endpoint, messages: list[dict], temperature: float = 0.2) -> dict:
-    """构造 OpenAI 兼容请求体。国产模型基本都兼容这个格式。"""
+    """构造 OpenAI 兼容请求体。DeepSeek / Kimi / 百炼都兼容这个格式。"""
     return {
         "model": endpoint.model,
         "messages": messages,
@@ -110,14 +183,22 @@ def build_chat_request(endpoint: Endpoint, messages: list[dict], temperature: fl
     }
 
 
-def post_json(url: str, payload: dict, timeout: int = 120) -> dict:
+def _api_key(endpoint: Endpoint) -> str | None:
+    """按端点取密钥。
+
+    生成与向量通常来自不同厂商（DeepSeek + 百炼），所以密钥分开配；
+    只有一把时回落到 MODEL_API_KEY，方便开发期只测一条链路。
+    """
+    specific = "LLM_API_KEY" if endpoint.kind == "chat" else "EMBEDDING_API_KEY"
+    return os.environ.get(specific) or os.environ.get("MODEL_API_KEY")
+
+
+def post_json(url: str, payload: dict, api_key: str | None = None, timeout: int = 120) -> dict:
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    req = urllib.request.Request(
-        url,
-        data=data,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
@@ -127,26 +208,35 @@ def post_json(url: str, payload: dict, timeout: int = 120) -> dict:
 
 
 def chat(messages: list[dict], temperature: float = 0.2) -> dict:
-    """同步对话调用。调用前先过数据出校检查。"""
+    """同步对话调用。调用前先过供应商检查。"""
     endpoint = chat_endpoint()
     assert_egress_allowed(endpoint)
     payload = build_chat_request(endpoint, messages, temperature)
-    result = post_json(f"{endpoint.base_url.rstrip('/')}/chat/completions", payload)
+    result = post_json(
+        f"{endpoint.base_url.rstrip('/')}/chat/completions",
+        payload,
+        api_key=_api_key(endpoint),
+    )
     return {
         "provider": endpoint.name,
         "model": endpoint.model,
-        "internal": is_internal_url(endpoint.base_url),
+        "data_scope": classify(endpoint.base_url),
         "content": result["choices"][0]["message"]["content"],
         "usage": result.get("usage", {}),
     }
 
 
 def embed(texts: list[str]) -> list[list[float]]:
-    """批量向量化。同样先过数据出校检查。"""
+    """批量向量化。同样先过供应商检查。"""
     endpoint = embedding_endpoint()
     assert_egress_allowed(endpoint)
     payload = {"model": endpoint.model, "input": texts}
-    result = post_json(f"{endpoint.base_url.rstrip('/')}/embeddings", payload, timeout=300)
+    result = post_json(
+        f"{endpoint.base_url.rstrip('/')}/embeddings",
+        payload,
+        api_key=_api_key(endpoint),
+        timeout=300,
+    )
     vectors = [item["embedding"] for item in result["data"]]
     if endpoint.dim:
         for vec in vectors:
@@ -163,16 +253,17 @@ def describe() -> dict[str, Any]:
     chat_ep = chat_endpoint()
     emb_ep = embedding_endpoint()
     return {
+        "egress_mode": EGRESS_MODE,
+        "approved_hosts": sorted(APPROVED_HOSTS),
         "chat": {
             "name": chat_ep.name,
             "model": chat_ep.model,
-            "internal": is_internal_url(chat_ep.base_url),
+            "data_scope": classify(chat_ep.base_url),
         },
         "embedding": {
             "name": emb_ep.name,
             "model": emb_ep.model,
             "dim": emb_ep.dim,
-            "internal": is_internal_url(emb_ep.base_url),
+            "data_scope": classify(emb_ep.base_url),
         },
-        "allow_external": ALLOW_EXTERNAL,
     }

@@ -338,7 +338,7 @@ report(
 // ---------------------------------------------------------------------------
 // 0004 模型端点：数据不出校的允许清单
 // ---------------------------------------------------------------------------
-console.log('\n模型端点（数据不出校）：');
+console.log('\n模型端点（供应商允许清单）：');
 
 const { rows: ep } = await db.query(
   `INSERT INTO model_endpoint (name, kind, base_url, model, data_scope, max_context)
@@ -389,5 +389,17 @@ try {
   dupBlocked = true;
 }
 report('同时只能启用一个 chat 端点', dupBlocked);
+
+// 0005：数据可出校后，外部端点成为常态，但必须留痕（说明 + 批准人）
+await db.query(
+  `INSERT INTO model_endpoint
+     (name, kind, base_url, model, data_scope, notes, approved_by, approved_at, enabled)
+   VALUES ('deepseek-chat', 'chat', 'https://api.deepseek.com', 'deepseek-flash',
+           'external', '学院同意使用国内大模型 API，教材片段可出校', '信息化专员', now(), false)`
+);
+const { rows: ext } = await db.query(
+  `SELECT name, approved_by FROM v_external_endpoint_audit WHERE name = 'deepseek-chat'`
+);
+report('外部端点登记后可审计', ext.length === 1, ext[0]?.approved_by ?? '');
 
 process.exit(failed === 0 ? 0 : 1);
