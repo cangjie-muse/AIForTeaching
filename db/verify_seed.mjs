@@ -335,4 +335,59 @@ report(
   pairs.map((r) => `${r.term}→${r.counterpart}`).join(' | ')
 );
 
+// ---------------------------------------------------------------------------
+// 0004 模型端点：数据不出校的允许清单
+// ---------------------------------------------------------------------------
+console.log('\n模型端点（数据不出校）：');
+
+const { rows: ep } = await db.query(
+  `INSERT INTO model_endpoint (name, kind, base_url, model, data_scope, max_context)
+   VALUES ('campus-gateway', 'chat', 'http://10.0.0.8:8001/v1', 'qwen2.5-14b-instruct', 'internal', 32768)
+   RETURNING name, data_scope`
+);
+report('可登记校内端点', ep.length === 1, ep[0]?.name ?? '');
+
+// 外部端点必须写明理由，否则半年后没人知道它为什么存在
+let extBlocked = false;
+try {
+  await db.query(
+    `INSERT INTO model_endpoint (name, kind, base_url, model, data_scope)
+     VALUES ('deepseek', 'chat', 'https://api.deepseek.com', 'deepseek-flash', 'external')`
+  );
+} catch {
+  extBlocked = true;
+}
+report('外部端点缺说明被拒绝', extBlocked);
+
+// embedding 端点必须写维度：没有维度就无法和 vector(1024) 列核对
+let dimBlocked = false;
+try {
+  await db.query(
+    `INSERT INTO model_endpoint (name, kind, base_url, model, data_scope)
+     VALUES ('emb-nodim', 'embedding', 'http://127.0.0.1:8002/v1', 'bge-m3', 'internal')`
+  );
+} catch {
+  dimBlocked = true;
+}
+report('embedding 端点缺维度被拒绝', dimBlocked);
+
+const { rows: emb } = await db.query(
+  `INSERT INTO model_endpoint (name, kind, base_url, model, data_scope, dim)
+   VALUES ('local-bge-m3', 'embedding', 'http://127.0.0.1:8002/v1', 'bge-m3', 'internal', 1024)
+   RETURNING dim`
+);
+report('embedding 端点维度可登记且为 1024', emb[0].dim === 1024, String(emb[0].dim));
+
+// 同一时刻只能启用一个 chat 端点，避免"到底在用哪个模型"说不清
+let dupBlocked = false;
+try {
+  await db.query(
+    `INSERT INTO model_endpoint (name, kind, base_url, model, data_scope)
+     VALUES ('local-vllm-2', 'chat', 'http://10.0.0.9:8001/v1', 'qwen2.5-32b', 'internal')`
+  );
+} catch {
+  dupBlocked = true;
+}
+report('同时只能启用一个 chat 端点', dupBlocked);
+
 process.exit(failed === 0 ? 0 : 1);

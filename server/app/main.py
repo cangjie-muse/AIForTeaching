@@ -19,7 +19,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import db
+from . import db, llm
 from .review import router as review_router
 
 
@@ -48,9 +48,15 @@ app.include_router(review_router)
 def health() -> dict:
     try:
         row = db.query_one("SELECT count(*) AS n FROM course")
-        return {"status": "ok", "db": True, "courses": row["n"] if row else 0}
+        return {
+            "status": "ok",
+            "db": True,
+            "courses": row["n"] if row else 0,
+            # 模型配置自检：不泄露密钥，只报端点在内网还是外网
+            "models": llm.describe(),
+        }
     except Exception as exc:  # 数据库不可用时仍返回结构化结果，便于探活
-        return {"status": "degraded", "db": False, "error": str(exc)}
+        return {"status": "degraded", "db": False, "error": str(exc), "models": llm.describe()}
 
 
 @app.get("/api/v1/courses")

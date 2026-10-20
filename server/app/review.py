@@ -8,10 +8,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from . import db
+from .auth import Actor, current_actor
 
 router = APIRouter(prefix="/api/v1/review", tags=["review"])
 
@@ -172,7 +173,8 @@ def queue(
 
 
 @router.post("/tasks/{task_id}/decision")
-def decide(task_id: int, body: DecisionIn, x_actor: str = Header(default="unknown")) -> dict:
+def decide(task_id: int, body: DecisionIn, actor: Actor = Depends(current_actor)) -> dict:
+    x_actor = actor.id
     task = db.query_one("SELECT * FROM review_task WHERE id = %s", (task_id,))
     if not task:
         raise HTTPException(404, f"任务不存在：{task_id}")
@@ -235,9 +237,10 @@ def patch_exercise(
     course_id: str,
     exercise_id: str,
     body: ExercisePatch,
-    x_actor: str = Header(default="unknown"),
+    actor: Actor = Depends(current_actor),
 ) -> dict:
     """改题干/答案/难度/页码/挂载。修订历史由触发器自动落盘。"""
+    x_actor = actor.id
     exists = db.query_one(
         "SELECT 1 AS ok FROM exercise WHERE course_id = %s AND id = %s", (course_id, exercise_id)
     )
