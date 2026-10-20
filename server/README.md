@@ -8,8 +8,8 @@ FastAPI + psycopg3 + PostgreSQL(pgvector)。不引入 ORM：表结构手写 SQL�
 # 1. 起数据库（根目录）
 docker compose up -d db
 
-# 2. 建表 + 灌数据
-psql "postgresql://whu:whu_dev_password@127.0.0.1:5432/whu_teaching" -f db/schema.sql
+# 2. 建表 + 灌数据（迁移制，非破坏性，可重复执行）
+DATABASE_URL="postgresql://whu:whu_dev_password@127.0.0.1:5432/whu_teaching" python db/migrate.py --apply
 python db/build_seed.py
 psql "postgresql://whu:whu_dev_password@127.0.0.1:5432/whu_teaching" -f db/seed.sql
 

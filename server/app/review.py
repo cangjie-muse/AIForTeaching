@@ -221,10 +221,11 @@ def decide(task_id: int, body: DecisionIn, x_actor: str = Header(default="unknow
             )
             cur.execute(
                 """
-                INSERT INTO audit_log (actor, action, entity, entity_id, detail)
-                VALUES (%s, 'publish-exercise', 'exercise', %s, %s)
+                INSERT INTO audit_log (actor, action, entity, entity_key, detail)
+                VALUES (%s, 'publish-exercise', 'exercise', %s,
+                        jsonb_build_object('note', %s::text))
                 """,
-                (x_actor, task["target_id"], body.note),
+                (x_actor, f"{task['course_id']}/{task['target_id']}", body.note),
             )
     return {"task_id": task_id, "state": new_state}
 

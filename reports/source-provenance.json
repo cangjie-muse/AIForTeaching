@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-11T16:00:43.648Z",
+  "checkedAt": "2026-10-20T08:56:07.193Z",
   "scope": "Project source/provenance audit; no private competitor source or internet-wide similarity database comparison",
   "checks": {
     "runtimeFiles": 30,
@@ -134,7 +134,7 @@
     },
     {
       "path": "scripts/audit-source.cjs",
-      "sha256": "f889061930799e344b0095d7eae67438d302f4630a533f59499bd563a065e8f5"
+      "sha256": "4ddb6ff3e180e2c7c216bfe837284b4d9ba3603474493e877c6545fb888819aa"
     },
     {
       "path": "scripts/courseware-index.cjs",
@@ -151,6 +151,10 @@
     {
       "path": "scripts/package.py",
       "sha256": "313257a228f3fbad2daf5e8fe9347e0c5b0c3769084fbf3f8e8fe9b0c19ccd53"
+    },
+    {
+      "path": "scripts/serve-lan.py",
+      "sha256": "9c5d45f48db0089fcb2ba03a2fa9116679de347e5548b5bd2d9a9bea9ca8169a"
     },
     {
       "path": "scripts/serve.py",

@@ -254,4 +254,32 @@ const { rows: revAfter } = await db.query(
 );
 report('发布动作也留下修订快照', revAfter[0].n >= 1, `${revAfter[0].n} 版`);
 
+// 审计写入：与 server/app/review.py 的 publish 分支保持同一语句形状。
+// 这里曾把列名写成 entity_id（实际是 entity_key），接口一调用就 500，故固化为测试。
+let auditOk = false;
+try {
+  await db.query(
+    `INSERT INTO audit_log (actor, action, entity, entity_key, detail)
+     VALUES ($1, 'publish-exercise', 'exercise', $2, jsonb_build_object('note', $3::text))`,
+    ['审查员A', `${target.course_id}/${target.exercise_id}`, '首轮发布']
+  );
+  auditOk = true;
+} catch (err) {
+  console.log('      审计写入失败：', err.message);
+}
+const { rows: auditRows } = await db.query(
+  `SELECT detail FROM audit_log WHERE action = 'publish-exercise'`
+);
+report('发布写入审计日志', auditOk && auditRows.length === 1, `${auditRows.length} 条`);
+
+// 0002 迁移带来的学伴/管线表必须一起建好
+const { rows: newTables } = await db.query(
+  `SELECT table_name FROM information_schema.tables
+   WHERE table_schema='public'
+     AND table_name IN ('pipeline_job','exercise_attempt','node_mastery',
+                        'student_profile','qa_eval_case','qa_eval_run','qa_eval_result')
+   ORDER BY table_name`
+);
+report('学伴与管线表齐备', newTables.length === 7, `${newTables.length}/7`);
+
 process.exit(failed === 0 ? 0 : 1);
