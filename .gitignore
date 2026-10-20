@@ -17,3 +17,12 @@ courseware/**/test-wps-*.pptx
 # 构建与运行产物
 dist/
 *.log
+.venv/
+venv/
+
+# 生成物：由 db/build_seed.py 从 data/ 重建，不入库
+db/seed.sql
+
+# 环境变量与密钥
+.env
+.env.local
