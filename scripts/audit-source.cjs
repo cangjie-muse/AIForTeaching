@@ -7,7 +7,7 @@ const sha256 = file => crypto.createHash('sha256').update(fs.readFileSync(path.j
 function filesIn(folder) {
   return fs.readdirSync(path.join(root, folder), { recursive: true, withFileTypes: true })
     .filter(entry => entry.isFile() && entry.name !== '.DS_Store' && !entry.parentPath.includes('__pycache__'))
-    .map(entry => path.relative(root, path.join(entry.parentPath, entry.name)));
+    .map(entry => path.relative(root, path.join(entry.parentPath, entry.name)).split(path.sep).join('/'));
 }
 const runtimeFiles = ['index.html', ...filesIn('js'), ...filesIn('styles'), ...filesIn('assets').filter(file => file.endsWith('.svg'))];
 const marker = /yuketang|xuetang|雨课堂|荷塘雨课堂|rain\s*classroom/i;
@@ -23,6 +23,8 @@ assert(wrapper, '课程数据脚本必须是单一字面量赋值。');
 const embeddedCourses = JSON.parse(wrapper[1]);
 const canonicalCourses = filesIn('data').filter(file => /\/course-.*\.json$/.test(file)).map(file => JSON.parse(fs.readFileSync(path.join(root, file), 'utf8')));
 const ordered = courses => [...courses].sort((a, b) => a.id.localeCompare(b.id));
+// 先做廉价计数比对：直接深比较 8MB 结构在不一致时会生成巨型 diff 并耗尽内存。
+assert.equal(embeddedCourses.length, canonicalCourses.length, `课程脚本含 ${embeddedCourses.length} 门，标准化 JSON 含 ${canonicalCourses.length} 门。`);
 assert.deepEqual(ordered(embeddedCourses), ordered(canonicalCourses), '课程脚本与标准化 JSON 数据不一致。');
 const origin = require('../reports/dependency-origin.json');
 const pinned = require('../package-lock.json').packages;
