@@ -36,8 +36,16 @@ CREATE TYPE exercise_provenance AS ENUM (
   'colleague-export',   -- 同事导出表
   'self-authored',      -- 课程自拟
   'ai-generated',       -- 模型生成
+  'web',                -- 网上搜集（需附 source_url 与 license，默认不可发布）
   'unknown'
 );
+
+-- 可信等级：与 review_status（工作流状态）正交。
+--   unverified     未经审核（网上搜集的默认落在这里）
+--   lean-verified  已有 Lean 形式化证明
+--   human-verified 人工逐题审核过
+-- 两维都达标（人工审核 + Lean）由视图计算为 strongest。
+CREATE TYPE verification_tier AS ENUM ('unverified', 'lean-verified', 'human-verified');
 
 CREATE TYPE ocr_status AS ENUM ('clean', 'ocr-checked', 'needs-review');
 
@@ -208,12 +216,22 @@ CREATE TABLE exercise (
   source_no           text,                    -- 原题号
   provenance          exercise_provenance NOT NULL DEFAULT 'unknown',
   provenance_note     text,
+  source_url          text,                    -- 网上搜集题的原始地址
+  retrieved_at        date,                    -- 抓取日期
+  license             text,                    -- 版权状态；网上题默认 unknown
+  -- 可信等级（与 review_status 正交，见 v_exercise_verification）
+  lean_verified_at    timestamptz,             -- 有编译通过的 Lean 证明
+  human_verified_at   timestamptz,             -- 人工逐题审核通过
+  human_verified_by   text,
   review_status       review_status NOT NULL DEFAULT 'draft',
   content_version     int NOT NULL DEFAULT 1,
   created_at          timestamptz NOT NULL DEFAULT now(),
   updated_at          timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (course_id, id),
-  FOREIGN KEY (course_id, chapter_id) REFERENCES chapter (course_id, id)
+  FOREIGN KEY (course_id, chapter_id) REFERENCES chapter (course_id, id),
+  -- 网上搜集的题必须留下出处，否则无法评估版权与可信度
+  CONSTRAINT web_exercise_needs_url
+    CHECK (provenance <> 'web' OR source_url IS NOT NULL)
 );
 
 CREATE INDEX exercise_chapter_idx  ON exercise (course_id, chapter_id);
@@ -245,6 +263,33 @@ CREATE TABLE exercise_variant (
   PRIMARY KEY (course_id, exercise_id, ord),
   FOREIGN KEY (course_id, exercise_id) REFERENCES exercise (course_id, id) ON DELETE CASCADE
 );
+
+-- Lean 形式化验证证据链。
+-- 核心矛盾：Lean 编译通过只证明"形式化后的命题"为真。若形式化时漏了条件，
+-- 证明再漂亮也救不回原题。因此 faithful_* 这几列必须由人填，且不可与 compiled 混为一谈。
+CREATE TABLE lean_proof (
+  course_id       text NOT NULL,
+  exercise_id     text NOT NULL,
+  ord             smallint NOT NULL DEFAULT 1,
+  statement_lean  text NOT NULL,               -- 形式化后的命题（Lean 源码）
+  proof_file      text,                        -- 证明文件在 lean 仓库内的路径
+  proof_sha256    text,
+  toolchain       text,                        -- 如 leanprover/lean4:v4.12.0 + mathlib@<commit>
+  build_log_sha256 text,
+  compiled        boolean NOT NULL DEFAULT false,
+  compiled_at     timestamptz,
+  -- 形式化忠实性：独立于"证明是否通过"的第二道关
+  faithful_status review_status NOT NULL DEFAULT 'draft',
+  faithful_note   text,                        -- 与原题的条件/结论差异
+  faithful_by     text,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (course_id, exercise_id, ord),
+  FOREIGN KEY (course_id, exercise_id) REFERENCES exercise (course_id, id) ON DELETE CASCADE
+);
+
+COMMENT ON COLUMN lean_proof.compiled IS '仅表示 Lean 编译通过，不表示原题正确。';
+COMMENT ON COLUMN lean_proof.faithful_status IS '形式化命题与原题是否等价，需人工确认；未确认为 published 时不得作为验证依据。';
+
 
 -- -----------------------------------------------------------------------------
 -- 6. 学术关系（不含 contains，contains 由 parent_id 派生）
@@ -291,8 +336,158 @@ CREATE VIEW v_anchor_coverage AS
   LEFT JOIN node_chunk n ON n.course_id = k.course_id AND n.node_id = k.id
   GROUP BY k.course_id;
 
+-- 可信等级：把"人工审核"与"Lean 验证"两个正交维度和成一个可展示的标签。
+--   strongest = 既有人工审核又有 Lean 证明（两证齐全）
+--   lean      = 只有 Lean 证明（形式化忠实性仍需人工确认，见 lean_proof.faithful_status）
+--   human     = 只有人工审核
+--   none      = 都没有（网上搜集的题默认落在这里）
+CREATE VIEW v_exercise_verification AS
+  SELECT e.course_id,
+         e.id,
+         e.provenance,
+         e.human_verified_at,
+         e.lean_verified_at,
+         EXISTS (
+           SELECT 1 FROM lean_proof p
+           WHERE p.course_id = e.course_id AND p.exercise_id = e.id
+             AND p.compiled AND p.faithful_status = 'teacher-reviewed'
+         ) AS lean_confirmed,
+         CASE
+           WHEN e.human_verified_at IS NOT NULL AND EXISTS (
+                  SELECT 1 FROM lean_proof p
+                  WHERE p.course_id = e.course_id AND p.exercise_id = e.id
+                    AND p.compiled AND p.faithful_status = 'teacher-reviewed'
+                ) THEN 'strongest'
+           WHEN e.human_verified_at IS NOT NULL THEN 'human'
+           WHEN EXISTS (
+                  SELECT 1 FROM lean_proof p
+                  WHERE p.course_id = e.course_id AND p.exercise_id = e.id
+                    AND p.compiled AND p.faithful_status = 'teacher-reviewed'
+                ) THEN 'lean'
+           ELSE 'none'
+         END AS tier
+  FROM exercise e;
+
+-- 可发布/可组卷的题：三档里只有人工审核过的才允许进正式作业与考试。
+-- 网上搜集（web）与 AI 生成（ai-generated）即便人工审核过，也要求显式填写 license。
+CREATE VIEW v_publishable_exercise AS
+  SELECT e.course_id, e.id, e.prompt_md, e.difficulty
+  FROM exercise e
+  JOIN v_exercise_verification v ON v.course_id = e.course_id AND v.id = e.id
+  WHERE v.tier IN ('human', 'strongest')
+    AND e.review_status = 'published'
+    AND (e.provenance NOT IN ('web', 'ai-generated') OR e.license IS NOT NULL);
+
 -- -----------------------------------------------------------------------------
--- 8. 教学：班级、作业、提交、成绩
+-- 8. 审核工作流：队列、错误分类、不可变修订历史
+-- -----------------------------------------------------------------------------
+CREATE TYPE review_target AS ENUM ('exercise', 'knowledge_node', 'anchor', 'course');
+
+CREATE TYPE review_state AS ENUM (
+  'pending',             -- 待审核（机器校验已过）
+  'in-review',           -- 有人认领
+  'changes-requested',   -- 退回修改，附错误清单
+  'approved',            -- 审核通过，待发布
+  'published',           -- 已发布，学生可见
+  'rejected'             -- 不采用（重复题、版权不明等）
+);
+
+CREATE TYPE review_category AS ENUM (
+  'content-error',       -- 题干错误
+  'answer-error',        -- 答案/解析错误
+  'answer-missing',      -- 缺解答
+  'format-error',        -- 公式或排版渲染失败
+  'wrong-node',          -- 挂错知识点
+  'missing-node',        -- 该挂未挂
+  'over-linked',         -- 挂载过多，实为单一知识点
+  'source-missing',      -- 溯源缺失
+  'source-wrong',        -- 溯源错误
+  'page-imprecise',      -- 只有章节范围，无精确页
+  'difficulty-mismatch', -- 难度标定失真
+  'duplicate',           -- 重复或同源异文
+  'hierarchy-error',     -- 知识点层级错误
+  'other'
+);
+
+CREATE TABLE review_task (
+  id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  course_id   text NOT NULL REFERENCES course(id) ON DELETE CASCADE,
+  target      review_target NOT NULL,
+  target_id   text NOT NULL,
+  state       review_state NOT NULL DEFAULT 'pending',
+  priority    smallint NOT NULL DEFAULT 3 CHECK (priority BETWEEN 1 AND 5),
+  assignee    text,
+  claimed_at  timestamptz,
+  decided_at  timestamptz,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (course_id, target, target_id)
+);
+
+CREATE INDEX review_task_queue_idx ON review_task (state, priority, created_at);
+CREATE INDEX review_task_course_idx ON review_task (course_id, state);
+
+CREATE TABLE review_issue (
+  id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  task_id    bigint NOT NULL REFERENCES review_task(id) ON DELETE CASCADE,
+  category   review_category NOT NULL,
+  severity   text NOT NULL DEFAULT 'major' CHECK (severity IN ('blocker', 'major', 'minor')),
+  detail     text,
+  raised_by  text NOT NULL,
+  raised_at  timestamptz NOT NULL DEFAULT now(),
+  resolved_at timestamptz,
+  resolution text
+);
+
+CREATE INDEX review_issue_task_idx ON review_issue (task_id);
+
+-- 不可变修订历史：审核改了什么都留底，可逐版回滚
+CREATE TABLE exercise_revision (
+  course_id    text NOT NULL,
+  exercise_id  text NOT NULL,
+  version      int NOT NULL,
+  prompt_md    text NOT NULL,
+  answer_md    text,
+  difficulty   smallint,
+  node_ids     text[] NOT NULL DEFAULT '{}',
+  source_page  int,
+  provenance   exercise_provenance,
+  human_verified_at timestamptz,
+  changed_by   text NOT NULL,
+  changed_at   timestamptz NOT NULL DEFAULT now(),
+  change_note  text,
+  PRIMARY KEY (course_id, exercise_id, version),
+  FOREIGN KEY (course_id, exercise_id) REFERENCES exercise (course_id, id) ON DELETE CASCADE
+);
+
+CREATE OR REPLACE FUNCTION snapshot_exercise_revision() RETURNS trigger AS $$
+DECLARE
+  node_ids text[];
+BEGIN
+  SELECT coalesce(array_agg(node_id ORDER BY node_id), '{}') INTO node_ids
+  FROM exercise_node WHERE course_id = OLD.course_id AND exercise_id = OLD.id;
+
+  INSERT INTO exercise_revision (
+    course_id, exercise_id, version, prompt_md, answer_md, difficulty,
+    node_ids, source_page, provenance, human_verified_at, changed_by, change_note
+  ) VALUES (
+    OLD.course_id, OLD.id, OLD.content_version, OLD.prompt_md, OLD.answer_md, OLD.difficulty,
+    node_ids, OLD.source_page, OLD.provenance, OLD.human_verified_at,
+    coalesce(current_setting('app.actor', true), 'unknown'),
+    coalesce(current_setting('app.change_note', true), 'before update')
+  ) ON CONFLICT DO NOTHING;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER exercise_snapshot_on_update
+  BEFORE UPDATE ON exercise
+  FOR EACH ROW EXECUTE FUNCTION snapshot_exercise_revision();
+
+COMMENT ON TABLE exercise_revision IS '题目修订历史。触发器在每次 UPDATE 前快照旧值；操作者取自 app.actor 会话变量。';
+
+-- -----------------------------------------------------------------------------
+-- 9. 教学：班级、作业、提交、成绩
 -- -----------------------------------------------------------------------------
 CREATE TABLE teaching_class (
   id          text PRIMARY KEY,
@@ -360,7 +555,7 @@ CREATE TABLE submission_item (
 COMMENT ON COLUMN submission_item.auto_score IS 'AI 建议分。只有 teacher_score 可进入正式成绩。';
 
 -- -----------------------------------------------------------------------------
--- 9. AI：会话、引用、模型调用计量
+-- 10. AI：会话、引用、模型调用计量
 -- -----------------------------------------------------------------------------
 CREATE TABLE ai_conversation (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -411,7 +606,7 @@ CREATE TABLE model_call (
 CREATE INDEX model_call_created_idx ON model_call (created_at);
 
 -- -----------------------------------------------------------------------------
--- 10. 审计（谁改了什么，为什么）
+-- 11. 审计（谁改了什么，为什么）
 -- -----------------------------------------------------------------------------
 CREATE TABLE audit_log (
   id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -424,7 +619,7 @@ CREATE TABLE audit_log (
 );
 
 -- -----------------------------------------------------------------------------
--- 11. updated_at 维护
+-- 12. updated_at 维护
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION touch_updated_at() RETURNS trigger AS $$
 BEGIN
