@@ -282,4 +282,57 @@ const { rows: newTables } = await db.query(
 );
 report('学伴与管线表齐备', newTables.length === 7, `${newTables.length}/7`);
 
+// ---------------------------------------------------------------------------
+// 0003 多语言：教材语言标记、切片继承、术语对照
+// ---------------------------------------------------------------------------
+console.log('\n多语言支持：');
+
+const { rows: langDefault } = await db.query(
+  `SELECT language FROM exercise WHERE course_id=$1 AND id=$2`,
+  [target.course_id, target.exercise_id]
+);
+report('存量题目默认语言为 zh', langDefault[0].language === 'zh', langDefault[0].language);
+
+// 插入一本英文教材 + 中英混排切片，验证切片可单独覆盖语言
+await db.query(
+  `INSERT INTO textbook (id, course_id, title, language, original_title, pdf_sha256)
+   VALUES ('analysis-rudin-3e', 'analysis', '数学分析原理', 'en',
+           'Principles of Mathematical Analysis', 'deadbeef')`
+);
+await db.query(
+  `INSERT INTO textbook_chunk (textbook_id, seq, page_from, page_to, content_md, embedding_model)
+   VALUES ('analysis-rudin-3e', 1, 1, 1, '**Definition** A sequence converges if ...', 'bge-m3'),
+          ('analysis-rudin-3e', 2, 2, 2, '定理 3.1（此处为中文批注）', 'bge-m3')`
+);
+await db.query(
+  `UPDATE textbook_chunk SET language='zh'
+   WHERE textbook_id='analysis-rudin-3e' AND seq=2`
+);
+
+const { rows: langs } = await db.query(
+  `SELECT chunk_id, language FROM v_chunk_language
+   WHERE textbook_id='analysis-rudin-3e' ORDER BY chunk_id`
+);
+report(
+  '切片语言：未标注的继承教材(zh→en)，标注的用自身',
+  langs.length === 2 && langs[0].language === 'en' && langs[1].language === 'zh',
+  langs.map((r) => r.language).join('/')
+);
+
+// 术语对照：一题中文、教材英文时靠它做查询扩展
+await db.query(
+  `INSERT INTO glossary_term (course_id, term_zh, term_en, aliases, node_id)
+   VALUES ('analysis', '一致收敛', 'uniform convergence', ARRAY['均匀收敛'], NULL)`
+);
+const { rows: pairs } = await db.query(
+  `SELECT term, counterpart, lang FROM v_glossary_pair WHERE course_id='analysis' ORDER BY lang`
+);
+report(
+  '术语可双向展开',
+  pairs.length === 2 &&
+    pairs.some((r) => r.term === '一致收敛' && r.counterpart === 'uniform convergence') &&
+    pairs.some((r) => r.term === 'uniform convergence' && r.counterpart === '一致收敛'),
+  pairs.map((r) => `${r.term}→${r.counterpart}`).join(' | ')
+);
+
 process.exit(failed === 0 ? 0 : 1);
