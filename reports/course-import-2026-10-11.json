@@ -1,0 +1,111 @@
+{
+  "date": "2026-10-11",
+  "newlyImportedCourses": [
+    {
+      "course": "复变函数",
+      "id": "complex-analysis",
+      "source": "/Users/yangcl/Documents/ChatGPT/数学课程-知识数据库/课程-复变函数/交付/复变函数-课程资源包",
+      "resourceBase": "course-packs/course-complex-analysis/",
+      "stats": {
+        "nodes": 145,
+        "knowledge": 100,
+        "sections": 8,
+        "exercises": 402,
+        "associations": 457,
+        "variantGroups": 0
+      },
+      "coreFileCount": 3,
+      "copiedImageCount": 34,
+      "fileCount": 37,
+      "allCopiedFilesSha256Match": true,
+      "missingOrChanged": [],
+      "unexpectedFiles": [],
+      "copiedPdfCount": 0
+    },
+    {
+      "course": "数学分析I",
+      "id": "analysis",
+      "source": "/Users/yangcl/Documents/ChatGPT/数学课程-知识数据库/课程-数学分析I/交付/数学分析I-课程资源包",
+      "resourceBase": "course-packs/course-analysis/",
+      "stats": {
+        "nodes": 159,
+        "knowledge": 108,
+        "sections": 7,
+        "exercises": 416,
+        "associations": 416,
+        "variantGroups": 0
+      },
+      "coreFileCount": 3,
+      "copiedImageCount": 28,
+      "fileCount": 31,
+      "allCopiedFilesSha256Match": true,
+      "missingOrChanged": [],
+      "unexpectedFiles": [],
+      "copiedPdfCount": 0
+    },
+    {
+      "course": "数学分析II",
+      "id": "analysis-ii",
+      "source": "/Users/yangcl/Documents/ChatGPT/数学课程-知识数据库/课程-数学分析II/交付/数学分析II-课程资源包",
+      "resourceBase": "course-packs/course-analysis-ii/",
+      "stats": {
+        "nodes": 136,
+        "knowledge": 90,
+        "sections": 10,
+        "exercises": 349,
+        "associations": 357,
+        "variantGroups": 0
+      },
+      "coreFileCount": 3,
+      "copiedImageCount": 3,
+      "fileCount": 6,
+      "allCopiedFilesSha256Match": true,
+      "missingOrChanged": [],
+      "unexpectedFiles": [],
+      "copiedPdfCount": 0
+    },
+    {
+      "course": "数学分析III",
+      "id": "analysis-iii",
+      "source": "/Users/yangcl/Documents/ChatGPT/数学课程-知识数据库/课程-数学分析III/交付/数学分析III-课程资源包",
+      "resourceBase": "course-packs/course-analysis-iii/",
+      "stats": {
+        "nodes": 159,
+        "knowledge": 109,
+        "sections": 11,
+        "exercises": 330,
+        "associations": 393,
+        "variantGroups": 0
+      },
+      "coreFileCount": 3,
+      "copiedImageCount": 20,
+      "fileCount": 23,
+      "allCopiedFilesSha256Match": true,
+      "missingOrChanged": [],
+      "unexpectedFiles": [],
+      "copiedPdfCount": 0
+    }
+  ],
+  "newCourseTotals": {
+    "courses": 4,
+    "knowledge": 407,
+    "exercises": 1497,
+    "associations": 1623,
+    "images": 85
+  },
+  "homology": {
+    "status": "not_imported_source_format_blocker",
+    "source": "/Users/yangcl/Desktop/同调论",
+    "sourceSha256": {
+      "习题.md": "914ee31000b8d6eb4bd6824bb091a193c507bc0b4d9b87ad8cc0d884315ccde6",
+      "知识点.md": "533591f4e25892a2e03c9067bdb18960ddd486102d39ec878ed05b7a1adc321a",
+      "知识节点.xlsx": "76c89b06479f8b5e36f6f2b198d7e57f314fd521f54d4b3225b2e232ed2aa1f3"
+    },
+    "numberedQuestionPlacements": 756,
+    "answerFields": 756,
+    "sourceExerciseMarkers": 0,
+    "unsupportedSplitDifficultySourceFields": 756,
+    "firstParserError": "知识点 kp-ch01-category 的题目缺少 source-exercise 稳定 ID。",
+    "repairPrompt": "docs/同调论资源包修订提示词.md"
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "schemaVersion": "1.0",
+  "mode": "office-math-with-editable-text-fallback",
+  "formulaCount": 27,
+  "formulas": {
+    "time": {
+      "latex": "\\Delta t=\\tau(b-a)",
+      "linear": "Δt = τ(b − a)"
+    },
+    "simultaneous": {
+      "latex": "\\tau(b-a)=0",
+      "linear": "τ(b − a) = 0"
+    },
+    "distance": {
+      "latex": "\\rho(a,b)=\\sqrt{\\langle b-a,b-a\\rangle}",
+      "linear": "ρ(a,b) = √⟨b−a,b−a⟩"
+    },
+    "galilei": {
+      "latex": "t'=t+s,\\quad x'=Rx+vt+a",
+      "linear": "t′ = t + s, x′ = Rx + vt + a"
+    },
+    "derivatives": {
+      "latex": "\\dot x'=R\\dot x+v",
+      "linear": "ẋ′ = Rẋ + v"
+    },
+    "acceltransform": {
+      "latex": "\\ddot x'=R\\ddot x",
+      "linear": "ẍ′ = Rẍ"
+    },
+    "acceleration": {
+      "latex": "\\ddot x=\\ddot s,T+\\dot s^2\\kappa N",
+      "linear": "ẍ = s̈ T + ṡ² κ N"
+    },
+    "configuration": {
+      "latex": "Q=(\\mathbb R^3)^n",
+      "linear": "Q = (ℝ³)ⁿ"
+    },
+    "state": {
+      "latex": "(x_1,\\ldots,x_n,v_1,\\ldots,v_n)",
+      "linear": "(x₁,…,xₙ,v₁,…,vₙ)"
+    },
+    "firstorder": {
+      "latex": "\\dot x=v,\\quad\\dot v=F(x,v,t)",
+      "linear": "ẋ = v, v̇ = F(x,v,t)"
+    },
+    "relative": {
+      "latex": "x_j-x_k,\\quad\\dot x_j-\\dot x_k",
+      "linear": "xⱼ−xₖ, ẋⱼ−ẋₖ"
+    },
+    "equivariance": {
+      "latex": "F(Rx,R\\dot x)=RF(x,\\dot x)",
+      "linear": "F(Rx,Rẋ)=RF(x,ẋ)"
+    },
+    "conservative": {
+      "latex": "m_i\\ddot x_i=-\\nabla_{x_i}U(x)",
+      "linear": "mᵢẍᵢ=−∇ₓᵢU(x)"
+    },
+    "energy": {
+      "latex": "E=\\sum_i\\frac{m_i}{2}\\lVert\\dot x_i\\rVert^2+U(x)",
+      "linear": "E=Σᵢ(mᵢ/2)‖ẋᵢ‖²+U(x)"
+    },
+    "energy-rate": {
+      "latex": "\\frac{dE}{dt}=\\sum_i m_i\\ddot x_i\\cdot\\dot x_i+\\sum_i\\nabla_{x_i}U\\cdot\\dot x_i",
+      "linear": "dE/dt=Σᵢmᵢẍᵢ·ẋᵢ+Σᵢ∇ₓᵢU·ẋᵢ"
+    },
+    "energy-zero": {
+      "latex": "m_i\\ddot x_i=-\\nabla_{x_i}U\\Longrightarrow dE/dt=0",
+      "linear": "mᵢẍᵢ=−∇ₓᵢU ⇒ dE/dt=0"
+    },
+    "potential-0": {
+      "latex": "U(z)=gz",
+      "linear": "U(z)=gz"
+    },
+    "potential-1": {
+      "latex": "U(x)=\\alpha^2x^2/2",
+      "linear": "U(x)=α²x²/2"
+    },
+    "potential-2": {
+      "latex": "U(r)=-k/r",
+      "linear": "U(r)=−k/r"
+    },
+    "inverse": {
+      "latex": "U(r)=-k/r",
+      "linear": "U(r)=−k/r"
+    },
+    "initialenergy": {
+      "latex": "E_0=\\frac{v_0^2}{2}-\\frac{k}{r_0}",
+      "linear": "E₀=v₀²/2−k/r₀"
+    },
+    "threshold": {
+      "latex": "E_0=0,\\quad k=gr_0^2",
+      "linear": "E₀=0, k=gr₀²"
+    },
+    "escapespeed": {
+      "latex": "v_{\\mathrm e}=\\sqrt{2gr_0}\\approx 11.2\\,\\mathrm{km/s}",
+      "linear": "vₑ=√(2gr₀)≈11.2 km/s"
+    },
+    "exercise": {
+      "latex": "\\ddot r=-gr_0^2/r^2",
+      "linear": "r̈=−gr₀²/r²"
+    },
+    "inverse-exercise": {
+      "latex": "U(r)=-gr_0^2/r",
+      "linear": "U(r)=−gr₀²/r"
+    },
+    "initialenergy-exercise": {
+      "latex": "E_0=v_0^2/2-gr_0",
+      "linear": "E₀=v₀²/2−gr₀"
+    },
+    "escapespeed-exercise": {
+      "latex": "v_0=\\sqrt{2gr_0}",
+      "linear": "v₀=√(2gr₀)"
+    }
+  }
+}

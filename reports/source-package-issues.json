@@ -1,0 +1,1450 @@
+{
+  "snapshotVersion": "v0.6-before-delivery-corrections",
+  "historicalOnly": true,
+  "sourceRoot": "/Users/yangcl/Documents/ChatGPT/数学课程-知识数据库",
+  "policy": "Source packages were not modified; this report lists incompatibilities and media selection for a separate source-maintenance agent.",
+  "courses": [
+    {
+      "course": "泛函分析",
+      "sourceFolder": "课程-泛函分析",
+      "siteCourseId": "functional-analysis",
+      "sourceRootNodeId": "course-overview",
+      "sourceCoreFiles": [
+        "知识节点.xlsx",
+        "知识点.md",
+        "习题.md"
+      ],
+      "variantSourceIds": [
+        {
+          "sourceId": "A-ch01-2",
+          "versions": 2,
+          "nodeIds": [
+            "kp-ch01-topological-space",
+            "kp-a-ch01-subspace-topology"
+          ]
+        }
+      ],
+      "duplicateNodePaths": [],
+      "copiedImageCount": 0,
+      "omittedPdfCount": 3
+    },
+    {
+      "course": "调和分析",
+      "sourceFolder": "课程-调和分析",
+      "siteCourseId": "harmonic-analysis",
+      "sourceRootNodeId": "course-overview",
+      "sourceCoreFiles": [
+        "知识节点.xlsx",
+        "知识点.md",
+        "习题.md"
+      ],
+      "variantSourceIds": [
+        {
+          "sourceId": "A-ch09-9.3",
+          "versions": 2,
+          "nodeIds": [
+            "kp-a-ch09-inner-product-change",
+            "kp-a-ch10-unitarize"
+          ]
+        }
+      ],
+      "duplicateNodePaths": [],
+      "copiedImageCount": 0,
+      "omittedPdfCount": 2
+    },
+    {
+      "course": "高维概率",
+      "sourceFolder": "课程-高维概率",
+      "siteCourseId": "high-dimensional-probability",
+      "sourceRootNodeId": "course-overview",
+      "sourceCoreFiles": [
+        "知识节点.xlsx",
+        "知识点.md",
+        "习题.md"
+      ],
+      "variantSourceIds": [
+        {
+          "sourceId": "Vershynin2026-1.1",
+          "versions": 2,
+          "nodeIds": [
+            "kp-ch01-convexity",
+            "kp-a-ch01-convex-set"
+          ]
+        },
+        {
+          "sourceId": "Vershynin2026-1.2",
+          "versions": 2,
+          "nodeIds": [
+            "kp-ch01-convexity",
+            "kp-a-ch01-convex-function"
+          ]
+        },
+        {
+          "sourceId": "Vershynin2026-1.3",
+          "versions": 2,
+          "nodeIds": [
+            "kp-ch01-convexity",
+            "kp-a-ch01-jensen"
+          ]
+        }
+      ],
+      "duplicateNodePaths": [],
+      "copiedImageCount": 0,
+      "omittedPdfCount": 1
+    },
+    {
+      "course": "机器学习",
+      "sourceFolder": "课程-机器学习",
+      "siteCourseId": "machine-learning",
+      "sourceRootNodeId": "course-overview",
+      "sourceCoreFiles": [
+        "知识节点.xlsx",
+        "知识点.md",
+        "习题.md"
+      ],
+      "variantSourceIds": [
+        {
+          "sourceId": "A-ch01-1.3",
+          "versions": 2,
+          "nodeIds": [
+            "kp-ch01-inductive-bias",
+            "kp-a-ch01-bias"
+          ]
+        }
+      ],
+      "duplicateNodePaths": [],
+      "copiedImageCount": 8,
+      "omittedPdfCount": 2
+    },
+    {
+      "course": "神经网络与深度学习",
+      "sourceFolder": "课程-神经网络与深度学习",
+      "siteCourseId": "neural-networks",
+      "sourceRootNodeId": "course-overview",
+      "sourceCoreFiles": [
+        "知识节点.xlsx",
+        "知识点.md",
+        "习题.md"
+      ],
+      "variantSourceIds": [],
+      "duplicateNodePaths": [
+        {
+          "path": "神经网络与深度学习 / 第5章 卷积神经网络 / 残差连接",
+          "nodeIds": [
+            "kp-p-ch05-residual",
+            "kp-t-ch05-resnet"
+          ]
+        },
+        {
+          "path": "神经网络与深度学习 / 第6章 循环神经网络 / 简单循环网络",
+          "nodeIds": [
+            "kp-p-ch06-srn",
+            "kp-t-ch06-simple-rnn"
+          ]
+        },
+        {
+          "path": "神经网络与深度学习 / 第7章 网络优化与正则化 / He初始化",
+          "nodeIds": [
+            "kp-p-ch07-he",
+            "kp-t-ch07-he"
+          ]
+        }
+      ],
+      "copiedImageCount": 2,
+      "omittedPdfCount": 2
+    },
+    {
+      "course": "数值分析",
+      "sourceFolder": "课程-数值分析",
+      "siteCourseId": "numerical-analysis",
+      "sourceRootNodeId": "course-overview",
+      "sourceCoreFiles": [
+        "知识节点.xlsx",
+        "知识点.md",
+        "习题.md"
+      ],
+      "variantSourceIds": [
+        {
+          "sourceId": "XU-ch01-3",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch01-gauss-transform"
+          ]
+        },
+        {
+          "sourceId": "XU-ch01-15",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch01-partial-pivoting",
+            "kp-xu-ch01-diagonal-dominance-elimination"
+          ]
+        },
+        {
+          "sourceId": "XU-ch01-6",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch01-growth-example"
+          ]
+        },
+        {
+          "sourceId": "XU-ch01-11",
+          "versions": 3,
+          "nodeIds": [
+            "kp-xu-ch01-schur-complement",
+            "kp-xu-ch01-blocked-lu"
+          ]
+        },
+        {
+          "sourceId": "XU-ch01-20",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch01-ldlt"
+          ]
+        },
+        {
+          "sourceId": "XU-ch01-18",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch01-band-cholesky"
+          ]
+        },
+        {
+          "sourceId": "XU-ch01-19",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch01-leading-cholesky"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-1",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-weighted-norm"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-6",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-weighted-norm"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-2",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-norm-equality"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-5",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-matrix-norm"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-3",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-frobenius-norm"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-4",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-mixed-product-norm"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-7",
+          "versions": 3,
+          "nodeIds": [
+            "kp-xu-ch02-norm-from-injection"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-9",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-inverse-min-gain"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-13",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-inverse-perturbation"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-14",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-gamma-bound"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-15",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-summation-error"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-17",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-dot-product-error"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-16",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-matvec-backward"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-20",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-lu-backward",
+            "kp-xu-ch02-band-pivot-fill"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-10",
+          "versions": 3,
+          "nodeIds": [
+            "kp-xu-ch02-growth-factor"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-18",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-growth-factor"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-19",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-growth-factor"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-21",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-cholesky-roundoff"
+          ]
+        },
+        {
+          "sourceId": "XU-ch03-12",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch03-normal-equations"
+          ]
+        },
+        {
+          "sourceId": "XU-ch03-7",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch03-householder-mapping"
+          ]
+        },
+        {
+          "sourceId": "XU-ch03-6",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch03-givens"
+          ]
+        },
+        {
+          "sourceId": "XU-ch03-9",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch03-orthogonal-lower",
+            "kp-xu-ch03-lu-ls"
+          ]
+        },
+        {
+          "sourceId": "XU-ch03-10",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch03-linear-ls-operators"
+          ]
+        },
+        {
+          "sourceId": "XU-ch03-11",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch03-arrowhead-qr"
+          ]
+        },
+        {
+          "sourceId": "XU-ch04-1",
+          "versions": 3,
+          "nodeIds": [
+            "kp-xu-ch04-jacobi",
+            "kp-xu-ch04-gauss-seidel",
+            "kp-xu-ch04-spectral-convergence"
+          ]
+        },
+        {
+          "sourceId": "XU-ch04-3",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch04-spectral-convergence",
+            "kp-xu-ch04-spd-gs"
+          ]
+        },
+        {
+          "sourceId": "XU-ch04-2",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch04-nilpotent-iteration"
+          ]
+        },
+        {
+          "sourceId": "XU-ch04-7",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch04-gs-spd-converse"
+          ]
+        },
+        {
+          "sourceId": "XU-ch04-8",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch04-lyapunov-test"
+          ]
+        },
+        {
+          "sourceId": "XU-ch04-6",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch04-determinant-dominance"
+          ]
+        },
+        {
+          "sourceId": "XU-ch04-4",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch04-diagonal-permutation"
+          ]
+        },
+        {
+          "sourceId": "XU-ch04-9",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch04-jor"
+          ]
+        },
+        {
+          "sourceId": "XU-ch04-10",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch04-jor-spd"
+          ]
+        },
+        {
+          "sourceId": "XU-ch05-2",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch05-sd-rate"
+          ]
+        },
+        {
+          "sourceId": "XU-ch05-11",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch05-cg-galerkin"
+          ]
+        },
+        {
+          "sourceId": "XU-ch05-8",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch05-cg-finite",
+            "kp-xu-ch05-cg-polynomial"
+          ]
+        },
+        {
+          "sourceId": "XU-ch05-7",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch05-distinct-eigenvalues"
+          ]
+        },
+        {
+          "sourceId": "XU-ch05-9",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch05-cg-euclidean-error"
+          ]
+        },
+        {
+          "sourceId": "XU-ch05-10",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch05-pcg-positive"
+          ]
+        },
+        {
+          "sourceId": "XU-ch05-3",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch05-sd-finite-direction"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-8",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-jordan-form",
+            "kp-xu-ch06-power-rate"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-7",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-jordan-form",
+            "kp-xu-ch06-power-method",
+            "kp-xu-ch06-power-rate"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-3",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-schur"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-5",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-eigenvalue-conditioning"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-4",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-rayleigh"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-30",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-power-rate"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-9",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-shifted-power"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-10",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-companion"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-14",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-qr-iteration",
+            "kp-xu-ch06-qr-convergence"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-20",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-hessenberg-reduction",
+            "kp-xu-ch06-qr-deflation"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-17",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-cyclic-hessenberg"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-18",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-cyclic-hessenberg"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-19",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-hessenberg-scaling"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-21",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-qr-deflation"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-25",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-lr-method"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-31",
+          "versions": 3,
+          "nodeIds": [
+            "kp-xu-ch06-rayleigh-accuracy"
+          ]
+        },
+        {
+          "sourceId": "XU-ch07-8",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch07-weyl-bound"
+          ]
+        },
+        {
+          "sourceId": "XU-ch07-4",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch07-singular-pair"
+          ]
+        },
+        {
+          "sourceId": "XU-ch07-7",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch07-singular-minmax"
+          ]
+        },
+        {
+          "sourceId": "XU-ch07-5",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch07-svd-condition"
+          ]
+        },
+        {
+          "sourceId": "XU-ch07-6",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch07-svd-condition"
+          ]
+        },
+        {
+          "sourceId": "XU-ch07-3",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch07-positive-perturbation"
+          ]
+        },
+        {
+          "sourceId": "XU-ch07-11",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch07-rayleigh-shift-local"
+          ]
+        },
+        {
+          "sourceId": "XU-ch07-21",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch07-eigenvalue-bisection"
+          ]
+        },
+        {
+          "sourceId": "XU-ch07-20",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch07-tridiagonal-multiplicity"
+          ]
+        },
+        {
+          "sourceId": "XU-ch07-18",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch07-diagonal-symmetrization"
+          ]
+        },
+        {
+          "sourceId": "XU-ch07-27",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch07-hermite-realification"
+          ]
+        }
+      ],
+      "duplicateNodePaths": [],
+      "copiedImageCount": 29,
+      "omittedPdfCount": 4
+    },
+    {
+      "course": "数值线性代数",
+      "sourceFolder": "课程-数值线性代数",
+      "siteCourseId": "numerical-linear-algebra",
+      "sourceRootNodeId": "course-overview",
+      "sourceCoreFiles": [
+        "知识节点.xlsx",
+        "知识点.md",
+        "习题.md"
+      ],
+      "variantSourceIds": [
+        {
+          "sourceId": "XU-ch02-1",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-weighted-norm"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-6",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-weighted-norm"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-2",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-norm-equality"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-5",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-matrix-norm"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-3",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-frobenius-norm"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-4",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-mixed-product-norm"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-7",
+          "versions": 3,
+          "nodeIds": [
+            "kp-xu-ch02-norm-from-injection"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-9",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-inverse-min-gain"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-13",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-inverse-perturbation"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-14",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-gamma-bound"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-15",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-summation-error"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-17",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-dot-product-error"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-16",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-matvec-backward"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-20",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-lu-backward",
+            "kp-xu-ch02-band-pivot-fill"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-10",
+          "versions": 3,
+          "nodeIds": [
+            "kp-xu-ch02-growth-factor"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-18",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-growth-factor"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-19",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-growth-factor"
+          ]
+        },
+        {
+          "sourceId": "XU-ch02-21",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch02-cholesky-roundoff"
+          ]
+        },
+        {
+          "sourceId": "XU-ch01-3",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch01-gauss-transform"
+          ]
+        },
+        {
+          "sourceId": "XU-ch01-15",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch01-partial-pivoting",
+            "kp-xu-ch01-diagonal-dominance-elimination"
+          ]
+        },
+        {
+          "sourceId": "XU-ch01-6",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch01-growth-example"
+          ]
+        },
+        {
+          "sourceId": "XU-ch01-11",
+          "versions": 3,
+          "nodeIds": [
+            "kp-xu-ch01-schur-complement",
+            "kp-xu-ch01-blocked-lu"
+          ]
+        },
+        {
+          "sourceId": "XU-ch01-20",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch01-ldlt"
+          ]
+        },
+        {
+          "sourceId": "XU-ch01-18",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch01-band-cholesky"
+          ]
+        },
+        {
+          "sourceId": "XU-ch01-19",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch01-leading-cholesky"
+          ]
+        },
+        {
+          "sourceId": "XU-ch04-1",
+          "versions": 3,
+          "nodeIds": [
+            "kp-xu-ch04-jacobi",
+            "kp-xu-ch04-gauss-seidel",
+            "kp-xu-ch04-spectral-convergence"
+          ]
+        },
+        {
+          "sourceId": "XU-ch04-3",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch04-spectral-convergence",
+            "kp-xu-ch04-spd-gs"
+          ]
+        },
+        {
+          "sourceId": "XU-ch04-2",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch04-nilpotent-iteration"
+          ]
+        },
+        {
+          "sourceId": "XU-ch04-7",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch04-gs-spd-converse"
+          ]
+        },
+        {
+          "sourceId": "XU-ch04-8",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch04-lyapunov-test"
+          ]
+        },
+        {
+          "sourceId": "XU-ch04-6",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch04-determinant-dominance"
+          ]
+        },
+        {
+          "sourceId": "XU-ch04-4",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch04-diagonal-permutation"
+          ]
+        },
+        {
+          "sourceId": "XU-ch04-9",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch04-jor"
+          ]
+        },
+        {
+          "sourceId": "XU-ch04-10",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch04-jor-spd"
+          ]
+        },
+        {
+          "sourceId": "XU-ch05-2",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch05-sd-rate"
+          ]
+        },
+        {
+          "sourceId": "XU-ch05-11",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch05-cg-galerkin"
+          ]
+        },
+        {
+          "sourceId": "XU-ch05-8",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch05-cg-finite",
+            "kp-xu-ch05-cg-polynomial"
+          ]
+        },
+        {
+          "sourceId": "XU-ch05-7",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch05-distinct-eigenvalues"
+          ]
+        },
+        {
+          "sourceId": "XU-ch05-9",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch05-cg-euclidean-error"
+          ]
+        },
+        {
+          "sourceId": "XU-ch05-10",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch05-pcg-positive"
+          ]
+        },
+        {
+          "sourceId": "XU-ch05-3",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch05-sd-finite-direction"
+          ]
+        },
+        {
+          "sourceId": "XU-ch03-12",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch03-normal-equations"
+          ]
+        },
+        {
+          "sourceId": "XU-ch03-7",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch03-householder-mapping"
+          ]
+        },
+        {
+          "sourceId": "XU-ch03-6",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch03-givens"
+          ]
+        },
+        {
+          "sourceId": "XU-ch03-9",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch03-orthogonal-lower",
+            "kp-xu-ch03-lu-ls"
+          ]
+        },
+        {
+          "sourceId": "XU-ch03-10",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch03-linear-ls-operators"
+          ]
+        },
+        {
+          "sourceId": "XU-ch03-11",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch03-arrowhead-qr"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-8",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-jordan-form",
+            "kp-xu-ch06-power-rate"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-7",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-jordan-form",
+            "kp-xu-ch06-power-method",
+            "kp-xu-ch06-power-rate"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-3",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-schur"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-5",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-eigenvalue-conditioning"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-4",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-rayleigh"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-30",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-power-rate"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-9",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-shifted-power"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-10",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-companion"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-14",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-qr-iteration",
+            "kp-xu-ch06-qr-convergence"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-20",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-hessenberg-reduction",
+            "kp-xu-ch06-qr-deflation"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-17",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-cyclic-hessenberg"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-18",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-cyclic-hessenberg"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-19",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-hessenberg-scaling"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-21",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-qr-deflation"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-25",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch06-lr-method"
+          ]
+        },
+        {
+          "sourceId": "XU-ch06-31",
+          "versions": 3,
+          "nodeIds": [
+            "kp-xu-ch06-rayleigh-accuracy"
+          ]
+        },
+        {
+          "sourceId": "XU-ch07-8",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch07-weyl-bound"
+          ]
+        },
+        {
+          "sourceId": "XU-ch07-3",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch07-positive-perturbation"
+          ]
+        },
+        {
+          "sourceId": "XU-ch07-11",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch07-rayleigh-shift-local"
+          ]
+        },
+        {
+          "sourceId": "XU-ch07-21",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch07-eigenvalue-bisection"
+          ]
+        },
+        {
+          "sourceId": "XU-ch07-20",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch07-tridiagonal-multiplicity"
+          ]
+        },
+        {
+          "sourceId": "XU-ch07-18",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch07-diagonal-symmetrization"
+          ]
+        },
+        {
+          "sourceId": "XU-ch07-27",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch07-hermite-realification"
+          ]
+        },
+        {
+          "sourceId": "XU-ch07-4",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch07-singular-pair"
+          ]
+        },
+        {
+          "sourceId": "XU-ch07-7",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch07-singular-minmax"
+          ]
+        },
+        {
+          "sourceId": "XU-ch07-5",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch07-svd-condition"
+          ]
+        },
+        {
+          "sourceId": "XU-ch07-6",
+          "versions": 2,
+          "nodeIds": [
+            "kp-xu-ch07-svd-condition"
+          ]
+        }
+      ],
+      "duplicateNodePaths": [],
+      "copiedImageCount": 29,
+      "omittedPdfCount": 4
+    },
+    {
+      "course": "偏微分方程",
+      "sourceFolder": "课程-偏微分方程",
+      "siteCourseId": "pde",
+      "sourceRootNodeId": "course-overview",
+      "sourceCoreFiles": [
+        "知识节点.xlsx",
+        "知识点.md",
+        "习题.md"
+      ],
+      "variantSourceIds": [
+        {
+          "sourceId": "A-ch01-s01-6",
+          "versions": 2,
+          "nodeIds": [
+            "kp-ch01-wave-equation",
+            "kp-a-ch01-traveling"
+          ]
+        },
+        {
+          "sourceId": "A-ch01-s01-4",
+          "versions": 2,
+          "nodeIds": [
+            "kp-a-ch01-hanging",
+            "kp-b-ch01-diffusion-advection"
+          ]
+        },
+        {
+          "sourceId": "A-ch01-s04-6",
+          "versions": 2,
+          "nodeIds": [
+            "kp-a-ch01-descent",
+            "kp-a-ch01-highdim-duhamel"
+          ]
+        },
+        {
+          "sourceId": "A-ch01-s01-7",
+          "versions": 2,
+          "nodeIds": [
+            "kp-a-ch01-poisson2"
+          ]
+        },
+        {
+          "sourceId": "A-ch01-s06-1",
+          "versions": 2,
+          "nodeIds": [
+            "kp-a-ch01-damping-energy",
+            "kp-b-ch02-radial-dimension"
+          ]
+        },
+        {
+          "sourceId": "A-ch03-s01-4",
+          "versions": 2,
+          "nodeIds": [
+            "kp-b-ch01-linear-algebra",
+            "kp-a-ch03-complex"
+          ]
+        },
+        {
+          "sourceId": "A-ch02-s01-1",
+          "versions": 2,
+          "nodeIds": [
+            "kp-b-ch01-diffusion-advection",
+            "kp-a-ch02-lateral-loss"
+          ]
+        },
+        {
+          "sourceId": "A-ch02-s01-2",
+          "versions": 2,
+          "nodeIds": [
+            "kp-b-ch01-diffusion-advection",
+            "kp-a-ch02-balance"
+          ]
+        },
+        {
+          "sourceId": "B-ch01-s04-1",
+          "versions": 3,
+          "nodeIds": [
+            "kp-b-ch01-heterogeneous-rod",
+            "kp-b-ch02-growth-heat"
+          ]
+        },
+        {
+          "sourceId": "A-ch02-s02-1",
+          "versions": 2,
+          "nodeIds": [
+            "kp-a-ch02-mixed-modes",
+            "kp-b-ch04-mixed-spectrum"
+          ]
+        },
+        {
+          "sourceId": "A-ch02-s03-7",
+          "versions": 2,
+          "nodeIds": [
+            "kp-a-ch02-tensor",
+            "kp-b-ch02-growth-heat"
+          ]
+        },
+        {
+          "sourceId": "A-ch04-s03-3",
+          "versions": 2,
+          "nodeIds": [
+            "kp-b-ch02-appell",
+            "kp-a-ch04-wave-maximum"
+          ]
+        },
+        {
+          "sourceId": "A-ch05-s03-1",
+          "versions": 2,
+          "nodeIds": [
+            "kp-a-ch05-picard",
+            "kp-a-ch05-power-series"
+          ]
+        },
+        {
+          "sourceId": "D-ch05-3",
+          "versions": 2,
+          "nodeIds": [
+            "kp-d-ch05-h1",
+            "kp-z-sobolev"
+          ]
+        },
+        {
+          "sourceId": "D-ch05-8",
+          "versions": 2,
+          "nodeIds": [
+            "kp-d-ch05-h1",
+            "kp-z-sobolev-density"
+          ]
+        },
+        {
+          "sourceId": "D-ch05-10",
+          "versions": 2,
+          "nodeIds": [
+            "kp-d-ch05-h1",
+            "kp-z-sobolev"
+          ]
+        },
+        {
+          "sourceId": "D-ch05-12",
+          "versions": 2,
+          "nodeIds": [
+            "kp-d-ch05-h1",
+            "kp-z-sobolev"
+          ]
+        },
+        {
+          "sourceId": "D-ch05-13",
+          "versions": 2,
+          "nodeIds": [
+            "kp-d-ch05-h1",
+            "kp-z-hs"
+          ]
+        },
+        {
+          "sourceId": "D-ch05-14",
+          "versions": 2,
+          "nodeIds": [
+            "kp-d-ch05-h1",
+            "kp-z-hs"
+          ]
+        },
+        {
+          "sourceId": "D-ch05-16",
+          "versions": 2,
+          "nodeIds": [
+            "kp-d-ch05-h1",
+            "kp-z-hs"
+          ]
+        }
+      ],
+      "duplicateNodePaths": [],
+      "copiedImageCount": 8,
+      "omittedPdfCount": 4
+    },
+    {
+      "course": "实变函数",
+      "sourceFolder": "课程-实变函数",
+      "siteCourseId": "real-analysis",
+      "sourceRootNodeId": "course-overview",
+      "sourceCoreFiles": [
+        "知识节点.xlsx",
+        "知识点.md",
+        "习题.md"
+      ],
+      "variantSourceIds": [
+        {
+          "sourceId": "A-ch04-B5",
+          "versions": 2,
+          "nodeIds": [
+            "kp-a-ch04-test-functions",
+            "kp-a-ch05-fundamental-theorem"
+          ]
+        }
+      ],
+      "duplicateNodePaths": [],
+      "copiedImageCount": 0,
+      "omittedPdfCount": 2
+    }
+  ]
+}

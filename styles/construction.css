@@ -1,0 +1,52 @@
+.construction-group-label{font-size:9.5px;letter-spacing:.4px;white-space:nowrap;color:#6b84a8}
+.construction-lead{padding:27px 30px;margin-bottom:19px;border-radius:15px;color:#fff;background:linear-gradient(115deg,#244b87,#3f70ae 70%,#7294c5);box-shadow:0 10px 30px #244b8724}
+.construction-lead>div:first-child{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
+.construction-lead span{font-size:13px;color:#e7f0ff}
+.construction-lead strong{font:38px Georgia,serif;line-height:1.1}
+.construction-lead strong small{font:18px "PingFang SC","Microsoft YaHei",sans-serif;color:#dbe8fa}
+.construction-lead p{font-size:11px;color:#e1ecfb}
+.construction-lead-track{height:10px;border-radius:20px;background:#ffffff4d;margin:20px 0 11px;overflow:hidden}
+.construction-lead-track i,.construction-bar i{display:block;height:100%;border-radius:inherit;background:#d8e8ff}
+.construction-lead>small{display:block;color:#dbe8f7;font-size:10px;line-height:1.7}
+.construction-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15px;margin-bottom:19px}
+.construction-metric{padding:20px 22px}
+.construction-metric span{font-size:11px;color:#7d8fa9}
+.construction-metric strong{display:block;font:31px Georgia,serif;color:#315b94;margin:8px 0 5px}
+.construction-metric small{font-size:10px;color:#98a7ba;line-height:1.5}
+.construction-phases{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px;margin-bottom:20px}
+.construction-phase-card{padding:20px 23px}
+.construction-phase-card>div:first-child{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.construction-phase-card span{font-size:12px;font-weight:600;color:#455f82}
+.construction-phase-card strong{font:25px Georgia,serif;color:#315b94;white-space:nowrap}
+.construction-phase-card strong small{font-size:14px;color:#a1afc1}
+.construction-bar{height:8px;background:#edf2f9;border-radius:20px;overflow:hidden;margin:15px 0 9px}
+.construction-bar i{background:linear-gradient(90deg,#4a79bb,#79a3d3)}
+.construction-phase-card p{font-size:10px;color:#9aa8bb}
+.construction-table-panel{margin-bottom:20px}
+.construction-table-panel .eyebrow{margin-bottom:6px}
+.construction-table{border-collapse:collapse;width:100%;font-size:11px}
+.construction-table caption{text-align:left;color:#98a6ba;font-size:10px;margin-bottom:9px}
+.construction-table th,.construction-table td{padding:12px 9px;border-bottom:1px solid #edf1f7;text-align:left;white-space:nowrap}
+.construction-table thead th{font-weight:600;color:#778ba7;background:#f6f9fd}
+.construction-table tbody tr:hover{background:#f8fbff}
+.construction-table tbody td{color:#536985}
+.construction-table .construction-number{font:12px Georgia,serif;color:#9aaac0}
+.construction-table .construction-count,.construction-table tfoot td{font-variant-numeric:tabular-nums;color:#2f568d}
+.construction-table tfoot th,.construction-table tfoot td{border-bottom:0;background:#f7f9fd;font-weight:600}
+.construction-course-link{display:inline-flex;align-items:center;gap:6px;color:#284d85;font-weight:600;white-space:normal}
+.construction-course-link .icon{width:12px;height:12px;color:#86a3c9}
+.construction-course-link:hover{color:#517ebc;text-decoration:underline}
+.construction-followup{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:19px}
+.construction-followup h2{font-size:17px;margin:6px 0 14px}
+.construction-followup p{font-size:11px;color:#8293aa;line-height:1.9}
+.construction-check{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:12px 0;border-top:1px solid #edf1f7;font-size:11px;color:#667e9e}
+.construction-check b{font-size:12px;color:#315b94;white-space:nowrap}
+.construction-pending{border-top:1px solid #edf1f7;margin-top:17px;padding-top:15px}
+.construction-pending summary{font-size:11px;color:#315b94;cursor:pointer;list-style:none}
+.construction-pending summary .icon{width:13px;height:13px;margin-left:5px}
+.construction-pending>div{display:flex;flex-wrap:wrap;gap:7px;margin-top:15px}
+.construction-pending>div span{font-size:10px;color:#607a9e;background:#f2f6fc;border-radius:5px;padding:5px 8px}
+.construction-method{font-size:10px;color:#98a7ba;line-height:1.8;margin-top:18px}
+@media(max-width:1200px){.construction-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.construction-table th:nth-child(3),.construction-table td:nth-child(3),.construction-table th:nth-child(4),.construction-table td:nth-child(4),.construction-table th:nth-child(7),.construction-table td:nth-child(7),.construction-table tfoot{display:none}}
+@media(max-width:900px){.construction-phases,.construction-followup{grid-template-columns:1fr}}
+@media(max-width:720px){.construction-lead{padding:21px}.construction-lead strong{font-size:32px}.construction-metrics{gap:10px}.construction-metric{padding:15px}.construction-metric strong{font-size:27px}.construction-table-panel{padding:14px}.construction-table th:nth-child(8),.construction-table td:nth-child(8){display:none}.construction-table th,.construction-table td{padding:10px 6px}.construction-course-link{font-size:10px}}

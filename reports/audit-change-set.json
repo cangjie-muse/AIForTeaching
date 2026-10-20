@@ -1,0 +1,26 @@
+{
+  "comparedWith": "v0.1 delivery ZIP",
+  "changed": [
+    "js/core.js",
+    "js/workspace.js",
+    "js/pages.js",
+    "js/app.js",
+    "styles/views.css",
+    "styles/responsive.css",
+    "scripts/vendor.mjs",
+    "index.html",
+    "package.json",
+    "package-lock.json"
+  ],
+  "added": [
+    "js/visual-identity.js",
+    "styles/identity.css",
+    "scripts/verify-dependency-origin.cjs",
+    "scripts/audit-source.cjs",
+    "config/vendor-assets.json"
+  ],
+  "unchangedCourseAndAssetFiles": 17,
+  "excluded": [
+    "操作系统目录元数据 .DS_Store，不属于网站分发文件"
+  ]
+}

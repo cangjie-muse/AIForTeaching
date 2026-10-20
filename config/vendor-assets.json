@@ -1,0 +1,7 @@
+[
+  { "package": "katex", "files": [["dist/katex.min.js", "katex/katex.min.js"], ["dist/katex.min.css", "katex/katex.min.css"], ["dist/fonts", "katex/fonts"], ["LICENSE", "katex/LICENSE"]] },
+  { "package": "marked", "files": [["lib/marked.umd.js", "marked.js"], ["LICENSE", "marked-LICENSE"]] },
+  { "package": "dompurify", "files": [["dist/purify.min.js", "purify.js"], ["LICENSE", "dompurify-LICENSE"]] },
+  { "package": "exceljs", "files": [["dist/exceljs.min.js", "exceljs.js"], ["LICENSE", "exceljs-LICENSE"]] },
+  { "package": "jszip", "files": [["dist/jszip.min.js", "jszip.js"], ["LICENSE.markdown", "jszip-LICENSE.md"]] }
+]

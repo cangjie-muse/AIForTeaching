@@ -1,0 +1,84 @@
+{
+  "files": [
+    {
+      "file": "js/app.js",
+      "lines": 72
+    },
+    {
+      "file": "js/core.js",
+      "lines": 128
+    },
+    {
+      "file": "js/import-core.js",
+      "lines": 115
+    },
+    {
+      "file": "js/import-ui.js",
+      "lines": 63
+    },
+    {
+      "file": "js/learning.js",
+      "lines": 126
+    },
+    {
+      "file": "js/pages.js",
+      "lines": 70
+    },
+    {
+      "file": "js/storage.js",
+      "lines": 43
+    },
+    {
+      "file": "js/workspace.js",
+      "lines": 119
+    },
+    {
+      "file": "js/xlsx-reader.js",
+      "lines": 30
+    },
+    {
+      "file": "scripts/import-course.cjs",
+      "lines": 45
+    },
+    {
+      "file": "scripts/vendor.mjs",
+      "lines": 23
+    },
+    {
+      "file": "scripts/verify.cjs",
+      "lines": 47
+    }
+  ],
+  "longestFunctions": [
+    {
+      "file": "scripts/import-course.cjs",
+      "name": "main",
+      "lines": 39
+    },
+    {
+      "file": "js/import-core.js",
+      "name": "parseNodes",
+      "lines": 33
+    },
+    {
+      "file": "js/core.js",
+      "name": "markdown",
+      "lines": 30
+    },
+    {
+      "file": "js/import-ui.js",
+      "name": "prepareImport",
+      "lines": 24
+    },
+    {
+      "file": "js/import-core.js",
+      "name": "parsePackage",
+      "lines": 21
+    },
+    {
+      "file": "js/import-core.js",
+      "name": "callback",
+      "lines": 19
+    }
+  ]
+}

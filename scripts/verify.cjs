@@ -1,0 +1,51 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const assert = require('node:assert/strict');
+const katex = require('katex');
+const { parsePackage, sections, headers } = require('../js/import-core.js');
+const root = path.resolve(__dirname, '..');
+const files = fs.readdirSync(path.join(root, 'data')).filter(name => name.startsWith('course-') && name.endsWith('.json'));
+let formulaCount = 0;
+const formulas = new Set(), report = [];
+for (const file of files) {
+  const c = JSON.parse(fs.readFileSync(path.join(root, 'data', file), 'utf8'));
+  const source = fs.readFileSync(path.join(root, c.resourceBase, '习题.md'), 'utf8');
+  const occurrences = [...source.matchAll(/source-exercise:([^\s]+)/g)].map(match => match[1]);
+  assert.equal(c.exercises.length, new Set(occurrences).size, '去重题数与原文件不符');
+  const sourceSections = sections(source);
+  const expectedAssociations = c.nodes.reduce((sum, node) => sum + new Set([...sourceSections.get(node.exerciseAnchor).body.matchAll(/source-exercise:([^\s]+)/g)].map(match => match[1])).size, 0);
+  assert.equal(c.stats.associations, expectedAssociations, '关联条数与原文件不符');
+  const ids = new Set(c.nodes.map(node => node.id));
+  assert.equal(ids.size, c.nodes.length, '知识点 ID 不唯一');
+  c.relationships.forEach(rel => assert(ids.has(rel.source) && ids.has(rel.target)));
+  c.exercises.forEach(ex => ex.nodeIds.forEach(id => assert(ids.has(id))));
+  const allText = [...c.nodes.map(n => n.content), ...c.exercises.flatMap(ex => (ex.variants || [ex]).flatMap(variant => [variant.prompt, variant.answer, variant.source]))].join('\n');
+  for (const match of allText.matchAll(/\$\$([\s\S]*?)\$\$|(?<!\\)\$([^$\n]+?)\$/g)) {
+    const tex = match[1] ?? match[2];
+    katex.renderToString(tex, { displayMode: match[1] != null, throwOnError: true, strict: 'ignore', trust: false });
+    formulaCount += 1; formulas.add(tex);
+  }
+  for (const match of allText.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)) assert(fs.existsSync(path.join(root, c.resourceBase, match[1])), `缺少插图 ${match[1]}`);
+  for (const name of [...c.files, ...(c.attachments || [])]) assert(fs.existsSync(path.join(root, c.resourceBase, name)), `缺少资源 ${name}`);
+  report.push({ course: c.title, ...c.stats });
+}
+const ref = id => `知识内容：知识点.md#${id}\n习题：习题.md#${id}`;
+const row = (levels, id) => [...Array.from({ length: 6 }, (_, i) => levels[i] || ''), '来源', ref(id)];
+const rows = [headers, row(['泛函分析'], 'course-functional'), row(['泛函分析', '赋范空间'], 'chapter-a'), row(['泛函分析', '赋范空间', '范数'], 'kp-norm'), row(['泛函分析', '赋范空间', '距离'], 'kp-metric')];
+const section = (id, title, body = '') => `<a id="${id}"></a>\n### ${title}\n${body}\n`;
+const book = section('course-functional', '泛函分析') + section('chapter-a', '赋范空间') + section('kp-norm', '范数', '定义正文') + section('kp-metric', '距离', '距离正文');
+const question = '<!-- source-exercise:source-q1 -->\n1. 证明距离的对称性。\n\n   **答案：** 使用范数公理。\n\n   **难度：1/5；出处：** 示例。';
+const exercise = section('course-functional', '泛函分析') + section('chapter-a', '赋范空间') + section('kp-norm', '范数', question) + section('kp-metric', '距离', question);
+const other = parsePackage(rows, book, exercise);
+assert.equal(other.stats.exercises, 1);
+assert.equal(other.stats.associations, 2);
+assert.equal(other.title, '泛函分析');
+assert.throws(() => parsePackage(rows, book.replace('id="kp-norm"', 'id="wrong"'), exercise), /缺少锚点/);
+assert.throws(() => parsePackage(rows, book + section('kp-norm', '重复'), exercise), /重复锚点/);
+const variantSample = parsePackage(rows, book, exercise.replace('使用范数公理。', '使用不同内容。'));
+assert.equal(variantSample.stats.variantGroups, 1);
+assert.equal(variantSample.exercises[0].variants.length, 2);
+assert.throws(() => parsePackage([['不兼容表头'], ...rows.slice(1)], book, exercise), /表头/);
+const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+for (const match of html.matchAll(/(?:src|href)="((?:js|styles|vendor|data|assets)\/[^"#?]+)(?:\?[^"#]*)?"/g)) assert(fs.existsSync(path.join(root, match[1])), `缺少离线依赖 ${match[1]}`);
+console.log(JSON.stringify({ courses: report, renderedFormulaOccurrences: formulaCount, uniqueFormulas: formulas.size, negativeImportCases: 4, crossCourseFixture: '通过', offlineAssets: '通过' }, null, 2));

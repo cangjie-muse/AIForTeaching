@@ -1,0 +1,19 @@
+node_modules/
+.DS_Store
+__pycache__/
+.preview/
+*.zip
+
+# 本地内部记录，不对外发布
+.workbuddy/
+
+# 教材原文与扫描件：版权材料，只在本机或服务器内使用，不进入仓库
+textbooks/
+*.pdf
+
+# 课件生成的测试残留
+courseware/**/test-wps-*.pptx
+
+# 构建与运行产物
+dist/
+*.log

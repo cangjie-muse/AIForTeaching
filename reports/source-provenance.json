@@ -1,0 +1,1141 @@
+{
+  "checkedAt": "2026-10-11T16:00:43.648Z",
+  "scope": "Project source/provenance audit; no private competitor source or internet-wide similarity database comparison",
+  "checks": {
+    "runtimeFiles": 30,
+    "generatedCourseScriptIsDataOnly": true,
+    "competitorMarkerHits": [],
+    "remoteEntryAssets": [],
+    "networkCodeHits": [],
+    "stylesheetRemoteLoads": [],
+    "verifiedVendorFiles": 71,
+    "unregisteredVendorFiles": []
+  },
+  "projectSourceInventory": [
+    {
+      "path": "index.html",
+      "sha256": "9f66ced5b4032323a7970ff810537bed610b3de1465d00a3e856c8e67274e2a9"
+    },
+    {
+      "path": "js/app.js",
+      "sha256": "f2d918d75a95175315dafdd9d0c33f9733e7d42728dd6ff7541cde8bdc80b0f7"
+    },
+    {
+      "path": "js/catalog-view.js",
+      "sha256": "4cb454342ec1452253dde52a2d33b05442963b8971851eb2993117d82388bc00"
+    },
+    {
+      "path": "js/construction-model.js",
+      "sha256": "22499d11c0d1c2ad5b889ff13ece0be0475a9fb3d2075351194221c6217f288e"
+    },
+    {
+      "path": "js/construction-view.js",
+      "sha256": "e24691c00781f5d9fbc49c97fb10eb8898ab410f50c1d52333ca0d403b9e1122"
+    },
+    {
+      "path": "js/core.js",
+      "sha256": "bac6f167ade57c5299fee688bfe474d7538824759fbc8478b2d6e909dabc0c85"
+    },
+    {
+      "path": "js/course-catalog.js",
+      "sha256": "57c0f24cfbfbb5b8010dca249dceb73a0c419d739d98132bfc959ceb0ecceaf1"
+    },
+    {
+      "path": "js/course-cover-art.js",
+      "sha256": "ff3e6c3604cd6d15b3856d86dceeab128927a596c40bfb65445ca9436343fa1d"
+    },
+    {
+      "path": "js/courseware-view.js",
+      "sha256": "cc7b29fd3f9341a7eb24215cdfeadd586233fc3031bfb553ef71b3e35efec60a"
+    },
+    {
+      "path": "js/graph-atlas.js",
+      "sha256": "4e3d152a28cd537bb26e4572e48754edf75490924a67db61d256e5752c0e9c22"
+    },
+    {
+      "path": "js/graph-interaction.js",
+      "sha256": "84de8784c3a2162042cc11d88475151913093cefb19dff85b750bbb64a789edf"
+    },
+    {
+      "path": "js/graph-model.js",
+      "sha256": "443128cdd6180dbe9da78c2602cf3a85349b2ca89575a3866a4f227b084ef51d"
+    },
+    {
+      "path": "js/graph-view.js",
+      "sha256": "1f112181ee411da2c1c92b323ae1054f470689cd9b01145b46e80d3174b4bba9"
+    },
+    {
+      "path": "js/import-core.js",
+      "sha256": "32feb4e666bf26ee3982400d41c23d3c5660b505051c1598106ccb45cd53f0fc"
+    },
+    {
+      "path": "js/import-ui.js",
+      "sha256": "c76b027999ae8397e5893b1e0ae5a5c87d6943dc702a6cbc59153598a566d384"
+    },
+    {
+      "path": "js/learning.js",
+      "sha256": "562df04a1d8fefa33878d85f6301d0970a61cc430001ac05ca2627fddc0ede28"
+    },
+    {
+      "path": "js/pages.js",
+      "sha256": "1d32dba3243f21a087bd0d268d3d6034a984bcc5e879cc91c63f33325f2b30a4"
+    },
+    {
+      "path": "js/storage.js",
+      "sha256": "7fa32a8c0f71757cd3625bdb811f1e6e3130a8a5838a26d7d559f45c7a00aa9a"
+    },
+    {
+      "path": "js/visual-identity.js",
+      "sha256": "7445a1c3122fa51649c5d4c122f627bec1a1f9603ec6066c2e5d187f83ee3ab3"
+    },
+    {
+      "path": "js/workspace.js",
+      "sha256": "5e114496552219cf5e05bf0649e626b922c1272f898ca304f907ba002e48a507"
+    },
+    {
+      "path": "js/xlsx-reader.js",
+      "sha256": "8b0239f2609e5bdc0003658e62ea287108b1008ac5acf79abd0cfe07c691006a"
+    },
+    {
+      "path": "styles/base.css",
+      "sha256": "6fbdb553a2d6a776cdb4905717bc30e5a5bb64cc228a5133e765c4abbdb94c05"
+    },
+    {
+      "path": "styles/catalog.css",
+      "sha256": "ae0837024656317db480b2858ec371ec534482e93e74f31fd9231b7d20ccb50c"
+    },
+    {
+      "path": "styles/construction.css",
+      "sha256": "f8c4f7bbb014842f8d8a2cf7ccde0e957898504b24caedc4cc602fcfc636f531"
+    },
+    {
+      "path": "styles/courseware.css",
+      "sha256": "807462f6b603e2bd462d7bf9ad9d15ae087ad1df6fe39dedc7c6732e5abf1d3d"
+    },
+    {
+      "path": "styles/identity.css",
+      "sha256": "3d49a6b5c5b53b363c3572fa04ad595421abb825bec97458ed1879ba40548492"
+    },
+    {
+      "path": "styles/network.css",
+      "sha256": "39a3fb5c89eb06b733f2905dbce9f030fbfb7d2053090c52a654ba2fbfa690a4"
+    },
+    {
+      "path": "styles/responsive.css",
+      "sha256": "406e81142f3d49941a353074cd133c47e124cdf097f688f2714a3258a19c16cc"
+    },
+    {
+      "path": "styles/views.css",
+      "sha256": "10eb6f7176701f7c69f97164427fa314e4d7eb908d09f4a83057207e335e92db"
+    },
+    {
+      "path": "assets/mark.svg",
+      "sha256": "bbcb560be7107b754e9aacd0f74ff094f8b3b506d8781afd2c6dde82bba1a790"
+    },
+    {
+      "path": "scripts/audit-source.cjs",
+      "sha256": "f889061930799e344b0095d7eae67438d302f4630a533f59499bd563a065e8f5"
+    },
+    {
+      "path": "scripts/courseware-index.cjs",
+      "sha256": "bf135551a6329a57d7a64787d7c796125eca52cb4932bb4fb4ca129c61deac77"
+    },
+    {
+      "path": "scripts/import-course.cjs",
+      "sha256": "2fc825e980c89d3f95a56078d9197999fdf776ec60c8332ef05cded264e90f91"
+    },
+    {
+      "path": "scripts/launch.py",
+      "sha256": "f0aad516827af2caea4d1e68cb4fadd7becd065c1ca185f7a8efcd732ac2fa29"
+    },
+    {
+      "path": "scripts/package.py",
+      "sha256": "313257a228f3fbad2daf5e8fe9347e0c5b0c3769084fbf3f8e8fe9b0c19ccd53"
+    },
+    {
+      "path": "scripts/serve.py",
+      "sha256": "1d710ff017f8f3c84bf676abb59c9c139ae042cd536cd90f589249ce1bc13e58"
+    },
+    {
+      "path": "scripts/vendor.mjs",
+      "sha256": "723cdf33a2b032c710a2ba9992dda1c66e08252d4e8015a29478d9ba2fceb184"
+    },
+    {
+      "path": "scripts/verify-catalog-graph.cjs",
+      "sha256": "14d2ab02268c2210c0fecfa9010758f37837173eb191ebd294f9f364a2a059ef"
+    },
+    {
+      "path": "scripts/verify-dependency-origin.cjs",
+      "sha256": "124a804b0cfbce689efe6554957f7f2da88ccfb511be64c79fc427f6dbf4e911"
+    },
+    {
+      "path": "scripts/verify.cjs",
+      "sha256": "615d8977d61c000ef1f952b143b85ada1ee73d741b72242f59800338b06d28c9"
+    },
+    {
+      "path": "eslint.config.mjs",
+      "sha256": "cf2c0bdd811484230d011a838b5345956bce2ba2b3ddaaf094a16ff5d7bc706f"
+    }
+  ],
+  "openSource": [
+    {
+      "package": "katex",
+      "version": "0.19.0",
+      "license": "MIT",
+      "source": "https://registry.npmjs.org/katex/-/katex-0.19.0.tgz",
+      "verifiedFiles": 63
+    },
+    {
+      "package": "marked",
+      "version": "18.1.0",
+      "license": "MIT",
+      "source": "https://registry.npmjs.org/marked/-/marked-18.1.0.tgz",
+      "verifiedFiles": 2
+    },
+    {
+      "package": "dompurify",
+      "version": "3.4.16",
+      "license": "(MPL-2.0 OR Apache-2.0)",
+      "source": "https://registry.npmjs.org/dompurify/-/dompurify-3.4.16.tgz",
+      "verifiedFiles": 2
+    },
+    {
+      "package": "exceljs",
+      "version": "4.4.0",
+      "license": "MIT",
+      "source": "https://registry.npmjs.org/exceljs/-/exceljs-4.4.0.tgz",
+      "verifiedFiles": 2
+    },
+    {
+      "package": "jszip",
+      "version": "3.10.1",
+      "license": "(MIT OR GPL-3.0-or-later)",
+      "source": "https://registry.npmjs.org/jszip/-/jszip-3.10.1.tgz",
+      "verifiedFiles": 2
+    }
+  ],
+  "campusPhoto": {
+    "path": "assets/whu-library.jpg",
+    "author": "Howchou",
+    "license": "CC-BY-SA-3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Wuhan_University_Old_Library.jpg",
+    "sha256": "fb58c6d2b8da14f911ed1b956b1a7d2041b0073ce6144ad93dc350add2711ae5"
+  },
+  "suppliedCourseFiles": [
+    {
+      "path": "course-packs/README.md",
+      "sha256": "6da85dba84de72f361c9c8f9b9d1a66a8cce75c0aedf02356f1907aca4bb77bc"
+    },
+    {
+      "path": "course-packs/course-analysis/习题.md",
+      "sha256": "6c45a6f8a35bd19a6eedb8b732450299fdf02885a6330714fd454613e3bd72de"
+    },
+    {
+      "path": "course-packs/course-analysis/知识点.md",
+      "sha256": "56af336c76974b2db14c129c81540eacf853b0c9ab87c22031aa6a829b110c2d"
+    },
+    {
+      "path": "course-packs/course-analysis/知识节点.xlsx",
+      "sha256": "52042e681e3a4deb8f6196bddf3d7c7467eb002f6c2c467c97794692e5672ba7"
+    },
+    {
+      "path": "course-packs/course-analysis-ii/习题.md",
+      "sha256": "076c53e1d3f25fb2a99b8db7d3e835db1c8c6b5649298f6fd59c2bb385fc6ca0"
+    },
+    {
+      "path": "course-packs/course-analysis-ii/知识点.md",
+      "sha256": "6d7c80a3e61cd915979d374e9f498e8afe8cb024cdba6c2b6453d671767f8b9f"
+    },
+    {
+      "path": "course-packs/course-analysis-ii/知识节点.xlsx",
+      "sha256": "d0cbf09aa3dfdb7f6dbe9869dd43320f7bd9f6b0258ea0c9a85520c730894bd3"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/习题.md",
+      "sha256": "a58a2783ea1960fc741f7ce3b0be8a04c9d17e9fa92f50d5acc8b9598c17c5d5"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/知识点.md",
+      "sha256": "3315bb311927266e2430dbd900b6011550340be9b4d6c3352d81690750344535"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/知识节点.xlsx",
+      "sha256": "5b165e3fe56706b89a701f74e5446e6b27fb2e1727c9cccb83262d7289ce41b3"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/习题.md",
+      "sha256": "51860a9c141e22d97885b1577e088c7fc28f56f0b58d7c358b72ef2d79f53698"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/知识点.md",
+      "sha256": "481344ce6624d3ffd024bd247e573847a1689b6b6539ecce64eeac3a427d96ba"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/知识节点.xlsx",
+      "sha256": "6d47c794f3b56d75acffcd454b8ba7011d8bc739fbfccc9785a3e6da9708e502"
+    },
+    {
+      "path": "course-packs/course-functional-analysis/习题.md",
+      "sha256": "35117655c83951a2e3a18056fbf842b026cb870626cda2fa05b048629afd2b11"
+    },
+    {
+      "path": "course-packs/course-functional-analysis/知识点.md",
+      "sha256": "54c6ca238201c48e74bc909bf19ea67d439eddecfd96dff8f9d99e694990816a"
+    },
+    {
+      "path": "course-packs/course-functional-analysis/知识节点.xlsx",
+      "sha256": "0cff375f1704b8b4164d2393146c12b45b7d52f816a3ee9a699b599b6f36d40b"
+    },
+    {
+      "path": "course-packs/course-harmonic-analysis/习题.md",
+      "sha256": "aa3a949cbab1d12136a9a0e8f302b33823b395b233a7cac1ad23def829ad780b"
+    },
+    {
+      "path": "course-packs/course-harmonic-analysis/知识点.md",
+      "sha256": "446b21fcd375555cd6c846e2bd8b88d1852ff8ef342e4e675fcf9a9cec34c162"
+    },
+    {
+      "path": "course-packs/course-harmonic-analysis/知识节点.xlsx",
+      "sha256": "8bb547c6935e117bfa446378fe34c398daf0349f564c70775202f2449876bb81"
+    },
+    {
+      "path": "course-packs/course-high-dimensional-probability/习题.md",
+      "sha256": "8eb995edec6e5d3d1c09f3128742636c7768ead1117d8e6f00b9307490ec9688"
+    },
+    {
+      "path": "course-packs/course-high-dimensional-probability/知识点.md",
+      "sha256": "6657d7b02af85ba4e6aa29c774f364570fed51c88dae5be4b5ab87fa5c62a27c"
+    },
+    {
+      "path": "course-packs/course-high-dimensional-probability/知识节点.xlsx",
+      "sha256": "9254c70d6834cf02a35bfc6ecfacdbd8d618af7906b1f6abfffc6227242d413c"
+    },
+    {
+      "path": "course-packs/course-machine-learning/习题.md",
+      "sha256": "8cd5abd0caeb1482f63da793c8ed99a06d246f2f276537e2facbee58e30cef07"
+    },
+    {
+      "path": "course-packs/course-machine-learning/知识点.md",
+      "sha256": "1256f65e070079d6f5e3a7e0337c502753ec5fe8d032dfd620c7f25790c53f53"
+    },
+    {
+      "path": "course-packs/course-machine-learning/知识节点.xlsx",
+      "sha256": "5f896850fd6e018748754c57f462f2cdd7ad85da8b7e277f34eaa9ff04e47784"
+    },
+    {
+      "path": "course-packs/course-neural-networks/习题.md",
+      "sha256": "5fbf18d19de5cd41c642d9bcd6dadd44fdb1fcd5fd2ebeab1d80fd0986c0e25e"
+    },
+    {
+      "path": "course-packs/course-neural-networks/知识点.md",
+      "sha256": "de062d2134b1e39ed2b499b0e83cc84a796a9d70c694fcf228e1eb8185202244"
+    },
+    {
+      "path": "course-packs/course-neural-networks/知识节点.xlsx",
+      "sha256": "4765f0df89faa72ade44fbf3cfb364e5fc274c1d6d295fd50fae240b79f439f0"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/习题.md",
+      "sha256": "6d3ba1e30af6b87144104e5bd2f07f0555f3a0a6fc36411ccb1e66779ddf6111"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/知识点.md",
+      "sha256": "fc6aed10bbd8e7a0b80eb5efa23c18ea1652d7e8024c2227848cdb2daeced7f6"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/知识节点.xlsx",
+      "sha256": "e653de381b1cbcd20c9402096f0b48ec182afa7dd58cccd7cb5554b17ef9467b"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/习题.md",
+      "sha256": "8356779e402d4edc4ca7a49a01111d17ac9e8589d31d3c9c9ad533a67bb848bd"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/知识点.md",
+      "sha256": "e4771fefdc554bc74c0a39cc7a3eef0a1d5d58ed7c3b8e4329bea1102a2b0a49"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/知识节点.xlsx",
+      "sha256": "0a2b6dd83a29bf3bb59e52b90137d685b6899c669fb74436c2705570225c371c"
+    },
+    {
+      "path": "course-packs/course-pde/习题.md",
+      "sha256": "644f3f188f29f8de7a52fd7b54eb90b1bc38302c82b5f688668298b2e9fea13f"
+    },
+    {
+      "path": "course-packs/course-pde/知识点.md",
+      "sha256": "b18b701d8a96274fe80d5129ed4983c166a5ca9674989b870cc265cc629597e0"
+    },
+    {
+      "path": "course-packs/course-pde/知识节点.xlsx",
+      "sha256": "22215c2cc46ea6708cc31c146c6e2497c594c358a5c39d6a18e802377a308abd"
+    },
+    {
+      "path": "course-packs/course-real-analysis/习题.md",
+      "sha256": "63eaf75137a604b78ffcc164049378fe8c75a6f127ae6523cd6755b1491180b4"
+    },
+    {
+      "path": "course-packs/course-real-analysis/知识点.md",
+      "sha256": "27080227661a46f6daa264c122094fc25f156b44ee09eb1a70fa6d760f659782"
+    },
+    {
+      "path": "course-packs/course-real-analysis/知识节点.xlsx",
+      "sha256": "66f664ea2ac7aade1032ef9c887915048e78e6430fb1dda1ddd780e3fcf4f3f5"
+    },
+    {
+      "path": "course-packs/course-symplectic-math-physics/习题.md",
+      "sha256": "ac8b57c6e18a668b3e22f1538b4b204f0912a448f789ea89cb6efb6c22b30cbe"
+    },
+    {
+      "path": "course-packs/course-symplectic-math-physics/知识点.md",
+      "sha256": "93c5390dfe9f2bd88c69a436f495abadb8992e53132bfc5005d9b546cdb8bf42"
+    },
+    {
+      "path": "course-packs/course-symplectic-math-physics/知识节点.xlsx",
+      "sha256": "d1bf8ad5ab4b65c9fbe322063f107b491536f8cc9b874b7bca150dcb2fe7fec8"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-093f273aacea-word-1790587520-a7f1cfad0cf22923db05c5bef93303cb.jpg",
+      "sha256": "ebe02ad5d12d0311116c762d345d5d86f924ed65bfcf158a7c689f72ea18389d"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-0a6eb4265e76-word-1790586618-6eb8e51063f6be8b6f65c88b1555aba2.jpg",
+      "sha256": "dcd8db5e3a43c7d86aafa5092036031d998c421717fcc8b2ea378373b332dcd6"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-0bd01c538464-word-1790587520-de28a4a32bac9d4e0d04bfd24bfe643e.jpg",
+      "sha256": "63ee38710f623e8094520f675274634a7ee21719aac9a20091030befe8a3ad49"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-0cb142021eab-word-1790587196-d22b8aec7d0228d069fedbf4bcc08c01.jpg",
+      "sha256": "d240205ebb4864df037735fcde462b8ffd6faadc4dc8f1d4c14cad36dfa5ce47"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-19fce0585992-word-1790587520-0427b2d2b1348c57adde9c8241a5a176.jpg",
+      "sha256": "35c51181d21d11d70315efcaceee66b9284b724ae02730c24fbd83a49d10d2f6"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-1ea3c61c8891-word-1790586619-d93992bc4a2d655e140609517035ac19.jpg",
+      "sha256": "a521b0362d9c7321532247d69a1450b6cb66d60531781ce03cd58b9d6ba3da00"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-281a612e2e3d-word-1790587441-9a0b93281a637163867d994a933d0ce8.jpg",
+      "sha256": "5afa6991f2077bb6e4013df19e2039f5fa8ee167c00709d6f20a345e679c3070"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-29043d961182-word-1790586618-4be9d4056197007dceb1278a5a1576b4.jpg",
+      "sha256": "6fb5fc31ab4fa922acce5a2d93f5f8fff7ee1b5846507ea0d3a0dd059bd4ba52"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-300d3969301f-word-1790586437-9f9d4a346c45cb6527404d3f2a7e851b.jpg",
+      "sha256": "b9fb823f593c1f01f804e847f84614fff1fdf959312434969cb6304fdec8aef5"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-32cc0aa20dc4-word-1790587521-519cf58cc00e2429c7f83aca9cb49aa6.jpg",
+      "sha256": "f742e99b1fb1da12dbd17b72038a8728a3b792e0e805557acd5855d0844b5d7d"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-3bc1a2383e7d-word-1790586255-822c57d1af5ab9dab2dcd51b82368795.jpg",
+      "sha256": "bf2cd493600fe27a5af41007c71433580d57a9f544e3a71f533d75859f928885"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-4ba8c1a26b86-word-1790586311-9ea8b8f3d2eac1e79bbf9253022a3545.jpg",
+      "sha256": "5bceea362368fa42fa4928b4f9d07ec02c148bc3a65ea14fce56663b694ac630"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-63e864092030-word-1790587441-f082a08b7bd179b2286cef76748c100f.jpg",
+      "sha256": "6e42b95fcb794639deb24bc444dddc7512fb3d15d7d2f67a60fe491825c1f8fe"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-69712e2a1ec5-word-1790586255-0b7a8907dd3d17c6d9a0975c3b407897.jpg",
+      "sha256": "d1a8945cf49b394b4b2360135570b3fd0f2453b3e5ef5b45c0d6c9b37df6e06f"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-70b640d7fd89-word-1790587196-2334f6252d35b2e4660e22dab6959285.jpg",
+      "sha256": "6b47e14d49a9f639f24d07380d344837133f8f5e78dfd6602bcc8f871a926f57"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-75d57d2f2855-word-1790587196-7bf8c1bda6697e9049fd47c0b466f4ad.jpg",
+      "sha256": "563ecb40e8541e69f0aef51eaedd03631d3b0b6f73790426d884836d7f5b7cbf"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-77bce3510d24-word-1790587305-73c8fe03ed06368b6a41ab7d696359ae.jpg",
+      "sha256": "b9e6964a24cf012cf45582c8c4925072e908d8e2909dd45abdb09249de9d9da3"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-7d34cc5f3d68-word-1790587441-1a66d77b0096ff5a330c184ac262e540.jpg",
+      "sha256": "2a99136508b1a6575d9304e85ec88805090e9ec18fd8b11bf6bed6aebe250acd"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-9fa3572feb1e-word-1790587521-82d95804cea60403bb80957acfbc63dd.jpg",
+      "sha256": "9d6a2795a162ef298598e541d3947ed3f3aad8b04ee88806e5bc4eb4cea059b5"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-ab9e612a40b7-word-1790586618-1fbb5cfaffe84907789a40935508012a.jpg",
+      "sha256": "4fe8c85c259342e61975b50b1920e65159760bc82fa79c4a60db7de293ca694c"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-b2adc7ec8d88-word-1790587196-e3150d423b3ef4e9bc04ad8eee46c8b1.jpg",
+      "sha256": "0e97b24188c34a1ab52fde25131c7513d624e9f9872e93e905c84faab67fea19"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-bb1e859afc90-word-1790587196-0459d0aa17396442d830257a61f585db.jpg",
+      "sha256": "63590163e08c22076e82997aeff082b13528e52a5fed8f01420a98a4d6dcb633"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-c45dfd2a28a5-word-1790587196-d05e707bc6f3579cca1c3db5ba0e014b.jpg",
+      "sha256": "1e67ab69d7f3c25e417fb0150f3aec26a7da9524757aa741e0f467374ae5e6c6"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-cde68c582564-word-1790587197-2943ad61e5334e562f45bf0bfdc18475.jpg",
+      "sha256": "f416df07e7c80d793bffc0d78f30bb23d655e8289900e9b3aeff7e550edcfa14"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-d11cc6fa3115-word-1790587441-842407c7fea48e10e63da642683a2359.jpg",
+      "sha256": "ec9d6289aadf7fa40931a1bad4f5c14885b68b21bac5f6f8d88912c8075cd16f"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-d381aec1c0e8-word-1790587521-d268ca3e19d5d0626ffc189cecd9248a.jpg",
+      "sha256": "5aebdc5e4439dadb00ef8648e4a20696792cd435428fa912767bb8a7e378ff10"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-e6786bfaa172-word-1790587521-23c68550108e850184e7f45861494009.jpg",
+      "sha256": "580cbc728c33776a214197b6430522f1ca4df713396a8a4bb8b49ea1b77d02a1"
+    },
+    {
+      "path": "course-packs/course-analysis/资料/插图/analysis-i-ed90a44b6b65-word-1790586867-3d7ef25a1bd1ef30c7300317399a3850.jpg",
+      "sha256": "6f5f649675c478f55a52ab851bba63a933f2211eaceb16b30240ad2c2921d429"
+    },
+    {
+      "path": "course-packs/course-analysis-ii/资料/插图/CJX-II-r130-1.jpg",
+      "sha256": "7eb92013e061670bb0fc9086bf3e975eb0dd39d9ede747b4f95ad5e126a1420c"
+    },
+    {
+      "path": "course-packs/course-analysis-ii/资料/插图/CJX-II-r131-1.jpg",
+      "sha256": "ef254575496e39aa6a4fefe675c55f1623b6c64048e9494027e0c5d6688ebf78"
+    },
+    {
+      "path": "course-packs/course-analysis-ii/资料/插图/CJX-II-r176-1.jpg",
+      "sha256": "ff739551e28856d15a85d7628aa8782ce44b465ce5fb8cc46048bf3e51e0c374"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/资料/插图/数学分析III-r004-c6-5b230a16a6.jpg",
+      "sha256": "a8922f1ec78a63fe8e0f18bd89fc0b49e2572dbfe254a7547f7bc245e0a0700d"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/资料/插图/数学分析III-r006-c4-556f6666c3.jpg",
+      "sha256": "f67229066ce3a1ecec8ac3ec83df59e815f0a25439a513600b628860398266a7"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/资料/插图/数学分析III-r007-c6-0b36b5fe60.jpg",
+      "sha256": "ac5d910e429a1ee43e04dc0f23878a0ddc04cb5e93b6c8ccf09949f76d1602e1"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/资料/插图/数学分析III-r007-c6-e85ba845db.jpg",
+      "sha256": "f00cbbe1cc10393530ab89c900e7d99a137a2de7662e388c8b74faabf269c89f"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/资料/插图/数学分析III-r014-c6-871063aa16.jpg",
+      "sha256": "7c33d9a5332e4f2f600ba146ee8eb337a334dec04e482d9bee3833284082d438"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/资料/插图/数学分析III-r030-c6-2465f79d0c.jpg",
+      "sha256": "94ba6cc825f545c556c683b672c0ccc1fe75dbc397cf8553c0c476a5944cc907"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/资料/插图/数学分析III-r031-c6-f777f80431.jpg",
+      "sha256": "9f306c11f19e01366be798d9ddc7c57f35b77aece5c6817935d583412e7c991b"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/资料/插图/数学分析III-r060-c6-8fae4b54fe.jpg",
+      "sha256": "fc7dc7ffd1bd1fa94f63542c50b41bfde2d7f8c28c4394747954569b09bf06db"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/资料/插图/数学分析III-r061-c6-02c3c728aa.jpg",
+      "sha256": "83622ee3614f6635939d7f04c44feb87a8b791899674519071a31b2e3c75e19e"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/资料/插图/数学分析III-r063-c6-6e3739e190.jpg",
+      "sha256": "d03c46784482b172176a3e7eaf84594a7cd575a1a1aec5f23e7d0e0c6d4e49c7"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/资料/插图/数学分析III-r070-c6-75258f345b.jpg",
+      "sha256": "0c9f1fffe275b3e2a85ede2f84077d62d61451928f9a1d280168b37c677ee93c"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/资料/插图/数学分析III-r071-c6-ec7d01ade0.jpg",
+      "sha256": "7f86f407d51c647eeb249cd02cf60fd535b7515c245280f94fb6f7f616cb3a90"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/资料/插图/数学分析III-r102-c6-1418bedcf1.jpg",
+      "sha256": "575d8d743e58db4d6779ac19c69887bc31e2b8b004ad89abe14e57e2aa83a083"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/资料/插图/数学分析III-r108-c6-9da3fb9ad7.jpg",
+      "sha256": "51492baf5e225c3956c9c7ffc6fd3e0102ab64984be43624fcbb316ccaad6fe4"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/资料/插图/数学分析III-r117-c6-ae34042c31.jpg",
+      "sha256": "a17f90de814bdf583d7eba5350527795738b63a476837675f9f1962b823f447b"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/资料/插图/数学分析III-r118-c6-3137d6d846.jpg",
+      "sha256": "e4bb05d7a6b0ae86225ae94c9677994bf716d6ad60980ba7a3e34455bebe79f8"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/资料/插图/数学分析III-r121-c6-5a6fc4518a.gif",
+      "sha256": "f8bb1bbe7d1b32ad8e757236ee15c55594b05b2f9bd11505643fe9e2a7211278"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/资料/插图/数学分析III-r122-c6-d0827f258c.jpg",
+      "sha256": "265987017cd4504b1b6efbe46b5edc441fafc0296cd9caa7ba287bc6115d10c2"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/资料/插图/数学分析III-r122-c6-f6803e7140.jpg",
+      "sha256": "8db8df9d7808d3fb2d031436d4132b55537e50d3bcaace46e89d86a6a61e3924"
+    },
+    {
+      "path": "course-packs/course-analysis-iii/资料/插图/数学分析III-r125-c6-18c6af101c.jpg",
+      "sha256": "4d76fde7480bf71e1f2c0329dd5d2ebad8192a6f0556cbc18473e150cd3d5f5f"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/05024bbf142f602e.jpg",
+      "sha256": "ef57aef1e3f603caa07b20dee6575bc250b7d9c383f22a922a789a0c62164aff"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/1b3c62464ebe7584.jpg",
+      "sha256": "2f219df80eb193b0bb9287f2a3154e4417a846e23e5cdb138a408a76593c9852"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/23388e2a8883a676.png",
+      "sha256": "401fbcce5e8fd3bf4bdac70907b29f21d0d73c6288a76de209f9fc1439b37e75"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/267f390e6300e1d8.jpg",
+      "sha256": "563acf7f7a73dad42b6cb99edbf1ec2fdc286d9b47125fde5f5405d9235db334"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/2a283a3144d2d1c9.jpg",
+      "sha256": "34b7af36d5f0f5bc998ef04f3fae3573aa1934b2b7dc7a68ad61a2dec5067c06"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/2a4d64f41de237cf.png",
+      "sha256": "bb524dbb0ae8591f93f4c72aadb775819a70540746c57c81d92c10016a097df0"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/2f1ffe82da956632.jpg",
+      "sha256": "f0c3301905dc53e36a676f0a38d5caa0a408fbb49f34969679d29091daca3edd"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/3ecf1bf0c566afb3.jpg",
+      "sha256": "808c04009a68f7f370322ab47a65b6ab0c3e4e56738cf97a86c92b79896c9121"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/4130f6c8550ccd49.jpg",
+      "sha256": "fda4a22ac580440932cf9267eb8dbfdd682260e853b2a7db48d00bb19f6561be"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/480de4291107fb85.jpg",
+      "sha256": "6389e78dc5fbc3369213177361e4d2103602af9ccf3a01734fbb9bc3257cb995"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/566166bacc9efd57.jpg",
+      "sha256": "1f17490cd7e9427df919e44a1e4bb3b9c7381a00e07eeb8a54bcac1060b02c05"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/624fb865a2e82cfc.jpg",
+      "sha256": "ea2c376a65b7e83a814947fedf78acf5593b1f722f3224a5252c81eef9a272ee"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/6625a6d8e4e13a41.png",
+      "sha256": "bc0d2474d758eada0b5afc1c38ce6fdd7a62b194a36bd9d5fd41b1441e0a91aa"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/68f102cbc637fab0.jpg",
+      "sha256": "81d7073436c3e1926b7a29478a527df1c11ce1e7f9893631f34f64a6cf541c39"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/6d26bf8811cfc831.png",
+      "sha256": "b758f3e11683a0280fdf33cf819fc3d50a4ac212ddaf48359293f53da68d428c"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/736e9e594a1412bc.jpg",
+      "sha256": "dc2575e355998c5402fd96903cd4841ada09437848afea6c543b37f604f1aaf5"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/7425f272670b5c95.jpg",
+      "sha256": "2ca40dad24dc457e9567123e14a3ce5b794d66a950e894508f14001d72eaabd6"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/79d8db686eb632af.jpg",
+      "sha256": "a021d7605833bf1246d3f4591dcfd6074c3eb90c22af5df1ef787613dde7227e"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/8df1770fbe80a305.jpg",
+      "sha256": "45b3b07753580b5903d81f5df295dd73cbfd19bee849e78a4d03f3984cff133c"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/8e4efcb9491409df.png",
+      "sha256": "71df8c2fbc75756345e6efa1fa44bcadc2328d8f7ab15b0911ece6b772a0ba32"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/9b29e7a170103685.jpg",
+      "sha256": "3b46cd13f7efdc798d052ee867298791bfc4d65eb893047c36fdc77e81933dfd"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/9e03657e7ec9fe80.jpg",
+      "sha256": "049cf77561da51c237087f83dd47a71a1cb5778ac7783180e9cd4a87ada595bf"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/ad4eba3550cac442.jpg",
+      "sha256": "1caae2651e68b64542283f5b842b3b05ce2f4b01d3ac619333a2b6d367fb12c4"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/b7717c09a80ed819.jpg",
+      "sha256": "d019a6ebf6ebd53c8f92a69737e0c25f746dce60d9aabac1dcb51c7a3e8df90d"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/bbb1fb72fa341afd.jpg",
+      "sha256": "6018419c7898453de5765b9bffb17d4a813d21bf9b9c7661579123bccb7d02b6"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/bdf29467820fe828.jpg",
+      "sha256": "737a864058eb72e262fe9f9a47b084c2f446b69637ac9173001dee7bee275650"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/bfd679e1c0316886.png",
+      "sha256": "685c7316e40fafcf705ea6962b42c87e5e5a553a8dc1854567a3be04e8f7a29e"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/cd2951c48ad63d88.jpg",
+      "sha256": "6d8e7cded387f8a3b357e1689a097e42954a692fcf6fb24abf8ce675e9623a45"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/d41ae04a1b5fb333.jpg",
+      "sha256": "7442cf16e7a9595b57f8551d4cf9a74d76d6842c8e15133a8ca96845710ff794"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/df0fdcb402a3d231.jpg",
+      "sha256": "8c54635e005249b3c1d3ef0f2ea76e96d22607bdb28967717927b9037a12cfe5"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/e3c489878d90e2c8.jpg",
+      "sha256": "d2341754e6594f2d3a29148560a5a4f2c448753484262a950822af35158b070e"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/eec9e53f99c7fefb.jpg",
+      "sha256": "f1c085f04f377b9e9c3e6b130008957180eeacb1ba091147179c5b73a81ae90a"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/f8c39a3c3ce54fc0.jpg",
+      "sha256": "2ba2b0b0013b7c758e4d12e92075145b1a2d42ece0665c834c36f72685080bf0"
+    },
+    {
+      "path": "course-packs/course-complex-analysis/资料/插图/谭小江-习题八-12-区域图.png",
+      "sha256": "00b60c876f6347dc859e13510c5c640230ac47be48b6f28ca7bada67cc9449a2"
+    },
+    {
+      "path": "course-packs/course-machine-learning/资料/插图/A-PDF0091.png",
+      "sha256": "113b08a41705aeaa6bb8935c5b12eaea770152b595a47033ddc4313465bfeabd"
+    },
+    {
+      "path": "course-packs/course-machine-learning/资料/插图/A-PDF0097.png",
+      "sha256": "c76ee532be52ff288fc4116be25b36b48ea597548ee881760fbc9f3fd63f154c"
+    },
+    {
+      "path": "course-packs/course-machine-learning/资料/插图/A-PDF0099.png",
+      "sha256": "b19322c9cb5a372a7388057762b86131f36aaa8bfb9f79a164b7cf20c6bb6a37"
+    },
+    {
+      "path": "course-packs/course-machine-learning/资料/插图/A-PDF0101.png",
+      "sha256": "27aaa254e832b5b66339e9c0b50f73b9b14aff9800467be84fd6b7b51ec322ea"
+    },
+    {
+      "path": "course-packs/course-machine-learning/资料/插图/A-PDF0104.png",
+      "sha256": "f3a2c8e5a32676553ea00ac40a4ec3dded02fefcac043326ca1318989ab55c1b"
+    },
+    {
+      "path": "course-packs/course-machine-learning/资料/插图/A-PDF0217.png",
+      "sha256": "7feda42c0028ce105946acc72249920635b1ad4371c798c5f68b95e5f7bbe8cd"
+    },
+    {
+      "path": "course-packs/course-machine-learning/资料/插图/A-PDF0370.png",
+      "sha256": "a7cb9366d2de120b92ccf41c13c48c2b3f8b35d216f598e6b4bb60e4d339941e"
+    },
+    {
+      "path": "course-packs/course-machine-learning/资料/插图/B-PDF0075.png",
+      "sha256": "e25674fec9124e3cd1cd0b0c00afe4b9bbbf8cd78178dcfa6ffab01952b99a61"
+    },
+    {
+      "path": "course-packs/course-neural-networks/资料/插图/T-fig-270.png",
+      "sha256": "edebeb0f82349ae8e335fcb6d960e688b2e5e87ec8e8ff2794f64589fde5faeb"
+    },
+    {
+      "path": "course-packs/course-neural-networks/资料/插图/T-fig-271.png",
+      "sha256": "cb0f027257ddf273bba321d0da3377f9894426edf7ce528845cb25b9b8ab3a61"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture04-4.3.png",
+      "sha256": "22584f09bb1356521067feea956b2d008941bc94de3c0ea1a9abe34be1410d50"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture05-5.3.png",
+      "sha256": "35fa06918c01043e64f5367da9421a7ce9a190d24bed15363f68a7adea6bd2b5"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture09-9.1.png",
+      "sha256": "a634b36a8e643e04eb0ba1b6b6c6ab945d3d1c1405d416fa24a853f921020e09"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture09-9.3-ranks.png",
+      "sha256": "f06240c42e127661de033707cd2fd009ae86147f60d31ee06fbf65e408a06c0a"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture09-9.3-spectrum.png",
+      "sha256": "c7ed4b854accde82076a6ab291cc60f8a22fcd47f2d9df12cb370187c5ee5a37"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture11-11.2-0-1.png",
+      "sha256": "0eeb304e2fca6e1db912887ff22a3af5e783c83de16d3773191807ff9fecf96f"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture11-11.2-1-2.png",
+      "sha256": "a7cb661cd447414308015103413d99faba8b07d94bff8acec1bd927c926bd28a"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture12-12.2.png",
+      "sha256": "826185b7985c667b723dbccc2e55210ce4dcb07ce656c15e50d58c197d2a771f"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture12-12.3-eigen.png",
+      "sha256": "8a798f951beddaedd2155690bd59ca95a1944a514d0b1e336e3a0924ef98c98d"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture12-12.3-tail.png",
+      "sha256": "1f65e445c1254c8622c1e05ac8a7e8482159551490c927a55457552d29baf7a7"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture13-13.3.png",
+      "sha256": "4da220bac3b6a8e0333a6e8afaa433fc5c2ec9266ebfc4f7e5b309b066b17dc0"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture17-17.3.png",
+      "sha256": "d83808f228e748a59ddc854835e18cb3e159a879db6838d35c64dfc5e0a58031"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture22-22.3-growth.png",
+      "sha256": "78915788d06b2fe08ecbb946e871c17096738c041cff1a21c2941ad476f9ff1e"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture22-22.3-signs.png",
+      "sha256": "638377ae19f60644561d8d5321ea424d1b8fe804f66e2d53fe236f0d3e9c4022"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture24-24.3.png",
+      "sha256": "a17cd86961b2de799e2cff1d46b8418fea68c623ca4b556d9965d3240f22ad9b"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture26-26.2.png",
+      "sha256": "adf699b87ee2b78619a23ba3915148d8ca813d1d7bddcd142682458bafd0cea0"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture29-29.1.png",
+      "sha256": "b9d693beaa732c04a783334c6ccd60f642446de23233c2dba24689d8e4857816"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture30-30.5-30.7.png",
+      "sha256": "6bb6b6b57eecbf2a392996bcf23eadb3ac758295c5f4c6f12e704db9b13df447"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture31-31.4-31.5.png",
+      "sha256": "288d4d8de8e0a53e579e27905922a272c044e675c3463f877c09c4fd3525c1a1"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture34-34.3.png",
+      "sha256": "6f5484ef15874b2461ee2b40e0f7bc300727f2a4faf1c5fd92d328bdb2fb6621"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture36-36.4-book203.png",
+      "sha256": "fa757f0f4df049c4a5f8a40c3ff81e638d3ef88e0ee126d0f62f894580c5df7b"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture36-36.4-chosen1000.png",
+      "sha256": "277176ad498797b4f0888722075efc988355f2aa40535033cb35ea9530750482"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture37-37.4-37.5.png",
+      "sha256": "084810ef3c70466bfcfb9827f015eee498fcb1219ae94966b5f2f534844e6147"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-lecture38-38.1-38.6.png",
+      "sha256": "aa694e8232d75fd50f2f25a2a3a8b6e785a4cc008e2f06156d27bc0551ce8104"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/TB-native-273.png",
+      "sha256": "96735aab637fb86719f7715493c546991147d0f0e8e669cb770c5926c029c215"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/XH-ch03-21.png",
+      "sha256": "cd84d47ee59b728c1967f2d7aa2118bf4cab34842568f4e5b3167b18f09ce0ef"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/XH-ch03-22.png",
+      "sha256": "a912761ecac98c89d05f8589994a0d2f4faea9c8a90fe369ed89c815f91e5cda"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/XU-111.png",
+      "sha256": "305a37713137101f0b23d4b23813dd9cd6f3e0fe86c98824bed9a9cc7f599f21"
+    },
+    {
+      "path": "course-packs/course-numerical-analysis/资料/插图/XU-112.png",
+      "sha256": "35fa275741126d3d3681a7e9eda90cc1b7abf16dc82be6c038ba137d2a5cdef3"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture04-4.3.png",
+      "sha256": "22584f09bb1356521067feea956b2d008941bc94de3c0ea1a9abe34be1410d50"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture05-5.3.png",
+      "sha256": "35fa06918c01043e64f5367da9421a7ce9a190d24bed15363f68a7adea6bd2b5"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture09-9.1.png",
+      "sha256": "a634b36a8e643e04eb0ba1b6b6c6ab945d3d1c1405d416fa24a853f921020e09"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture09-9.3-ranks.png",
+      "sha256": "f06240c42e127661de033707cd2fd009ae86147f60d31ee06fbf65e408a06c0a"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture09-9.3-spectrum.png",
+      "sha256": "c7ed4b854accde82076a6ab291cc60f8a22fcd47f2d9df12cb370187c5ee5a37"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture11-11.2-0-1.png",
+      "sha256": "0eeb304e2fca6e1db912887ff22a3af5e783c83de16d3773191807ff9fecf96f"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture11-11.2-1-2.png",
+      "sha256": "a7cb661cd447414308015103413d99faba8b07d94bff8acec1bd927c926bd28a"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture12-12.2.png",
+      "sha256": "826185b7985c667b723dbccc2e55210ce4dcb07ce656c15e50d58c197d2a771f"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture12-12.3-eigen.png",
+      "sha256": "8a798f951beddaedd2155690bd59ca95a1944a514d0b1e336e3a0924ef98c98d"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture12-12.3-tail.png",
+      "sha256": "1f65e445c1254c8622c1e05ac8a7e8482159551490c927a55457552d29baf7a7"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture13-13.3.png",
+      "sha256": "4da220bac3b6a8e0333a6e8afaa433fc5c2ec9266ebfc4f7e5b309b066b17dc0"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture17-17.3.png",
+      "sha256": "d83808f228e748a59ddc854835e18cb3e159a879db6838d35c64dfc5e0a58031"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture22-22.3-growth.png",
+      "sha256": "78915788d06b2fe08ecbb946e871c17096738c041cff1a21c2941ad476f9ff1e"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture22-22.3-signs.png",
+      "sha256": "638377ae19f60644561d8d5321ea424d1b8fe804f66e2d53fe236f0d3e9c4022"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture24-24.3.png",
+      "sha256": "a17cd86961b2de799e2cff1d46b8418fea68c623ca4b556d9965d3240f22ad9b"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture26-26.2.png",
+      "sha256": "adf699b87ee2b78619a23ba3915148d8ca813d1d7bddcd142682458bafd0cea0"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture29-29.1.png",
+      "sha256": "b9d693beaa732c04a783334c6ccd60f642446de23233c2dba24689d8e4857816"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture30-30.5-30.7.png",
+      "sha256": "6bb6b6b57eecbf2a392996bcf23eadb3ac758295c5f4c6f12e704db9b13df447"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture31-31.4-31.5.png",
+      "sha256": "288d4d8de8e0a53e579e27905922a272c044e675c3463f877c09c4fd3525c1a1"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture34-34.3.png",
+      "sha256": "6f5484ef15874b2461ee2b40e0f7bc300727f2a4faf1c5fd92d328bdb2fb6621"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture36-36.4-book203.png",
+      "sha256": "fa757f0f4df049c4a5f8a40c3ff81e638d3ef88e0ee126d0f62f894580c5df7b"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture36-36.4-chosen1000.png",
+      "sha256": "277176ad498797b4f0888722075efc988355f2aa40535033cb35ea9530750482"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture37-37.4-37.5.png",
+      "sha256": "084810ef3c70466bfcfb9827f015eee498fcb1219ae94966b5f2f534844e6147"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-lecture38-38.1-38.6.png",
+      "sha256": "aa694e8232d75fd50f2f25a2a3a8b6e785a4cc008e2f06156d27bc0551ce8104"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/TB-native-273.png",
+      "sha256": "96735aab637fb86719f7715493c546991147d0f0e8e669cb770c5926c029c215"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/XH-ch03-21.png",
+      "sha256": "cd84d47ee59b728c1967f2d7aa2118bf4cab34842568f4e5b3167b18f09ce0ef"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/XH-ch03-22.png",
+      "sha256": "a912761ecac98c89d05f8589994a0d2f4faea9c8a90fe369ed89c815f91e5cda"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/XU-111.png",
+      "sha256": "305a37713137101f0b23d4b23813dd9cd6f3e0fe86c98824bed9a9cc7f599f21"
+    },
+    {
+      "path": "course-packs/course-numerical-linear-algebra/资料/插图/XU-112.png",
+      "sha256": "35fa275741126d3d3681a7e9eda90cc1b7abf16dc82be6c038ba137d2a5cdef3"
+    },
+    {
+      "path": "course-packs/course-pde/资料/插图/A-0192.png",
+      "sha256": "9eb7b615b299e550ca3851ea6d303c5da58fbc9cab3b3a96d797602852152d03"
+    },
+    {
+      "path": "course-packs/course-pde/资料/插图/B-1.2.3-characteristics.png",
+      "sha256": "d8f0d8af1da06b11e7035edfe7f1d6d7c2aab01735890940faec45044234035f"
+    },
+    {
+      "path": "course-packs/course-pde/资料/插图/B-2.1.5-hammer.png",
+      "sha256": "fbba8b33831268e6572b17a8111f70e0a745299a92bbcf9d46fde7548e871122"
+    },
+    {
+      "path": "course-packs/course-pde/资料/插图/B-2.3.3-heat.png",
+      "sha256": "4f305392ad5aea26d7497bf53207f59867b62ac6b2c72c205c11a1ea8d50f84f"
+    },
+    {
+      "path": "course-packs/course-pde/资料/插图/B-3.2.2-free-end.png",
+      "sha256": "c96b017fe0bbe43da4360d5aba190934e9d1f2c5bc511ddb5b0b6bd89d7d9dfb"
+    },
+    {
+      "path": "course-packs/course-pde/资料/插图/B-4.3.8-robin.png",
+      "sha256": "9a44ff4593d23d1840eacf87f9821f206423c675df924deb66ba251799fbab7a"
+    },
+    {
+      "path": "course-packs/course-pde/资料/插图/S-10.4.2-nodal.png",
+      "sha256": "e161e312d88d2f2bbf7bdc18b79618b041c3412be3862b822c9fccd6f3c621b3"
+    },
+    {
+      "path": "course-packs/course-pde/资料/插图/S-14.1.10-shock.png",
+      "sha256": "a37b10696962596cb058d02f6765277ced44ba54faa3edaed8f5c7378de72012"
+    },
+    {
+      "path": "course-packs/course-symplectic-math-physics/资料/插图/ellipse-offsets.png",
+      "sha256": "800b647bb8e91d239e9aff679fe0a24e9ca00a29f2cbd92cb5b2f76f7a820f62"
+    },
+    {
+      "path": "course-packs/course-symplectic-math-physics/资料/插图/ellipsoid-offsets.png",
+      "sha256": "25832bd7ab0ae61aa320d4131a658e2d573a7d641aca858bd18fd28442299277"
+    },
+    {
+      "path": "course-packs/course-symplectic-math-physics/资料/插图/figure003.png",
+      "sha256": "20ab86449caec2b9c42b674584b47027b019d6eddd435b92032ce32412ef854f"
+    },
+    {
+      "path": "course-packs/course-symplectic-math-physics/资料/插图/figure011.png",
+      "sha256": "89241b49b93015b703c7be207154c77f3bc529b19dd6d889111f52389736e129"
+    },
+    {
+      "path": "course-packs/course-symplectic-math-physics/资料/插图/figure012.png",
+      "sha256": "917d4fbeaef6ec7ce19dfcf64ec11a03a39efcb6250c3d7e07f99be0e0ae18c8"
+    },
+    {
+      "path": "course-packs/course-symplectic-math-physics/资料/插图/figure015.png",
+      "sha256": "4f964d4ac20af7899b7a19bd2c85e64f950e67f032d0176991a3e76a67946b19"
+    },
+    {
+      "path": "course-packs/course-symplectic-math-physics/资料/插图/figure201.png",
+      "sha256": "d1d858e6a1ee3060129927666e246f67eea22dd6e89164bb66b115c800eb6cd6"
+    },
+    {
+      "path": "course-packs/course-symplectic-math-physics/资料/插图/figure203.png",
+      "sha256": "787bb2612a5e52e0794e35866bd27aa427fccdc90cc3be4de1deee4b6c71eeb5"
+    }
+  ],
+  "generatedData": [
+    {
+      "path": "data/course-analysis-ii.json",
+      "sha256": "6daabd657cca00e42e5a029bac7497cc812bf3e564299c68b5155ae65e28c727"
+    },
+    {
+      "path": "data/course-analysis-iii.json",
+      "sha256": "247b536783b765d21b51cd468f92cd9ee4eef0840da5e90bd90c8c0b2d347666"
+    },
+    {
+      "path": "data/course-analysis.json",
+      "sha256": "25c990b84c9aa2c098b4aa1b7fc4de085635a7b52c90b6a73692d5cb912346c9"
+    },
+    {
+      "path": "data/course-complex-analysis.json",
+      "sha256": "245fc72f348b02c0106288cf73b8b57db0e1cafe12e91408d39fb698247cd0a3"
+    },
+    {
+      "path": "data/course-functional-analysis.json",
+      "sha256": "31be81f809834c2104e66aa2f8ceb107376f31db82265787aa55cb678490d3c7"
+    },
+    {
+      "path": "data/course-harmonic-analysis.json",
+      "sha256": "af518bf28e6ddf19b6ae812e4af5a2622645999b444a419c5b2df1c9bc23978a"
+    },
+    {
+      "path": "data/course-high-dimensional-probability.json",
+      "sha256": "bcbf6698d9dc8ea9c00b054f59412e07b89771dad8f32f110767491a10681cea"
+    },
+    {
+      "path": "data/course-machine-learning.json",
+      "sha256": "1511f0464e94c9b4edd896f1b55975bebffc5f8683c1b5fd415148281a5a274f"
+    },
+    {
+      "path": "data/course-neural-networks.json",
+      "sha256": "991e679919d06a36c386e9f1070cacfb5156b9459314d4771205dcf2ef25bc46"
+    },
+    {
+      "path": "data/course-numerical-analysis.json",
+      "sha256": "404267fdb94bfe1f1095c0259ac8151622c4bcf6520ec816ea2ad18601a1e83a"
+    },
+    {
+      "path": "data/course-numerical-linear-algebra.json",
+      "sha256": "8cf966f0b4c01ec223c2b0dfda36a11af9074cb1dac1af792d0958b0f9f53d09"
+    },
+    {
+      "path": "data/course-pde.json",
+      "sha256": "a0229bb7ceb3d676232a81c09aaa86ad3f2f0737c883cffd67b7d7fb04b8f7ed"
+    },
+    {
+      "path": "data/course-real-analysis.json",
+      "sha256": "71c0d3bc170d95cf62b46274bad9b70d214bb4310781cc880173db84de7ff47f"
+    },
+    {
+      "path": "data/course-symplectic-math-physics.json",
+      "sha256": "666e4365ce677b2129e6fbb2b85f1e1ffbbd6476ede008cbb70a158083904bc5"
+    },
+    {
+      "path": "data/courses.js",
+      "sha256": "7d654945ee2ce9faedd174e0742aa88a89e3ce00eedff5368a74e329b4497945"
+    },
+    {
+      "path": "data/courseware.js",
+      "sha256": "de3227ad5287e2ce9a8436d914f589f6ee6537a7008e4ff87911042c3bea76b3"
+    }
+  ],
+  "conclusion": "Source origins are separated and inventoried. These checks are not a claim that all dependencies, textbooks, photographs or generic interface patterns are original."
+}
