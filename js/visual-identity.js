@@ -27,6 +27,7 @@
     activity: stroke('M4 14c3 0 2-8 5-8s2 12 5 12 3-9 6-9'),
     menu: stroke('M6 6h13M6 12h10M6 18h13'),
     plus: stroke('M12 6v12M6 12h12'),
+    refresh: stroke('M20 12a8 8 0 1 1-2.3-5.6M20 4v4.5h-4.5'),
     send: stroke('m4 6 16 6-16 6 3-6zM7 12h13'),
     link: stroke('m9 8 3-3c4-3 9 2 6 6l-3 3M9 10l-3 3c-3 4 2 9 6 6l3-3M9 15l6-6')
   };

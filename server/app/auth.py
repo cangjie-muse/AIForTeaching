@@ -34,6 +34,14 @@ AUTH_MODE = os.environ.get("AUTH_MODE", "dev")   # dev | cas（cas 待实现）
 
 ROLES = {"student", "teacher", "reviewer", "admin"}
 
+# 开发期的默认角色。没有它，本地连点"保存"都要手写 curl 头，最后大家会
+# 直接把 require() 注释掉——那比现在这样危险得多。
+# 生产必须 AUTH_MODE=cas，此时本变量不生效（见 main.py 的启动检查）。
+DEV_ROLES = frozenset(
+    r.strip() for r in os.environ.get("AUTH_DEV_ROLES", "admin").split(",")
+    if r.strip() in ROLES
+)
+
 
 @dataclass(frozen=True)
 class Actor:
@@ -53,9 +61,13 @@ def resolve_actor(x_actor: str | None, x_roles: str | None) -> Actor:
         raise HTTPException(501, "统一身份认证尚未接入（AUTH_MODE=cas）")
 
     actor_id = (x_actor or "anonymous").strip() or "anonymous"
-    roles = frozenset(
-        r.strip() for r in (x_roles or "").split(",") if r.strip() in ROLES
-    )
+    raw_roles = (x_roles or "").strip()
+    roles = frozenset(r.strip() for r in raw_roles.split(",") if r.strip() in ROLES)
+    # 只有"完全没传角色"才套用开发默认值。
+    # 传了但全是无效角色（如 superuser）时保持为空——否则手误会被当成 admin，
+    # 而这恰恰是要在开发期就能看见的行为。
+    if not roles and AUTH_MODE == "dev" and not raw_roles:
+        roles = DEV_ROLES
     return Actor(id=actor_id, roles=roles)
 
 

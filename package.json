@@ -8,8 +8,9 @@
     "import:course": "node scripts/import-course.cjs",
     "index:courseware": "node scripts/courseware-index.cjs",
     "start": "python3 scripts/serve.py",
-    "check": "eslint js scripts/*.mjs scripts/*.cjs && node scripts/verify.cjs && node scripts/verify-catalog-graph.cjs && node scripts/courseware-index.cjs --check && node scripts/audit-source.cjs",
+    "check": "eslint js scripts/*.mjs scripts/*.cjs && node scripts/verify.cjs && node scripts/verify-catalog-graph.cjs && node scripts/courseware-index.cjs --check && node scripts/audit-source.cjs && node scripts/test-view-api-config.cjs",
     "audit:sources": "node scripts/audit-source.cjs",
+    "test:view": "node scripts/test-view-api-config.cjs",
     "seed:db": "python db/build_seed.py",
     "verify:db": "node db/verify_seed.mjs"
   },

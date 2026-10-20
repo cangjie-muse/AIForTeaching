@@ -26,3 +26,5 @@ db/seed.sql
 # 环境变量与密钥
 .env
 .env.local
+secrets/
+/secrets

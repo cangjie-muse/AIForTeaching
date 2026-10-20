@@ -1,12 +1,16 @@
 {
-  "checkedAt": "2026-10-20T08:56:07.193Z",
+  "checkedAt": "2026-10-20T09:32:27.600Z",
   "scope": "Project source/provenance audit; no private competitor source or internet-wide similarity database comparison",
   "checks": {
-    "runtimeFiles": 30,
+    "runtimeFiles": 32,
     "generatedCourseScriptIsDataOnly": true,
     "competitorMarkerHits": [],
     "remoteEntryAssets": [],
     "networkCodeHits": [],
+    "networkCodeAllowed": [
+      "js/api-config.js"
+    ],
+    "allowedReason": "js/api-config.js 是服务器模型配置页，必须调用后端 API；其余前端页面保持离线可用。",
     "stylesheetRemoteLoads": [],
     "verifiedVendorFiles": 71,
     "unregisteredVendorFiles": []
@@ -14,11 +18,15 @@
   "projectSourceInventory": [
     {
       "path": "index.html",
-      "sha256": "9f66ced5b4032323a7970ff810537bed610b3de1465d00a3e856c8e67274e2a9"
+      "sha256": "4ce19f5dace4bf3407812900ec6d8252ae254bfd013beda8e1a0259d167849e0"
+    },
+    {
+      "path": "js/api-config.js",
+      "sha256": "fe0d5175b969aa17b7c724b110d4d31e542f1424f21584eecade9a1a7af9d782"
     },
     {
       "path": "js/app.js",
-      "sha256": "f2d918d75a95175315dafdd9d0c33f9733e7d42728dd6ff7541cde8bdc80b0f7"
+      "sha256": "6989a3b940d2d5ad8631335bfcc388e14e62e7cc5a61c8cebe37f1466e8d2085"
     },
     {
       "path": "js/catalog-view.js",
@@ -86,7 +94,7 @@
     },
     {
       "path": "js/visual-identity.js",
-      "sha256": "7445a1c3122fa51649c5d4c122f627bec1a1f9603ec6066c2e5d187f83ee3ab3"
+      "sha256": "1a74fb6e09a5eda1091dd8c8042cb407f20da57d08a0c9205caa3799a4109cdf"
     },
     {
       "path": "js/workspace.js",
@@ -95,6 +103,10 @@
     {
       "path": "js/xlsx-reader.js",
       "sha256": "8b0239f2609e5bdc0003658e62ea287108b1008ac5acf79abd0cfe07c691006a"
+    },
+    {
+      "path": "styles/admin.css",
+      "sha256": "b08637d0c8ff8d690a4128236c0046a29ffaa4c951b3b9c00ff2ffb60ca72c80"
     },
     {
       "path": "styles/base.css",
@@ -134,7 +146,7 @@
     },
     {
       "path": "scripts/audit-source.cjs",
-      "sha256": "4ddb6ff3e180e2c7c216bfe837284b4d9ba3603474493e877c6545fb888819aa"
+      "sha256": "ce27ce0e6aa7021b6ddc53e67c31c44ba4be0565082727f3eedba27ec76ff0f4"
     },
     {
       "path": "scripts/courseware-index.cjs",
@@ -161,6 +173,10 @@
       "sha256": "1d710ff017f8f3c84bf676abb59c9c139ae042cd536cd90f589249ce1bc13e58"
     },
     {
+      "path": "scripts/test-view-api-config.cjs",
+      "sha256": "fea25f427c60c658481b7a7208d40bba50253fdd3992cedd72bd597e94c8c489"
+    },
+    {
       "path": "scripts/vendor.mjs",
       "sha256": "723cdf33a2b032c710a2ba9992dda1c66e08252d4e8015a29478d9ba2fceb184"
     },
@@ -178,7 +194,7 @@
     },
     {
       "path": "eslint.config.mjs",
-      "sha256": "cf2c0bdd811484230d011a838b5345956bce2ba2b3ddaaf094a16ff5d7bc706f"
+      "sha256": "a2d0ad7c14913987f72fdc3cde0c08a4bddf49b323e887121425e8abb86c2e5d"
     }
   ],
   "openSource": [

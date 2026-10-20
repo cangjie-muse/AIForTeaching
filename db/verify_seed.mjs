@@ -402,4 +402,43 @@ const { rows: ext } = await db.query(
 );
 report('外部端点登记后可审计', ext.length === 1, ext[0]?.approved_by ?? '');
 
+// ---------------------------------------------------------------------------
+// 0006 配置界面：公开视图不得泄露密钥路径
+// ---------------------------------------------------------------------------
+console.log('\n配置界面（0006）：');
+
+const { rows: publicCols } = await db.query(
+  `SELECT column_name FROM information_schema.columns
+   WHERE table_name = 'v_model_endpoint_public'`
+);
+const publicNames = publicCols.map((r) => r.column_name);
+report('公开视图不含密钥路径', !publicNames.includes('api_key_path'), `${publicNames.length} 列`);
+report('公开视图给出 key_configured 标记', publicNames.includes('key_configured'));
+
+await db.query(
+  `UPDATE model_endpoint
+   SET api_key_path = 'deepseek-chat.key', api_key_updated_at = now(), updated_by = '信息化专员'
+   WHERE name = 'deepseek-chat'`
+);
+const { rows: configured } = await db.query(
+  `SELECT key_configured FROM v_model_endpoint_public WHERE name = 'deepseek-chat'`
+);
+report('配置密钥后标记为已配置', configured[0].key_configured === true);
+
+// 自检结果要能落到界面显示的三个字段上
+await db.query(
+  `UPDATE model_endpoint
+   SET last_test_at = now(), last_test_ok = false, last_test_note = 'HTTP 401: invalid api key'
+   WHERE name = 'deepseek-chat'`
+);
+const { rows: tested } = await db.query(
+  `SELECT last_test_ok, last_test_note, updated_by
+   FROM v_model_endpoint_public WHERE name = 'deepseek-chat'`
+);
+report(
+  '自检结果可展示',
+  tested[0].last_test_ok === false && tested[0].last_test_note.includes('401'),
+  tested[0].last_test_note
+);
+
 process.exit(failed === 0 ? 0 : 1);

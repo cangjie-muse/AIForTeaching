@@ -1,0 +1,212 @@
+/* 模型接口配置界面。只写这一个页面用到的样式，避免污染 views.css。 */
+
+.api-actor {
+  align-items: flex-start;
+}
+
+.api-actor > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.api-actor code {
+  background: #eef3fb;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 11px;
+  color: #365f9f;
+}
+
+.api-dev-flag {
+  font-size: 10px;
+  color: #997745;
+}
+
+.api-role-switch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.api-role-switch .chip {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 10px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.api-role-switch .chip.active {
+  border-color: #365f9f;
+  color: #365f9f;
+  background: #eef3fb;
+}
+
+.api-table-wrap {
+  overflow-x: auto;
+  margin: 0 -6px;
+}
+
+.api-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.api-table th {
+  text-align: left;
+  font-size: 10px;
+  font-weight: 500;
+  color: #9caabd;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.api-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.api-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.api-table td b {
+  font-size: 12px;
+  font-weight: 500;
+  display: block;
+}
+
+.api-table td small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 4px;
+  line-height: 1.6;
+  word-break: break-all;
+}
+
+.api-table td code {
+  font-size: 11px;
+  color: #365f9f;
+}
+
+.api-row-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.api-key-ok {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #467b64;
+}
+
+.api-key-ok .icon {
+  width: 13px;
+  height: 13px;
+}
+
+.api-test-ok,
+.api-test-fail {
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.api-test-ok { color: #467b64; }
+.api-test-fail { color: #b4543f; }
+
+.api-base-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 14px 0 8px;
+}
+
+.api-base-row label {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.api-base-row input {
+  flex: 1;
+  min-width: 240px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font-size: 12px;
+  font-family: inherit;
+}
+
+.api-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 4px 0 18px;
+}
+
+.api-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.api-form input,
+.api-form select,
+.api-form textarea {
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font-size: 12px;
+  font-family: inherit;
+  color: #2b3a4d;
+  width: 100%;
+}
+
+.api-form input:disabled,
+.api-form select:disabled {
+  background: #f5f7fa;
+  color: #8a99ad;
+}
+
+.api-form-wide {
+  grid-column: 1 / -1;
+}
+
+.api-form .api-checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.api-form .api-checkbox input {
+  width: auto;
+}
+
+.api-form-actions {
+  justify-content: flex-end;
+}
+
+@media (max-width: 720px) {
+  .api-form { grid-template-columns: 1fr; }
+  .api-row-actions { justify-content: flex-start; }
+}

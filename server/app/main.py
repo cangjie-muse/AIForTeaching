@@ -14,17 +14,38 @@ window.COURSE_DATA 换成 fetch，而不改渲染代码。
 from __future__ import annotations
 
 import os
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import db, llm
+from . import auth, db, llm
+from .admin import router as admin_router
 from .review import router as review_router
+
+APP_ENV = os.environ.get("APP_ENV", "dev").lower()
+
+
+def _check_auth_config() -> None:
+    """拒绝"生产环境还在信任请求头"。这比事后审计便宜得多。"""
+    if APP_ENV == "prod" and auth.AUTH_MODE == "dev":
+        raise RuntimeError(
+            "生产环境（APP_ENV=prod）不允许 AUTH_MODE=dev："
+            "任何人只要加一个 X-Roles: admin 头就能改模型配置。"
+            "请先接入统一认证（AUTH_MODE=cas）。"
+        )
+    if auth.AUTH_MODE == "dev":
+        print(
+            f"[警告] 当前 AUTH_MODE=dev，身份取自请求头，默认角色 {sorted(auth.DEV_ROLES)}。"
+            "仅限本地开发，生产必须改为 cas。",
+            file=sys.stderr,
+        )
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _check_auth_config()
     db.pool.open()
     yield
     db.pool.close()
@@ -37,11 +58,12 @@ app = FastAPI(title="智慧武大 · 数学教学智能体 API", version="0.1.0"
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.environ.get("CORS_ORIGINS", "http://127.0.0.1:8765,http://localhost:8765").split(","),
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
     allow_headers=["*"],
 )
 
 app.include_router(review_router)
+app.include_router(admin_router)
 
 
 @app.get("/api/v1/health")

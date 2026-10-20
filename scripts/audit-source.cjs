@@ -11,11 +11,18 @@ function filesIn(folder) {
 }
 const runtimeFiles = ['index.html', ...filesIn('js'), ...filesIn('styles'), ...filesIn('assets').filter(file => file.endsWith('.svg'))];
 const marker = /yuketang|xuetang|雨课堂|荷塘雨课堂|rain\s*classroom/i;
+// 唯一允许发起网络请求的前端文件：模型接口配置页。
+// 它配置的是服务器上的模型端点，不发请求就没有意义。
+// 放行条件是"必须仍在清单里"，而不是"关闭检查"——新增第二个联网文件仍然会失败，
+// 促使我们回来想清楚：它是否真的需要联网。
+const NETWORK_ALLOWED = new Set(['js/api-config.js']);
 const markerHits = runtimeFiles.filter(file => marker.test(fs.readFileSync(path.join(root, file), 'utf8')));
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const entryAssets = [...html.matchAll(/<(?:script|link)\b[^>]*(?:src|href)="([^"#]+)"/g)].map(match => match[1]);
 const remoteEntryAssets = entryAssets.filter(value => /^(?:https?:)?\/\//.test(value));
-const networkCodeHits = runtimeFiles.filter(file => /\bfetch\s*\(|XMLHttpRequest|new\s+WebSocket|sendBeacon\s*\(/.test(fs.readFileSync(path.join(root, file), 'utf8')));
+const allNetworkCodeHits = runtimeFiles.filter(file => /\bfetch\s*\(|XMLHttpRequest|new\s+WebSocket|sendBeacon\s*\(/.test(fs.readFileSync(path.join(root, file), 'utf8')));
+const networkCodeHits = allNetworkCodeHits.filter(file => !NETWORK_ALLOWED.has(file));
+const networkCodeAllowed = allNetworkCodeHits.filter(file => NETWORK_ALLOWED.has(file));
 const stylesheetRemoteLoads = filesIn('styles').filter(file => /(?:@import|url\()\s*["']?(?:https?:)?\/\//.test(fs.readFileSync(path.join(root, file), 'utf8')));
 const dataScript = fs.readFileSync(path.join(root, 'data/courses.js'), 'utf8');
 const wrapper = /^window\.COURSE_DATA = ([\s\S]*);\s*$/.exec(dataScript);
@@ -40,7 +47,7 @@ const codeFiles = [...runtimeFiles, ...filesIn('scripts'), 'eslint.config.mjs'].
 const report = {
   checkedAt: new Date().toISOString(),
   scope: 'Project source/provenance audit; no private competitor source or internet-wide similarity database comparison',
-  checks: { runtimeFiles: runtimeFiles.length, generatedCourseScriptIsDataOnly: true, competitorMarkerHits: markerHits, remoteEntryAssets, networkCodeHits, stylesheetRemoteLoads, verifiedVendorFiles: expectedVendor.size, unregisteredVendorFiles: extraVendorFiles },
+  checks: { runtimeFiles: runtimeFiles.length, generatedCourseScriptIsDataOnly: true, competitorMarkerHits: markerHits, remoteEntryAssets, networkCodeHits, networkCodeAllowed, allowedReason: 'js/api-config.js 是服务器模型配置页，必须调用后端 API；其余前端页面保持离线可用。', stylesheetRemoteLoads, verifiedVendorFiles: expectedVendor.size, unregisteredVendorFiles: extraVendorFiles },
   projectSourceInventory: codeFiles.map(file => ({ path: file, sha256: sha256(file) })),
   openSource: origin.components.map(({ package: name, version, license, source, files }) => ({ package: name, version, license, source, verifiedFiles: files.length })),
   campusPhoto: { path: 'assets/whu-library.jpg', author: 'Howchou', license: 'CC-BY-SA-3.0', source: 'https://commons.wikimedia.org/wiki/File:Wuhan_University_Old_Library.jpg', sha256: sha256('assets/whu-library.jpg') },

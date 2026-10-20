@@ -167,6 +167,59 @@ except auth.HTTPException as exc:
 check("AUTH_MODE=cas 时返回 501（不静默放行）", refused)
 auth.AUTH_MODE = "dev"
 
+print("\n配置界面权限矩阵：")
+auth.AUTH_MODE = "dev"
+auth.DEV_ROLES = frozenset({"admin"})
+
+default_actor = auth.resolve_actor("信息化专员", None)
+check("开发期未传角色时默认 admin", default_actor.has("admin"))
+
+explicit = auth.resolve_actor("某学生", "student")
+check("显式传角色时不套用默认", explicit.has("admin") is False and explicit.has("student"))
+
+write_dep = auth.require("admin")
+try:
+    write_dep(auth.Actor("审-1", frozenset({"reviewer"})))
+    reviewer_blocked = False
+except auth.HTTPException as exc:
+    reviewer_blocked = exc.status_code == 403
+check("审核员不能改配置（403）", reviewer_blocked)
+
+check("管理员可改配置", write_dep(auth.Actor("管-1", frozenset({"admin"}))).id == "管-1")
+
+read_dep = auth.require("reviewer", "teacher", "admin")
+check("审核员可查看配置", read_dep(auth.Actor("审-1", frozenset({"reviewer"}))).id == "审-1")
+check("教师可查看配置", read_dep(auth.Actor("师-1", frozenset({"teacher"}))).id == "师-1")
+try:
+    read_dep(auth.Actor("学-1", frozenset({"student"})))
+    student_blocked = False
+except auth.HTTPException:
+    student_blocked = True
+check("学生不能查看配置", student_blocked)
+
+# 只读者即便看得到列表，也不能通过 admin 依赖写
+try:
+    write_dep(auth.Actor("审-1", frozenset({"reviewer", "teacher"})))
+    escalate = False
+except auth.HTTPException:
+    escalate = True
+check("多角色叠加也不能提权到 admin", escalate)
+
+print("\n地址与数据范围一致性（admin._validate_scope 的纯逻辑）：")
+# 该函数依赖 fastapi，未安装时跳过；用分类结果直接验证规则本身
+cases = [
+    ("https://api.deepseek.com", "external", True),
+    ("http://10.0.0.8:8001/v1", "internal", True),
+    ("https://api.deepseek.com", "internal", False),
+    ("http://10.0.0.8:8001/v1", "external", False),
+]
+for url, scope, expect_ok in cases:
+    actual = "internal" if llm.classify(url) == "internal" else "external"
+    check(
+        f"{url} 标为 {scope}（应{'接受' if expect_ok else '拒绝'}）",
+        (actual == scope) is expect_ok,
+    )
+
 print()
 if failures:
     print(f"失败 {len(failures)} 项：{', '.join(failures)}")
