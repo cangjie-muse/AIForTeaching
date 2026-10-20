@@ -19,7 +19,8 @@
   async function api(path, options = {}) {
     const headers = { 'Content-Type': 'application/json' };
     if (A.local.devActor !== false) {
-      headers['X-Actor'] = actorId();
+      // 头值只能是 ASCII，中文姓名要编码；服务端用 unquote 还原
+      headers['X-Actor'] = encodeURIComponent(actorId());
       headers['X-Roles'] = roles().join(',');
     }
     const response = await fetch(`${base()}${path}`, { ...options, headers });

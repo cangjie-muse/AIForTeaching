@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -137,7 +138,40 @@ def status(url: str | None) -> int:
     return 0
 
 
-def apply(url: str) -> int:
+VECTOR_TYPE_RE = re.compile(r"vector\((\d+)\)", re.IGNORECASE)
+HNSW_INDEX_RE = re.compile(
+    r"^\s*CREATE\s+INDEX[^;]*USING\s+hnsw[^;]*;", re.IGNORECASE | re.MULTILINE
+)
+VECTOR_EXTENSION_RE = re.compile(
+    r"^\s*CREATE\s+EXTENSION\s+(?:IF\s+NOT\s+EXISTS\s+)?\"?vector\"?[^;]*;",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def pglite_compat(sql: str) -> tuple[str, list[str]]:
+    """把 pgvector 相关语句降级，供 PGlite 建同名结构的开发库。
+
+    PGlite（WASM PostgreSQL 16）没有 pgvector，但其他部分是真的 PG。
+    降级两处：vector(N) → jsonb、跳过 hnsw 索引；扩展本身也跳过。
+    这样接口能用真 PG 语法执行，唯一失真处是向量列类型与索引——
+    而 API 层不碰向量运算，所以不影响接口测试的有效性。
+
+    生产绝不能用这个开关：vector(1024) 是检索的基础。
+    """
+    changes = []
+    if VECTOR_EXTENSION_RE.search(sql):
+        sql = VECTOR_EXTENSION_RE.sub("-- [dev] 跳过扩展 vector：PGlite 未提供", sql)
+        changes.append("跳过 vector 扩展")
+    if VECTOR_TYPE_RE.search(sql):
+        sql = VECTOR_TYPE_RE.sub("jsonb", sql)
+        changes.append("vector(1024) → jsonb")
+    if HNSW_INDEX_RE.search(sql):
+        sql = HNSW_INDEX_RE.sub("-- [dev] 跳过 hnsw 索引：PGlite 未提供 pgvector", sql)
+        changes.append("跳过 hnsw 索引")
+    return sql, changes
+
+
+def apply(url: str, pglite: bool = False) -> int:
     import psycopg
     from psycopg.rows import dict_row
 
@@ -155,8 +189,13 @@ def apply(url: str) -> int:
                     sys.exit(f"{path.name} 已应用但内容被改动。迁移是历史，请新增文件。")
                 continue
             print(f"应用 {path.name} …", end=" ", flush=True)
+            sql = strip_txn(path.read_text(encoding="utf-8"))
+            if pglite:
+                sql, changes = pglite_compat(sql)
+                if changes:
+                    print(f"（PGlite 兼容：{'、'.join(changes)}）", end=" ")
             with conn.cursor() as cur:
-                cur.execute(strip_txn(path.read_text(encoding="utf-8")))
+                cur.execute(sql)
                 cur.execute(
                     "INSERT INTO schema_migration (version, checksum) VALUES (%s, %s)",
                     (path.name, digest),
@@ -172,6 +211,11 @@ def main() -> int:
     ap.add_argument("--apply", action="store_true")
     ap.add_argument("--status", action="store_true")
     ap.add_argument("--concat", action="store_true")
+    ap.add_argument(
+        "--pglite-compat",
+        action="store_true",
+        help="PGlite 开发库兼容：跳过 pgvector 扩展并把 vector(1024) 降级为 jsonb",
+    )
     ap.add_argument("--url", default=os.environ.get("DATABASE_URL"))
     args = ap.parse_args()
 
@@ -182,7 +226,7 @@ def main() -> int:
     if args.apply:
         if not args.url:
             sys.exit("缺少 DATABASE_URL（或用 --url 指定）")
-        return apply(args.url)
+        return apply(args.url, args.pglite_compat)
     ap.print_help()
     return 1
 

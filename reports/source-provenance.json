@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-20T09:32:27.600Z",
+  "checkedAt": "2026-10-20T10:11:59.797Z",
   "scope": "Project source/provenance audit; no private competitor source or internet-wide similarity database comparison",
   "checks": {
     "runtimeFiles": 32,
@@ -22,7 +22,7 @@
     },
     {
       "path": "js/api-config.js",
-      "sha256": "fe0d5175b969aa17b7c724b110d4d31e542f1424f21584eecade9a1a7af9d782"
+      "sha256": "ac1da2991af9f1766c4b7326433be7b656c75298f458c9166e4364eb5520e3a7"
     },
     {
       "path": "js/app.js",
@@ -151,6 +151,10 @@
     {
       "path": "scripts/courseware-index.cjs",
       "sha256": "bf135551a6329a57d7a64787d7c796125eca52cb4932bb4fb4ca129c61deac77"
+    },
+    {
+      "path": "scripts/e2e-api.cjs",
+      "sha256": "a4bdb735e474722b54acf5f0d615258f3605e813b3e2ad578069445d4182e372"
     },
     {
       "path": "scripts/import-course.cjs",

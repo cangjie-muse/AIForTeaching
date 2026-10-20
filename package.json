@@ -12,7 +12,8 @@
     "audit:sources": "node scripts/audit-source.cjs",
     "test:view": "node scripts/test-view-api-config.cjs",
     "seed:db": "python db/build_seed.py",
-    "verify:db": "node db/verify_seed.mjs"
+    "verify:db": "node db/verify_seed.mjs",
+    "test:api": "node scripts/e2e-api.cjs"
   },
   "dependencies": {
     "dompurify": "3.4.16",
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.10",
+    "@electric-sql/pglite-socket": "^0.2.13",
     "eslint": "10.12.0"
   }
 }

@@ -3,3 +3,5 @@ uvicorn[standard]==0.41.0
 psycopg[binary,pool]==3.3.1
 pgvector==0.4.2
 python-dotenv==1.2.1
+# 端到端测试用（FastAPI TestClient 依赖 httpx）
+httpx==0.28.1

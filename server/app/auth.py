@@ -17,9 +17,10 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from urllib.parse import unquote
 
 try:
-    from fastapi import Header, HTTPException
+    from fastapi import Depends, Header, HTTPException
 except ModuleNotFoundError:  # 允许在未安装依赖时跑纯逻辑测试
     class HTTPException(Exception):  # type: ignore[no-redef]
         def __init__(self, status_code: int = 500, detail: str = "") -> None:
@@ -29,6 +30,9 @@ except ModuleNotFoundError:  # 允许在未安装依赖时跑纯逻辑测试
 
     def Header(default=None, alias=None):  # type: ignore[no-redef]
         return default
+
+    def Depends(dependency=None):  # type: ignore[no-redef]
+        return dependency
 
 AUTH_MODE = os.environ.get("AUTH_MODE", "dev")   # dev | cas（cas 待实现）
 
@@ -60,7 +64,9 @@ def resolve_actor(x_actor: str | None, x_roles: str | None) -> Actor:
         # 在完成之前直接拒绝，避免"以为接了其实没接"。
         raise HTTPException(501, "统一身份认证尚未接入（AUTH_MODE=cas）")
 
-    actor_id = (x_actor or "anonymous").strip() or "anonymous"
+    # HTTP 头只能是 ASCII，中文姓名由前端 encodeURIComponent 后传过来，
+    # 这里解回原文。否则浏览器根本发不出这个头（fetch 会抛 TypeError）。
+    actor_id = unquote((x_actor or "").strip()) or "anonymous"
     raw_roles = (x_roles or "").strip()
     roles = frozenset(r.strip() for r in raw_roles.split(",") if r.strip() in ROLES)
     # 只有"完全没传角色"才套用开发默认值。
@@ -86,7 +92,7 @@ def require(*roles: str):
         def publish(actor: Actor = Depends(require("teacher", "reviewer"))): ...
     """
 
-    def dependency(actor: Actor = current_actor) -> Actor:  # type: ignore[assignment]
+    def dependency(actor: Actor = Depends(current_actor)) -> Actor:
         if not roles:
             return actor
         if not actor.has(*roles):

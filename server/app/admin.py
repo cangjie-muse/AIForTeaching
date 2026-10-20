@@ -37,11 +37,18 @@ SECRETS_DIR = Path(os.environ.get("SECRETS_DIR", "secrets")).resolve()
 # 名称会变成文件名，必须严格限制字符集，否则 ".." 就能写出目录
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 
-PUBLIC_COLUMNS = """
+_SHARED_COLUMNS = """
   name, kind, base_url, model, data_scope, dim, max_context, enabled,
   notes, approved_by, approved_at, updated_by, updated_at,
-  key_configured, api_key_updated_at, last_test_at, last_test_ok, last_test_note
+  api_key_updated_at, last_test_at, last_test_ok, last_test_note
 """
+
+# 读：走视图。视图不含 api_key_path，所以"读到密钥路径"这件事在 SQL 层就不可能发生。
+VIEW_COLUMNS = f"{_SHARED_COLUMNS}, key_configured"
+
+# 写：INSERT/UPDATE ... RETURNING 不能引用视图，只能在表上算这一个布尔值。
+# 注意它算出来的是"是否配置过"，不是密钥本身。
+RETURNING_COLUMNS = f"{_SHARED_COLUMNS}, (api_key_path IS NOT NULL) AS key_configured"
 
 
 # ---------------------------------------------------------------------------
@@ -160,7 +167,7 @@ def whoami(actor: Actor = Depends(current_actor)) -> dict:
 
 @router.get("/model-endpoints")
 def list_endpoints(actor: Actor = Depends(require("reviewer", "teacher", "admin"))) -> dict:
-    rows = db.query(f"SELECT {PUBLIC_COLUMNS} FROM model_endpoint ORDER BY kind, name")
+    rows = db.query(f"SELECT {VIEW_COLUMNS} FROM v_model_endpoint_public ORDER BY kind, name")
     return {"items": rows, "count": len(rows)}
 
 
@@ -184,7 +191,7 @@ def create_endpoint(body: EndpointIn, actor: Actor = Depends(require("admin"))) 
                   (name, kind, base_url, model, data_scope, dim, max_context, notes,
                    enabled, approved_by, approved_at, updated_by)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), %s)
-                RETURNING {PUBLIC_COLUMNS}""",
+                RETURNING {RETURNING_COLUMNS}""",
             (body.name, body.kind, body.base_url, body.model, body.data_scope,
              body.dim, body.max_context, body.notes, body.enabled,
              actor.id, actor.id),
@@ -236,7 +243,7 @@ def update_endpoint(name: str, body: EndpointPatch, actor: Actor = Depends(requi
 
     try:
         row = db.query_one(
-            f"UPDATE model_endpoint SET {', '.join(fields)} WHERE name = %s RETURNING {PUBLIC_COLUMNS}",
+            f"UPDATE model_endpoint SET {', '.join(fields)} WHERE name = %s RETURNING {RETURNING_COLUMNS}",
             tuple(values),
         )
     except Exception as exc:
