@@ -178,9 +178,78 @@ App.state.review.open = 9;
 html = App.views.review();
 check('读不到修订历史时不白屏', html.includes('读不到修订历史') && html.includes('后端未启动'));
 
-console.log();
-if (failures.length) {
-  console.log(`失败 ${failures.length} 项：${failures.join(', ')}`);
-  process.exit(1);
-}
-console.log('审核页渲染测试全部通过。');
+(async () => {
+  // ---------------------------------------------------------------------------
+  // 决定之后的反馈：通过到底改了什么，得让人一眼看见
+  // ---------------------------------------------------------------------------
+  console.log('\n决定之后的反馈：');
+  reset({
+    items: [{
+      task_id: 7, course_id: 'c1', exercise_id: 'ex-7', prompt_md: '题干', issues: [], node_ids: []
+    }],
+    open: 7
+  });
+  App.state.content = { content: { exercises: [{ id: 'ex-7', tier: 'none' }] } };
+  App.state.review.verification = {
+    exercise_id: 'ex-7', tier: 'none', proofs: [], lean_available: false
+  };
+
+  const renders = [];
+  const toasts = [];
+  App.render = () => { renders.push(1); };
+  App.toast = message => toasts.push(message);
+  App.api.get = async () => ({ items: [], counts: [], task_states: [] });
+  App.api.visibility = async () => ({
+    effective: { exercise_tier: 'all', qa_tier: 'all', graph_tier: 'all' },
+    labels: {}, graph_labels: {}, scope: 'global'
+  });
+  App.api.post = async () => ({
+    task_id: 7,
+    state: 'approved',
+    exercise: {
+      course_id: 'c1', exercise_id: 'ex-7', review_status: 'teacher-reviewed',
+      human_verified: true, tier: 'human', visible_to_students: false
+    }
+  });
+
+  await App.actions['review-decide']({ dataset: { verb: 'approve', task: '7' } });
+  const approveToast = toasts[toasts.length - 1] || '';
+  check('通过后提示写明已标为人工已审', approveToast.includes('人工已审'), approveToast);
+  check('通过后提示写明学生仍看不到', approveToast.includes('学生仍看不到'), approveToast);
+  check('通过后会重渲染（面板跟着更新）', renders.length > 0, String(renders.length));
+  check('通过后作废课程内容页缓存（否则切过去还是旧等级）',
+    App.state.content.content === null);
+  check('通过后查看中的审核记录也被清掉', App.state.review.verification === null);
+
+  App.state.content = { content: { exercises: [] } };
+  App.api.post = async () => ({
+    task_id: 7,
+    state: 'changes-requested',
+    exercise: {
+      course_id: 'c1', exercise_id: 'ex-7', review_status: 'draft',
+      human_verified: false, tier: 'none', visible_to_students: false
+    }
+  });
+  await App.actions['review-decide']({ dataset: { verb: 'request-changes', task: '7' } });
+  const rejectToast = toasts[toasts.length - 1] || '';
+  check('退回后提示说明撤销了人工审核', rejectToast.includes('撤销'), rejectToast);
+
+  App.api.post = async () => ({
+    task_id: 7,
+    state: 'published',
+    exercise: {
+      course_id: 'c1', exercise_id: 'ex-7', review_status: 'published',
+      human_verified: true, tier: 'human', visible_to_students: true
+    }
+  });
+  await App.actions['review-decide']({ dataset: { verb: 'publish', task: '7' } });
+  const publishToast = toasts[toasts.length - 1] || '';
+  check('发布后提示说明学生可见', publishToast.includes('可见'), publishToast);
+
+  console.log();
+  if (failures.length) {
+    console.log(`失败 ${failures.length} 项：${failures.join(', ')}`);
+    process.exit(1);
+  }
+  console.log('审核页渲染测试全部通过。');
+})();

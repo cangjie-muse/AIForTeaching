@@ -276,6 +276,48 @@ def run() -> None:
             check("审核通过", approved.status_code == 200 and approved.json()["state"] == "approved",
                   approved.text[:100])
 
+            # 通过必须同时改"题目自身的可信等级"，否则总表、内容页徽标、
+            # 可见范围的统计全都不动，人会觉得按钮没生效。
+            decided = approved.json().get("exercise") or {}
+            check("通过返回题目状态", decided.get("review_status") == "teacher-reviewed",
+                  str(decided))
+            check("通过后可信等级变成人工档", decided.get("tier") == "human", str(decided))
+            check("通过不等于发布：学生仍看不到",
+                  decided.get("visible_to_students") is False, str(decided))
+
+            target_id = items[0]["exercise_id"]
+            board = client.get("/api/v1/review/ledger?course_id=e2e-course",
+                               headers=REVIEWER).json()
+            board_row = next((row for row in board["items"] if row["id"] == target_id), {})
+            check("总表里这道题的等级跟着变", board_row.get("tier") == "human",
+                  str(board_row.get("tier")))
+            check("总表的等级计数跟着变",
+                  any(row["tier"] == "human" and row["n"] >= 1 for row in board["counts"]),
+                  str(board["counts"]))
+            content_now = client.get("/api/v1/courses/e2e-course/content",
+                                     headers=REVIEWER).json()
+            content_row = next((row for row in content_now["exercises"]
+                                if row["id"] == target_id), {})
+            check("课程内容页的徽标跟着变",
+                  content_row.get("tier") == "human"
+                  and content_row.get("review_status") == "teacher-reviewed",
+                  str({k: content_row.get(k) for k in ("tier", "review_status")}))
+
+            reverted = client.post(
+                f"/api/v1/review/tasks/{task_id}/decision", headers=REVIEWER,
+                json={"action": "request-changes", "note": "答案要再核一遍"},
+            )
+            reverted_ex = (reverted.json() or {}).get("exercise") or {}
+            check("退回会撤销人工审核标记", reverted_ex.get("human_verified") is False,
+                  str(reverted_ex))
+            check("退回后等级回到未核", reverted_ex.get("tier") == "none", str(reverted_ex))
+            check("退回后工作流回到草稿", reverted_ex.get("review_status") == "draft",
+                  str(reverted_ex))
+
+            # 恢复成已通过，后面的可见范围统计按"有一道人工已审"的假设走
+            client.post(f"/api/v1/review/tasks/{task_id}/decision", headers=REVIEWER,
+                        json={"action": "approve", "note": "复核后通过"})
+
         patched_ex = client.patch(
             "/api/v1/review/exercises/e2e-course/ex-1", headers=REVIEWER,
             json={"prompt_md": "第 1 题（已改）：求极限", "source_page": 12},

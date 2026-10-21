@@ -487,14 +487,41 @@
     }
   };
 
+  // 一次决定动的是两层：任务状态（队列）+ 题目自身的可信等级（总表、内容页、可见范围）。
+  // 不同步作废缓存的话，就会出现"通过了但其他面板一动不动"。
+  function invalidateAfterDecision(exercise) {
+    if (A.state.content) A.state.content.content = null;   // 内容页缓存了旧等级
+    S().detailVerification = null;
+    if (S().verification && exercise && S().verification.exercise_id === exercise.exercise_id) {
+      S().verification = null;   // 按题号查的审核记录也过期了
+    }
+  }
+
+  function decisionMessage(verb, exercise) {
+    const tier = (TIER_LABELS[exercise.tier] || TIER_LABELS.none)[0];
+    const id = exercise.exercise_id || '这道题';
+    if (verb === 'approve') {
+      return `已通过：${id} 标为人工已审（${tier}）。学生仍看不到——要进「课程内容」发布后才放出。`;
+    }
+    if (verb === 'request-changes') {
+      return `已退回：${id} 的人工审核标记已撤销，学生端不会放出。`;
+    }
+    if (verb === 'publish') {
+      return `已发布：${id} 现在对符合可见范围的学生可见。`;
+    }
+    return `${id} 已更新。`;
+  }
+
   A.actions['review-decide'] = async function (button) {
     const verb = button.dataset.verb;
     const taskId = button.dataset.task;
-    const label = verb === 'claim' ? '领取这条任务' : verb === 'approve' ? '通过这道题' : '退回要求修改';
+    const label = verb === 'claim' ? '领取这条任务' : verb === 'approve' ? '通过这道题（标为人工已审）' : '退回要求修改（撤销人工审核）';
     if (verb !== 'claim' && !window.confirm(`${label}？此操作会写入审计日志。`)) return;
     try {
-      await A.api.post(`/api/v1/review/tasks/${taskId}/decision`, { action: verb });
-      A.toast(`${label}：已完成`);
+      const result = await A.api.post(`/api/v1/review/tasks/${taskId}/decision`, { action: verb });
+      const exercise = result.exercise || {};
+      invalidateAfterDecision(exercise);
+      A.toast(decisionMessage(verb, exercise));
       S().open = null;
       reload();
     } catch (error) {
@@ -505,7 +532,7 @@
   A.actions['review-batch-approve'] = async function () {
     const ids = Object.keys(S().checked).filter(key => S().checked[key]);
     if (!ids.length) return;
-    if (!window.confirm(`批量通过 ${ids.length} 道题？\n\n注意：批量通过只解决"机器标记已处理"，不代替逐题阅读。建议只对缺页码这类机械问题使用。`)) return;
+    if (!window.confirm(`把这 ${ids.length} 道题标为「人工已审」？\n\n注意：这个动作等于你逐题看过了。只批量处理你确实翻过的题；没看的别勾。`)) return;
     let ok = 0;
     for (const id of ids) {
       try {
@@ -516,7 +543,9 @@
         break;
       }
     }
-    A.toast(`已通过 ${ok} / ${ids.length} 条`);
+    if (A.state.content) A.state.content.content = null;
+    S().verification = null;
+    A.toast(`已把 ${ok} / ${ids.length} 道题标为人工已审；学生仍看不到，发布后才放出。`);
     reload();
   };
 

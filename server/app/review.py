@@ -240,6 +240,56 @@ def decide(task_id: int, body: DecisionIn, actor: Actor = Depends(require("revie
                 """,
                 (task_id, issue.category, issue.severity, issue.detail, x_actor),
             )
+        # 通过 = 人工已审。这一句如果不写，"通过"就只改了工作流状态：
+        # 总表的可信等级、课程内容页的徽标、可见范围"仅人工审核"的统计全都不动，
+        # 老师会以为按钮没生效。发布是另一件事（决定学生能不能看到），仍留单独一步。
+        if body.action == "approve":
+            cur.execute(
+                """
+                UPDATE exercise
+                   SET human_verified_at = coalesce(human_verified_at, now()),
+                       human_verified_by = coalesce(human_verified_by, %s),
+                       review_status = CASE WHEN review_status = 'published'
+                                            THEN review_status
+                                            ELSE 'teacher-reviewed'::review_status END
+                 WHERE course_id = %s AND id = %s
+                """,
+                (x_actor, task["course_id"], task["target_id"]),
+            )
+            cur.execute(
+                """
+                INSERT INTO audit_log (actor, action, entity, entity_key, detail)
+                VALUES (%s, 'approve-exercise', 'exercise', %s,
+                        jsonb_build_object('note', %s::text))
+                """,
+                (x_actor, f"{task['course_id']}/{task['target_id']}", body.note),
+            )
+
+        # 退回/驳回 = 撤销人工审核。否则会出现"退回了，总表还写着人工已审"。
+        # 已发布的题保持 published（撤回发布有单独的接口），只清人工校验标记。
+        if body.action in ("request-changes", "reject"):
+            cur.execute(
+                """
+                UPDATE exercise
+                   SET human_verified_at = NULL,
+                       human_verified_by = NULL,
+                       review_status = CASE WHEN review_status = 'published'
+                                            THEN review_status
+                                            ELSE 'draft'::review_status END
+                 WHERE course_id = %s AND id = %s
+                """,
+                (task["course_id"], task["target_id"]),
+            )
+            cur.execute(
+                """
+                INSERT INTO audit_log (actor, action, entity, entity_key, detail)
+                VALUES (%s, %s::text, 'exercise', %s,
+                        jsonb_build_object('note', %s::text))
+                """,
+                (x_actor, f"{body.action}-exercise",
+                 f"{task['course_id']}/{task['target_id']}", body.note),
+            )
+
         if body.action == "publish":
             cur.execute(
                 """
@@ -259,7 +309,29 @@ def decide(task_id: int, body: DecisionIn, actor: Actor = Depends(require("revie
                 """,
                 (x_actor, f"{task['course_id']}/{task['target_id']}", body.note),
             )
-    return {"task_id": task_id, "state": new_state}
+    verified = db.query_one(
+        """SELECT e.review_status,
+                  (e.human_verified_at IS NOT NULL) AS human_verified,
+                  coalesce(v.tier, 'none') AS tier
+             FROM exercise e
+             LEFT JOIN v_exercise_verification v
+                    ON v.course_id = e.course_id AND v.id = e.id
+            WHERE e.course_id = %s AND e.id = %s""",
+        (task["course_id"], task["target_id"]),
+    )
+    return {
+        "task_id": task_id,
+        "state": new_state,
+        "exercise": {
+            "course_id": task["course_id"],
+            "exercise_id": task["target_id"],
+            "review_status": (verified or {}).get("review_status"),
+            "human_verified": bool((verified or {}).get("human_verified")),
+            "tier": (verified or {}).get("tier", "none"),
+            # 通过不等于学生能看到：published 才是那扇门
+            "visible_to_students": (verified or {}).get("review_status") == "published",
+        },
+    }
 
 
 @router.get("/graph")
