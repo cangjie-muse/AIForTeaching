@@ -415,3 +415,19 @@
 .course-bar-switch{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid var(--line,#e6e8ee);border-radius:8px;background:#fff;color:var(--ink-soft,#5b6472);font-size:13px;text-decoration:none}
 .course-bar-switch:hover{border-color:var(--accent,#2f6fd0);color:var(--accent,#2f6fd0)}
 @media (max-width:700px){.course-bar-links{order:3;width:100%;margin-left:0;overflow-x:auto}.course-bar-switch{margin-left:auto}}
+/* ---------------------------------------------------------------------------
+   习题页的分层：引导 → 作答 → 完整解答
+   完整解答在作答（或明确"我卡住了"）之前是锁着的，这是教学口径，不是装饰。
+   --------------------------------------------------------------------------- */
+.exercise-guide{border:1px dashed var(--line,#e6e8ee);border-radius:10px;padding:8px 12px;margin:10px 0;background:#fbfcfe}
+.exercise-guide>summary{cursor:pointer;display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-soft,#5b6472);list-style:none}
+.exercise-guide>summary::-webkit-details-marker{display:none}
+.exercise-guide>summary>span{margin-left:auto;display:inline-flex;transform:rotate(0deg);transition:transform .15s}
+.exercise-guide[open]>summary>span{transform:rotate(90deg)}
+.exercise-guide .guide-body p{margin:6px 0 0}
+.solution-gate{display:flex;flex-wrap:wrap;align-items:center;gap:12px;border:1px solid var(--line,#e6e8ee);border-radius:10px;padding:12px 14px;margin-top:10px;background:#f8f9fc;color:var(--ink-soft,#5b6472)}
+.solution-gate>.icon{flex:0 0 20px;color:#8a93a3}
+.solution-gate-text{min-width:200px;flex:1}
+.solution-gate-text b{color:var(--ink,#1d2430);font-size:14px}
+.solution-gate-text p{margin:4px 0 0}
+.solution-gate .button-row{margin:0}
