@@ -53,6 +53,9 @@
     visibility: null, // 学生可见范围（验证等级闸）
     policyScope: '',  // '' = 全局口径；课程号 = 这门课的覆盖
     graph: null,      // 当前课程的知识图谱审核状态
+    verification: null,      // 按题号查到的审核记录
+    lookupId: '',            // 查询框里填的题号
+    detailVerification: null, // 当前打开那条任务的完整审核记录
     policyDraft: null // 未保存的草案：先让人看到"这一档会放出多少题"，再决定保存
   };
 
@@ -67,6 +70,50 @@
   function tierBadge(tier) {
     const [label, variant] = TIER_LABELS[tier] || TIER_LABELS.none;
     return A.badge(label, variant);
+  }
+
+  // 一道题"标注过什么"。徽标只说等级，这里说清楚证据：
+  // 谁在什么时候审的、Lean 走到哪一步、审完之后有没有被改过。
+  function verificationBlock(data) {
+    if (!data) return '';
+    if (data.error) {
+      return `<div class="rv-verify rv-verify-error"><b>读不到审核记录</b><p class="muted small">${e(data.error)}</p></div>`;
+    }
+    const moment = value => (value
+      ? e(String(value).slice(0, 19).replace('T', ' '))
+      : '—');
+    const human = data.human_verified_at
+      ? `人工审核通过：${moment(data.human_verified_at)}${data.human_verified_by ? ` · ${e(data.human_verified_by)}` : ''}`
+      : '尚未人工审核';
+    const proofs = data.proofs || [];
+    let lean;
+    if (proofs.length) {
+      lean = proofs.map(proof => {
+        const state = proof.compiled ? '编译通过' : '编译未通过';
+        const faithful = proof.faithful_status === 'teacher-reviewed'
+          ? '忠实性已确认'
+          : `忠实性：${e(proof.faithful_status || 'draft')}`;
+        return `<li>#${proof.ord} · ${state} · ${faithful}${proof.toolchain ? ` · ${e(proof.toolchain)}` : ''}${proof.has_statement ? '' : ' · 缺形式化命题'}</li>`;
+      }).join('');
+      lean = `<ul class="rv-verify-lean">${lean}</ul>`;
+    } else if (data.lean_available) {
+      lean = '<span class="muted">没有 Lean 证明</span>';
+    } else {
+      lean = '<span class="muted">Lean 验证尚未接入（表与判定已就位）</span>';
+    }
+    const task = data.task
+      ? `最近一次审核任务：${e(({ pending: '待审', 'in-review': '审核中', approved: '已通过', rejected: '已驳回', published: '已发布', 'changes-requested': '待修改' })[data.task.state] || data.task.state)}`
+      : '还没有审核任务记录';
+    return `<div class="rv-verify">
+      <div class="rv-verify-head">
+        ${tierBadge(data.tier)}
+        ${A.badge(`内容版本 v${data.content_version ?? 1}`, '')}
+        ${data.edited_after_review ? `<span class="rv-warn">⚠ 审核通过后又被改过</span>` : ''}
+      </div>
+      <p class="rv-verify-line">${human}</p>
+      <p class="rv-verify-line">Lean：${lean}</p>
+      <p class="rv-verify-line muted small">${task} · 工作流状态 ${e(data.review_status || '—')} · 最后更新 ${moment(data.updated_at)}</p>
+    </div>`;
   }
 
   function priorityMark(priority) {
@@ -270,6 +317,19 @@
     </label>`;
   }
 
+  // 审核队列只装"待审"的题。已发布的题不在队列里，但老师最常要查的偏偏是它们，
+  // 所以给一个按题号直接查的口子。
+  function lookupBar() {
+    const course = S().filters.course_id;
+    return `<div class="rv-lookup">
+      <label class="rv-select"><span>按题号查审核记录</span>
+        <input data-input="verify-id" value="${e(S().lookupId || '')}" placeholder="例如 pub-a" autocomplete="off">
+      </label>
+      <button class="btn small" data-action="review-verify-lookup" ${course ? '' : 'disabled'}>查询</button>
+      <span class="muted small">${course ? `在「${e(course)}」里查` : '先在上面选一门课'}</span>
+    </div>${S().verification ? verificationBlock(S().verification) : ''}`;
+  }
+
   function issueSummary() {
     const rows = S().summary?.open_issues || [];
     if (!rows.length) return '';
@@ -427,6 +487,10 @@
         <span>${item.source_page ? `书页 ${item.source_page}` : '无书页'}</span>
         <span>难度 ${item.difficulty ?? '—'}</span>
       </div>
+      <h3>审核记录</h3>
+      ${S().detailVerification && S().detailVerification.exercise_id === item.exercise_id
+        ? verificationBlock(S().detailVerification)
+        : `<p class="muted small">正在读取…（若一直停在这里，点上面的「刷新」）</p>`}
       <h3>题干</h3>
       <div class="md">${A.markdown(item.prompt_md || '')}</div>
       <h3>挂载知识点</h3>
@@ -472,7 +536,7 @@
     const openId = state.open;
     const detail = openId ? state.items.find(item => String(item.task_id) === String(openId)) : null;
 
-    return heading + policyPanel() + graphPanel() + statsPanel() + `<div class="rv-filters">${courseFilter()}${issueSummary()}</div>` + `
+    return heading + policyPanel() + graphPanel() + statsPanel() + `<div class="rv-filters">${courseFilter()}${issueSummary()}</div>` + lookupBar() + `
       <div class="rv-layout ${detail ? 'has-detail' : ''}">
         ${listPanel()}
         ${detail ? detailPanel(detail) : ''}
@@ -488,6 +552,31 @@
   // ---------------------------------------------------------------------------
 
   A.actions['review-refresh'] = function () { reload(); };
+
+  A.inputs['verify-id'] = function (input) {
+    S().lookupId = input.value.trim();
+  };
+
+  A.actions['review-verify-lookup'] = async function (button) {
+    const course = S().filters.course_id;
+    const exerciseId = S().lookupId;
+    if (!course) {
+      A.toast('先在上面选一门课，再问题号。');
+      return;
+    }
+    if (!exerciseId) {
+      A.toast('填一个题号，比如 pub-a。');
+      return;
+    }
+    button.disabled = true;
+    try {
+      S().verification = await A.api.exerciseVerification(course, exerciseId);
+    } catch (error) {
+      S().verification = { error: error.message };
+    }
+    button.disabled = false;
+    A.render();
+  };
 
   A.inputs['visibility-scope'] = function (select) {
     // 换作用域 = 换一份口径，草案必须丢掉，否则会把全局的值带到某门课上
@@ -593,11 +682,21 @@
     A.render();
   };
 
-  A.actions['review-open'] = function (button) {
-    S().open = button.dataset.task;
+  A.actions['review-open'] = async function (button) {
+    const taskId = button.dataset.task;
+    S().open = taskId;
+    S().detailVerification = null;
     A.render();
-    const item = S().items.find(row => String(row.task_id) === String(button.dataset.task));
-    if (item) loadDiff(item);
+    const item = S().items.find(row => String(row.task_id) === String(taskId));
+    if (item) {
+      loadDiff(item);  // 修订差异与审核记录互不依赖，并行取
+      try {
+        S().detailVerification = await A.api.exerciseVerification(item.course_id, item.exercise_id);
+      } catch (error) {
+        S().detailVerification = { error: error.message };
+      }
+      A.render();
+    }
   };
 
   A.actions['review-close'] = function () {

@@ -13,7 +13,7 @@ import json
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from . import db
+from . import db, lean_service
 from .auth import Actor, current_actor
 
 router = APIRouter(prefix="/api/v1/review", tags=["review"])
@@ -385,6 +385,64 @@ def patch_exercise(
                     (course_id, exercise_id, node_id),
                 )
     return {"course_id": course_id, "exercise_id": exercise_id, "updated": True}
+
+
+@router.get("/exercises/{course_id}/{exercise_id}/verification")
+def exercise_verification(
+    course_id: str,
+    exercise_id: str,
+    actor: Actor = Depends(current_actor),
+) -> dict:
+    """"这道题标注过什么"：可信等级、人工审核时间与人、Lean 证明状态、审核后是否被改过。
+
+    为什么单独一个接口：发布之后题目从审核队列里消失（task.state = published），
+    按队列查就查不到了；但老师最常问的恰恰是"这道已发布的题，到底谁审过、审的哪一版"。
+    """
+    if not actor.has("teacher", "reviewer", "admin"):
+        raise HTTPException(403, "审核记录只对教师/审核员开放")
+
+    row = db.query_one(
+        """
+        SELECT e.course_id, e.id AS exercise_id, e.review_status, e.provenance,
+               e.human_verified_at, e.human_verified_by, e.lean_verified_at,
+               e.content_version, e.updated_at,
+               coalesce(v.tier, 'none') AS tier,
+               coalesce(v.lean_confirmed, false) AS lean_confirmed
+          FROM exercise e
+          LEFT JOIN v_exercise_verification v
+                 ON v.course_id = e.course_id AND v.id = e.id
+         WHERE e.course_id = %s AND e.id = %s
+        """,
+        (course_id, exercise_id),
+    )
+    if not row:
+        raise HTTPException(404, f"题目不存在：{course_id}/{exercise_id}")
+
+    proofs = db.query(
+        """
+        SELECT ord, compiled, compiled_at, faithful_status, faithful_by, toolchain,
+               (statement_lean IS NOT NULL AND statement_lean <> '') AS has_statement,
+               proof_sha256
+          FROM lean_proof
+         WHERE course_id = %s AND exercise_id = %s
+         ORDER BY ord
+        """,
+        (course_id, exercise_id),
+    )
+    task = db.query_one(
+        """SELECT id AS task_id, state, priority, assignee, created_at, decided_at
+             FROM review_task
+            WHERE course_id = %s AND target_id = %s
+            ORDER BY id DESC LIMIT 1""",
+        (course_id, exercise_id),
+    )
+    verified_at = row.get("human_verified_at")
+    updated_at = row.get("updated_at")
+    row["edited_after_review"] = bool(verified_at and updated_at and updated_at > verified_at)
+    row["proofs"] = proofs
+    row["task"] = task
+    row["lean_available"] = lean_service.available()
+    return row
 
 
 @router.get("/exercises/{course_id}/{exercise_id}/revisions")

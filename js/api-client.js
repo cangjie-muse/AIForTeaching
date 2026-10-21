@@ -286,6 +286,12 @@
     return request('POST', '/api/v1/review/graph/verify', { body: payload });
   }
 
+  // 单道题的审核记录：等级、谁在什么时候审的、Lean 状态、审核后有没有被改。
+  function exerciseVerification(courseId, exerciseId) {
+    return request('GET', `/api/v1/review/exercises/${encodeURIComponent(courseId)}`
+      + `/${encodeURIComponent(exerciseId)}/verification`);
+  }
+
   A.api = {
     ApiError,
     base,
@@ -319,6 +325,7 @@
     resetVisibility,
     reviewGraph,
     verifyGraph,
+    exerciseVerification,
     get: (path, options) => request('GET', path, options),
     post: (path, body, options) => request('POST', path, { ...options, body }),
     patch: (path, body, options) => request('PATCH', path, { ...options, body }),

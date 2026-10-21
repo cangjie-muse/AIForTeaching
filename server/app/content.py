@@ -364,21 +364,26 @@ def read_content(course_id: str, include_retired: bool = False) -> dict:
         raise HTTPException(404, f"课程不存在：{course_id}")
 
     node_filter = "" if include_retired else " AND review_status <> 'retired'"
-    exercises_filter = "" if include_retired else " AND review_status <> 'retired'"
+    exercises_filter = "" if include_retired else " AND ex.review_status <> 'retired'"
 
+    # 审核状态一起带出来：改内容的人需要知道"这条审过没有、审过之后动过没有"，
+    # 否则会在不知不觉中把已审核的内容改坏。
     nodes = db.query(
         f"""SELECT id, chapter_id, parent_id, title, level, kind, path, content_md,
-                   exercise_anchor, tags, source_raw, review_status
+                   exercise_anchor, tags, source_raw, review_status, human_verified_at
               FROM knowledge_node
              WHERE course_id = %s{node_filter}
              ORDER BY level, id""", (course_id,))
     exercises = db.query(
-        f"""SELECT id, chapter_id, prompt_md, answer_md, difficulty, source_raw,
-                   source_book, source_page, source_pdf_page, source_no, provenance,
-                   provenance_note, review_status
-              FROM exercise
-             WHERE course_id = %s{exercises_filter}
-             ORDER BY id""", (course_id,))
+        f"""SELECT ex.id, ex.chapter_id, ex.prompt_md, ex.answer_md, ex.difficulty,
+                   ex.source_raw, ex.source_book, ex.source_page, ex.source_pdf_page,
+                   ex.source_no, ex.provenance, ex.provenance_note, ex.review_status,
+                   ex.human_verified_at, coalesce(v.tier, 'none') AS tier
+              FROM exercise ex
+              LEFT JOIN v_exercise_verification v
+                     ON v.course_id = ex.course_id AND v.id = ex.id
+             WHERE ex.course_id = %s{exercises_filter}
+             ORDER BY ex.id""", (course_id,))
     links = db.query(
         """SELECT exercise_id, node_id FROM exercise_node WHERE course_id = %s""",
         (course_id,))

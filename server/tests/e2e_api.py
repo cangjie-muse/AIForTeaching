@@ -1100,6 +1100,63 @@ def run() -> None:
                                 "action": "verify"}).status_code == 403,
               "学生身份做了图谱审核")
 
+        # ---- 单道题"标注过什么" ----
+        # 已发布的题不在审核队列里，所以要能按题号直接查：等级、谁审的、审的哪版、之后改没改。
+        print("\n单题审核记录：")
+        record = client.get("/api/v1/review/exercises/e2e-publish/pub-a/verification",
+                            headers=REVIEWER)
+        check("能查一道已发布题的审核记录", record.status_code == 200, record.text[:140])
+        body = record.json()
+        check("记录里带可信等级", body["tier"] in {"human", "strongest"}, str(body.get("tier")))
+        check("记录里带人工审核时间与审核人",
+              bool(body["human_verified_at"]) and bool(body["human_verified_by"]),
+              f"{body.get('human_verified_at')} / {body.get('human_verified_by')}")
+        check("记录里带内容版本", body["content_version"] >= 1, str(body.get("content_version")))
+        check("刚审完不该报「审核后被改过」", body["edited_after_review"] is False,
+              str(body.get("edited_after_review")))
+        check("记录里带最近一次审核任务状态",
+              (body.get("task") or {}).get("state") == "published",
+              str(body.get("task")))
+        check("Lean 未接入要如实标出", body["lean_available"] is False,
+              str(body.get("lean_available")))
+        check("没有 Lean 证明时列表为空", body["proofs"] == [], str(body.get("proofs")))
+
+        unverified = client.get("/api/v1/review/exercises/e2e-publish/pub-b/verification",
+                                headers=REVIEWER).json()
+        check("未人工确认的题等级为 none", unverified["tier"] == "none", str(unverified["tier"]))
+        check("未确认时人工字段为空",
+              unverified["human_verified_at"] is None and unverified["human_verified_by"] is None,
+              str(unverified.get("human_verified_at")))
+        check("未确认时不误报「审核后被改过」", unverified["edited_after_review"] is False,
+              str(unverified.get("edited_after_review")))
+
+        # 改一次内容，再查：应当提示"审核通过后又被改过"
+        client.patch("/api/v1/review/exercises/e2e-publish/pub-a", headers=REVIEWER,
+                     json={"difficulty": 4, "change_note": "审后调整难度"})
+        edited = client.get("/api/v1/review/exercises/e2e-publish/pub-a/verification",
+                            headers=REVIEWER).json()
+        check("审核后改过内容会被标出来", edited["edited_after_review"] is True,
+              str(edited.get("edited_after_review")))
+        check("改过之后内容版本加一", edited["content_version"] > body["content_version"],
+              f"{body['content_version']} → {edited['content_version']}")
+
+        check("学生不能读审核记录",
+              client.get("/api/v1/review/exercises/e2e-publish/pub-a/verification",
+                         headers=STUDENT).status_code == 403,
+              "学生看到了审核记录")
+        check("不存在的题返回 404",
+              client.get("/api/v1/review/exercises/e2e-publish/nope/verification",
+                         headers=REVIEWER).status_code == 404,
+              "不存在的题没有报 404")
+
+        content_view = client.get("/api/v1/courses/e2e-publish/content", headers=REVIEWER)
+        check("内容接口带上题目的可信等级",
+              all("tier" in row for row in content_view.json()["exercises"]),
+              str([row.get("tier") for row in content_view.json()["exercises"]]))
+        check("内容接口带上知识点的人工审核状态",
+              all("human_verified_at" in row for row in content_view.json()["nodes"]),
+              "节点缺少 human_verified_at")
+
         # 收尾：把口径恢复成全放，后面的撤回发布测试按默认口径走
         client.put("/api/v1/visibility", headers=REVIEWER,
                    json={"exercise_tier": "all", "qa_tier": "all", "graph_tier": "all"})

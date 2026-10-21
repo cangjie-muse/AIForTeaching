@@ -198,7 +198,7 @@ check('改图谱档位只改图谱', App.state.review.policyDraft.graph_tier ===
   && App.state.review.policyDraft.qa_tier === 'human',
   JSON.stringify(App.state.review.policyDraft));
 
-(async () => {
+async function visibilityTests() {
   reset();
   App.state.review.policyDraft = { exercise_tier: 'verified', qa_tier: 'human', graph_tier: 'human' };
   const calls = [];
@@ -261,6 +261,91 @@ check('改图谱档位只改图谱', App.state.review.policyDraft.graph_tier ===
   App.state.review.status = 'loading';
   await App.actions['visibility-save']({ disabled: false });
   check('保存失败时说明原因', toasts.some(text => text.includes('保存失败') && text.includes('teacher')), String(toasts[0] || ''));
+
+}
+
+async function verificationTests() {
+  console.log('\n单道题的审核记录：');
+  const verifiedRecord = {
+    course_id: 'analysis-i', exercise_id: 'pub-a', tier: 'human', review_status: 'published',
+    human_verified_at: '2026-10-20T09:30:00Z', human_verified_by: '张老师',
+    content_version: 3, updated_at: '2026-10-21T10:00:00Z',
+    edited_after_review: true, lean_available: false, proofs: [],
+    task: { task_id: 12, state: 'published' }
+  };
+  reset();
+  App.state.review.verification = verifiedRecord;
+  App.state.review.filters.course_id = 'analysis-i';
+  html = App.views.review();
+  check('查询结果显示可信等级', html.includes('人工通过') || html.includes('人工审核通过'));
+  check('显示人工审核时间与人', html.includes('2026-10-20 09:30') && html.includes('张老师'));
+  check('审核后被改过要显眼提示', html.includes('审核通过后又被改过'));
+  check('说明 Lean 尚未接入', html.includes('Lean 验证尚未接入'));
+  check('显示内容版本', html.includes('内容版本 v3'));
+  check('显示最近一次审核任务状态', html.includes('最近一次审核任务：已发布'));
+
+  reset();
+  App.state.review.verification = {
+    ...verifiedRecord, tier: 'none', human_verified_at: null, human_verified_by: null,
+    edited_after_review: false, content_version: 1
+  };
+  App.state.review.filters.course_id = 'analysis-i';
+  html = App.views.review();
+  check('未审核的题明说尚未人工审核', html.includes('尚未人工审核'));
+  check('未审核时不误报"审核后被改过"', !html.includes('审核通过后又被改过'));
+
+  reset();
+  App.state.review.verification = {
+    ...verifiedRecord, lean_available: true,
+    proofs: [
+      { ord: 1, compiled: true, faithful_status: 'teacher-reviewed', toolchain: 'lean4:v4.12.0', has_statement: true, compiled_at: '2026-10-20T08:00:00Z' },
+      { ord: 2, compiled: false, faithful_status: 'draft', toolchain: 'lean4:v4.12.0', has_statement: false }
+    ]
+  };
+  App.state.review.filters.course_id = 'analysis-i';
+  html = App.views.review();
+  check('接入后列出每条 Lean 证明', html.includes('#1') && html.includes('#2'));
+  check('区分编译通过与未通过', html.includes('编译通过') && html.includes('编译未通过'));
+  check('忠实性已确认与未确认都显示', html.includes('忠实性已确认') && html.includes('忠实性：draft'));
+  check('缺形式化命题要标出来', html.includes('缺形式化命题'));
+
+  reset();
+  App.state.review.verification = { error: '题目不存在：analysis-i/pub-z' };
+  html = App.views.review();
+  check('查不到时给错误说明而不是白屏', html.includes('读不到审核记录') && html.includes('题目不存在'));
+
+  reset();
+  App.state.review.filters.course_id = '';
+  html = App.views.review();
+  check('没选课程时查询按钮禁用', /data-action="review-verify-lookup"[^>]*disabled/.test(html));
+
+  reset();
+  App.state.review.filters.course_id = 'analysis-i';
+  App.state.review.lookupId = 'pub-a';
+  html = App.views.review();
+  check('没选课程时提示先选课程（选了则显示在哪儿查）', html.includes('在「analysis-i」里查'));
+  const lookupCalls = [];
+  App.api.exerciseVerification = async (courseId, exerciseId) => {
+    lookupCalls.push([courseId, exerciseId]);
+    return verifiedRecord;
+  };
+  App.state.review.status = 'loading';
+  await App.actions['review-verify-lookup']({ disabled: false });
+  check('按题号查询走单题审核记录接口',
+    lookupCalls.length === 1 && lookupCalls[0][0] === 'analysis-i'
+    && lookupCalls[0][1] === 'pub-a', JSON.stringify(lookupCalls[0] || null));
+  check('查询结果写进状态', App.state.review.verification?.tier === 'human');
+
+  App.api.exerciseVerification = async () => { throw Object.assign(new Error('题目不存在：x/y'), { status: 404 }); };
+  App.state.review.status = 'loading';
+  await App.actions['review-verify-lookup']({ disabled: false });
+  check('查询失败落到错误块', App.state.review.verification?.error?.includes('题目不存在'));
+
+}
+
+(async () => {
+  await visibilityTests();
+  await verificationTests();
 
   console.log('');
   if (failures.length) {

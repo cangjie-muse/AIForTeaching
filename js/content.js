@@ -281,6 +281,7 @@
         <div class="content-row-main">
           <b>${e(node.title)}</b>
           ${A.badge((STATUS[node.review_status] || [node.review_status, ''])[0], (STATUS[node.review_status] || ['', ''])[1])}
+          ${node.human_verified_at ? A.badge('图谱已审', 'green') : A.badge('图谱未审', '')}
           <span class="muted small">${e((node.tags || []).join('、'))}</span>
           <span class="muted small">${e(node.id)}</span>
           <button class="btn small" data-action="content-node-edit" data-id="${e(node.id)}">${editing ? '收起' : '编辑'}</button>
@@ -308,6 +309,19 @@
     </div>`;
   }
 
+  // 审核状态直接标在行上：改内容的人要知道"这条审过没有"，否则会顺手改坏已审核的内容。
+  const TIER_SHORT = {
+    none: ['未审核', ''],
+    lean: ['Lean 校验', 'green'],
+    human: ['人工审核通过', 'green'],
+    strongest: ['Lean + 人工', 'green']
+  };
+
+  function tierBadge(tier) {
+    const [label, variant] = TIER_SHORT[tier] || TIER_SHORT.none;
+    return A.badge(label, variant);
+  }
+
   function exerciseList(content) {
     const rows = content.exercises.map(ex => {
       const editing = S().editKey === `ex:${ex.id}`;
@@ -315,6 +329,7 @@
         <div class="content-row-main">
           <b>${e(ex.id)}</b>
           ${A.badge((STATUS[ex.review_status] || [ex.review_status, ''])[0], (STATUS[ex.review_status] || ['', ''])[1])}
+          ${tierBadge(ex.tier)}
           ${A.badge(`难度 ${ex.difficulty ?? '—'}`, '')}
           <span class="muted small">${e(ex.source_raw || '未标注')}</span>
           <button class="btn small" data-action="content-ex-edit" data-id="${e(ex.id)}">${editing ? '收起' : '编辑'}</button>
