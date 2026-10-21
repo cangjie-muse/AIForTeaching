@@ -123,11 +123,21 @@ def build_queue(course_id: str | None = None, limit: int = 2000) -> dict:
           SELECT 'source-missing'::review_category, 'major', '溯源无法判定'
           WHERE e.provenance = 'unknown'
           UNION ALL
+          SELECT 'page-imprecise'::review_category, 'minor', '页码待核（原文标了待核）'
+          WHERE e.source_page IS NULL AND e.source_raw LIKE '%%待核%%'
+          UNION ALL
           SELECT 'page-imprecise'::review_category, 'minor', '无精确书页，仅章节范围或缺失'
+          -- 自拟题本来就没有教材页码，不算缺陷。把它标成问题，405 条噪声会淹掉
+          -- 真正需要核对的页码错误；自拟题该看的是有没有独立核对过解答。
           WHERE e.source_page IS NULL
+            AND e.provenance <> 'self-authored'
+            AND e.source_raw NOT LIKE '%%待核%%'
           UNION ALL
           SELECT 'content-error'::review_category, 'minor', '原文含"待核"标记，需人工确认'
+          -- 与上一条互斥：待核紧挨着"页"的算页码问题，其余（答案、题号、出处本身）
+          -- 才归到内容待核。否则 1096 条待核全堆在一个分类里，审核员没法分工。
           WHERE e.source_raw LIKE '%%待核%%'
+            AND NOT (e.source_raw ~ '页.{{0,24}}待核|待核.{{0,24}}页')
         ) AS cat
         RETURNING id
         """,

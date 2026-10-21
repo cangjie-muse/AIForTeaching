@@ -64,11 +64,25 @@ def js(value):
 # 溯源文本解析：现有 source 是自由文本，能解析多少算多少
 # --------------------------------------------------------------------------
 BOOK_RE = re.compile(r"《([^》]+)》")
+# 西文教材不用书名号：现有出处写成
+#   "John B. Conway, Functions of One Complex Variable, 2nd ed., Springer-Verlag，书页4，PDF第1页"
+# 或先带一个来源短标签 "A：Roman Vershynin, High-Dimensional Probability, Second Edition，…"。
+# 只取第一个中文逗号之前的作者+书名段，并要求其中至少两个拉丁字母——
+# 免得把"课程建设自拟训练题"这种中文说明当成书名。
+WESTERN_BOOK_RE = re.compile(r"^\s*(?:[A-Za-z]\s*[：:]\s*)?([A-Za-z][^，；;]{8,140})")
 PAGE_RANGE_RE = re.compile(r"书页\s*(\d+)\s*[–—\-~至到]\s*(\d+)")
 PAGE_RE = re.compile(r"书页\s*(\d+)")
-PDF_RANGE_RE = re.compile(r"PDF\s*页\s*(\d+)\s*[–—\-~至到]\s*(\d+)")
-PDF_RE = re.compile(r"PDF\s*页\s*(\d+)")
+# PDF 页码有两种写法："PDF页43"（旧契约示例）和"PDF第43页"（现有数据里绝大多数）。
+# 只认前一种时，559 条带 PDF 页的题一条也取不到。
+PDF_RANGE_RE = re.compile(
+    r"PDF\s*(?:第\s*(\d+)\s*[–—\-~至到]\s*(\d+)\s*页|页\s*(\d+)\s*[–—\-~至到]\s*(\d+))"
+)
+PDF_RE = re.compile(r"PDF\s*(?:第\s*(\d+)\s*页|页\s*(\d+))")
 NO_RE = re.compile(r"原题号([^；;，,\n]+)")
+# 没写"原题号"但写了教材编号的情况："教材例6.1.8"、"教材定理4.1"
+NO_ALT_RE = re.compile(r"(?:教材例|教材定理|教材习题|教材命题|教材推论)\s*([0-9A-Za-z§.．\-]+)")
+# 西文教材的题号："Chapter 1 §3 Exercises 3"
+EN_NO_RE = re.compile(r"Exercises?\s*([0-9]+(?:\.[0-9]+)*)", re.IGNORECASE)
 
 
 def parse_source(ex: dict) -> dict:
@@ -86,6 +100,10 @@ def parse_source(ex: dict) -> dict:
     book = BOOK_RE.search(raw)
     if book:
         out["source_book"] = book.group(1).strip()
+    else:
+        western = WESTERN_BOOK_RE.match(raw)
+        if western and len(re.findall(r"[A-Za-z]", western.group(1))) >= 6:
+            out["source_book"] = western.group(1).strip()
 
     # 整章范围（如"书页1–99"）不是精确页，不能当成题目所在页
     if PAGE_RANGE_RE.search(raw):
@@ -100,9 +118,10 @@ def parse_source(ex: dict) -> dict:
     else:
         m = PDF_RE.search(raw)
         if m and not PDF_RANGE_RE.search(raw):
-            out["source_pdf_page"] = int(m.group(1))
+            # 两种写法共用一条正则："PDF第43页" 与 "PDF页43"
+            out["source_pdf_page"] = int(m.group(1) or m.group(2))
 
-    no = NO_RE.search(raw)
+    no = NO_RE.search(raw) or NO_ALT_RE.search(raw) or EN_NO_RE.search(raw)
     if no:
         out["source_no"] = no.group(1).strip()
 
@@ -114,11 +133,18 @@ def parse_source(ex: dict) -> dict:
             row = re.search(r"第\s*(\d+)\s*行", raw)
             if row:
                 out["source_no"] = f"导出表第{row.group(1)}行"
-    elif "自拟训练题" in raw or "教材页码不适用" in raw:
+    elif "自拟训练题" in raw or "教材页码不适用" in raw or "课程建设自拟" in raw:
         out["provenance"] = "self-authored"
     elif out["source_book"] and out["source_no"] and out["source_page"]:
         out["provenance"] = "textbook"
     elif out["source_book"] and "原题" in raw:
+        out["provenance"] = "textbook"
+    # 有书名（西文也算）、有精确书页、并且明说是教材/习题集，即可判为教材原题。
+    # 不加这一条时，西文书目（无书名号、无"原题号"字样）会全部落进 unknown，
+    # 而它们恰恰是溯源最清楚的一批。
+    elif out["source_book"] and out["source_page"] and (
+        "教材" in raw or re.search(r"Exercises?\b", raw, re.IGNORECASE)
+    ):
         out["provenance"] = "textbook"
 
     return out

@@ -79,6 +79,25 @@ def seed_fixture() -> None:
             ("e2e-course", f"ex-{i}", "n-1"),
         )
 
+    # 两道专门用来验证问题分类的题：
+    #   ex-4 自拟题没有教材页码，不该被标成页码不精确；
+    #   ex-5 出处里写了待核，应当单独归到页码待核，而不是笼统的内容待核。
+    for exercise_id, source_raw, provenance, difficulty, status in [
+        ("ex-4", "课程建设自拟训练题，无教材原题页码", "self-authored", 1, "machine-checked"),
+        ("ex-5", "《数学分析》第一版，书页待核，PDF第12页", "textbook", 2, "draft"),
+    ]:
+        db.query(
+            """INSERT INTO exercise (course_id, id, chapter_id, prompt_md, answer_md,
+                                     difficulty, source_raw, provenance, review_status)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            ("e2e-course", exercise_id, "ch-1", f"{exercise_id} 题面", "解：……", difficulty,
+             source_raw, provenance, status),
+        )
+        db.query(
+            "INSERT INTO exercise_node (course_id, exercise_id, node_id) VALUES (%s,%s,%s)",
+            ("e2e-course", exercise_id, "n-1"),
+        )
+
 
 def endpoint(name: str, kind: str, base_url: str, model: str, **extra) -> dict:
     payload = {"name": name, "kind": kind, "base_url": base_url, "model": model,
@@ -222,6 +241,20 @@ def run() -> None:
                     "tier", "node_ids", "issues"}
         missing = required - set(items[0].keys()) if items else required
         check("队列字段满足审核页契约", not missing, f"缺 {sorted(missing)}" if missing else "")
+
+        by_id = {item["exercise_id"]: item for item in items}
+        categories = {ex: {issue["category"] for issue in item["issues"]}
+                      for ex, item in by_id.items()}
+        check("自拟题不被标页码问题",
+              "ex-4" in categories and "page-imprecise" not in categories["ex-4"],
+              str(categories.get("ex-4")))
+        check("有书页但标了待核的题只归到页码待核",
+              categories.get("ex-5") == {"page-imprecise"},
+              str(categories.get("ex-5")))
+        pending_details = [issue["detail"] for issue in by_id.get("ex-5", {}).get("issues", [])
+                           if issue["category"] == "page-imprecise"]
+        check("页码待核的说明能看懂", any("待核" in text for text in pending_details),
+              str(pending_details))
 
         if items:
             task_id = items[0]["task_id"]
