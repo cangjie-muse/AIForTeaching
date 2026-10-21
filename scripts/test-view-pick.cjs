@@ -134,6 +134,24 @@ check('卡片链到习题页', html.includes('#/course/analysis-ii/exercises'));
 check('所有卡片都指向同一个功能页',
   (html.match(/#\/course\/[^"]+\/(graph|exercises)/g) || []).every(href => href.endsWith('/exercises')));
 
+console.log('\n当前课程条：');
+
+check('没有课程时不渲染课程条', App.courseBar() === '', App.courseBar().slice(0, 40));
+App.course = { id: 'analysis-ii', title: '数学分析II', status: 'ready',
+  stats: { sections: 10, knowledge: 90, exercises: 349 } };
+App.route = { page: 'graph', params: new URLSearchParams() };
+let bar = App.courseBar();
+check('有课程时渲染课程条', bar.includes('course-bar') && bar.includes('数学分析II'));
+check('课程条写明规模', bar.includes('10 章') && bar.includes('349 道习题'));
+check('课程条的本课链接带课程 id', bar.includes('href="#/course/analysis-ii/outline"'));
+check('课程条高亮当前页', bar.includes('course-bar-link active'));
+check('换课程回选课页并记住当前功能', bar.includes('href="#/pick/graph"'), '');
+App.route = { page: 'exercises', params: new URLSearchParams() };
+check('换课程跟随当前功能', App.courseBar().includes('href="#/pick/exercises"'));
+App.course = { id: 'homology', title: '同调论', status: 'planned', stats: {} };
+check('待接入课程标注内容待接入', App.courseBar().includes('内容待接入'));
+App.course = null;
+
 console.log('\n上次浏览：');
 
 App.rememberCourse('analysis');

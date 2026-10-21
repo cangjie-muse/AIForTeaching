@@ -7,8 +7,10 @@
   }
   function sidebar() {
     // 没有打开中的课程时，课程相关入口不预设课程：交给 #/pick/<page> 让老师自己选。
+    // 菜单形状固定（课程概览/大纲一直存在），选课前后位置不变——菜单跳来跳去
+    // 会让人以为是两套系统。
     const id = A.course?.id || null;
-    return `<aside class="sidebar"><a href="#/catalog" class="brand"><img src="assets/mark.svg" alt=""><span><b>智慧武大</b><small>MATHEMATICS LEARNING</small></span></a><nav aria-label="主导航"><div class="nav-group-label">课程与学习</div>${navItem('catalog', '课程中心', 'grid', null)}${A.course ? navItem('overview', '课程概览', 'book', id) + navItem('outline', '课程大纲', 'layers', id) : ''}${navItem('graph', '知识图谱', 'graph', id)}${navItem('exercises', '习题与测验', 'pen', id)}${navItem('ai', 'AI 学习助手', 'ai', id, 'AI')}${navItem('qa', 'AI 问答（已接入模型）', 'ai', id, '新')}<div class="nav-group-label">教学与建设</div>${navItem('teaching', '教学工作台', 'activity', id)}${navItem('courseware', '课件生成与修改', 'layers', id)}${navItem('resources', '课程资源', 'folder', id)}${navItem('analytics', '建设与学习分析', 'chart', id)}<div class="nav-group-label">工作空间</div>${navItem('study', '我的学习', 'bookmark', null)}${navItem('content', '课程内容', 'upload', null)}${navItem('settings', '平台设置', 'settings', null)}<div class="nav-group-label">系统管理</div>${navItem('review', '内容审核', 'check', null)}${navItem('api-config', '模型接口配置', 'settings', null, '管理')}<div class="nav-group-label construction-group-label">信息汇总(仅建设过程用)</div>${navItem('construction', '建设进度汇总', 'chart', null)}</nav><div class="sidebar-bottom"><div class="sidebar-note">${A.icon('graph')}<b>以数学知识，连接教与学</b><p>课程 · 图谱 · 习题 · 智能助教</p></div><div class="sidebar-foot"><span class="tiny-dot"></span>本地展示版 <span>v${A.version}</span></div></div></aside>`;
+    return `<aside class="sidebar"><a href="#/catalog" class="brand"><img src="assets/mark.svg" alt=""><span><b>智慧武大</b><small>MATHEMATICS LEARNING</small></span></a><nav aria-label="主导航"><div class="nav-group-label">课程与学习</div>${navItem('catalog', '课程中心', 'grid', null)}${navItem('overview', '课程概览', 'book', id)}${navItem('outline', '课程大纲', 'layers', id)}${navItem('graph', '知识图谱', 'graph', id)}${navItem('exercises', '习题与测验', 'pen', id)}${navItem('ai', 'AI 学习助手', 'ai', id, 'AI')}${navItem('qa', 'AI 问答（已接入模型）', 'ai', id, '新')}<div class="nav-group-label">教学与建设</div>${navItem('teaching', '教学工作台', 'activity', id)}${navItem('courseware', '课件生成与修改', 'layers', id)}${navItem('resources', '课程资源', 'folder', id)}${navItem('analytics', '建设与学习分析', 'chart', id)}<div class="nav-group-label">工作空间</div>${navItem('study', '我的学习', 'bookmark', null)}${navItem('content', '课程内容', 'upload', null)}${navItem('settings', '平台设置', 'settings', null)}<div class="nav-group-label">系统管理</div>${navItem('review', '内容审核', 'check', null)}${navItem('api-config', '模型接口配置', 'settings', null, '管理')}<div class="nav-group-label construction-group-label">信息汇总(仅建设过程用)</div>${navItem('construction', '建设进度汇总', 'chart', null)}</nav><div class="sidebar-bottom"><div class="sidebar-note">${A.icon('graph')}<b>以数学知识，连接教与学</b><p>课程 · 图谱 · 习题 · 智能助教</p></div><div class="sidebar-foot"><span class="tiny-dot"></span>本地展示版 <span>v${A.version}</span></div></div></aside>`;
   }
   function topbar() {
     // 选课页的面包屑：课程平台 > 知识图谱 > 选择课程。
@@ -44,7 +46,7 @@
       try { body = view(); }
       catch (error) { console.error('[page/render]', error); body = A.empty('info', '页面暂时无法显示', e(error.message), A.link('返回课程中心', 'catalog', null)); }
     }
-    document.getElementById('app').innerHTML = `${sidebar()}<div class="main-shell">${topbar()}<main id="main" tabindex="-1">${body}</main></div>`;
+    document.getElementById('app').innerHTML = `${sidebar()}<div class="main-shell">${topbar()}<main id="main" tabindex="-1">${A.courseBar()}${body}</main></div>`;
     document.title = `${A.course?.title || labels[A.route.page] || '智慧武大'} · 数学课程平台`;
     if (exists && view) A.after[A.route.page]?.();
     A.log('navigate', { page: A.route.page, courseId: A.course?.id });

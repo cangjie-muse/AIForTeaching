@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-21T07:50:53.539Z",
+  "checkedAt": "2026-10-21T07:56:02.899Z",
   "scope": "Project source/provenance audit; no private competitor source or internet-wide similarity database comparison",
   "checks": {
     "runtimeFiles": 40,
@@ -30,7 +30,7 @@
     },
     {
       "path": "js/app.js",
-      "sha256": "2a854a1c00fdb2af04aa6bd9febaa1c0147d59c5d7c92e55ff69c995a909ddc1"
+      "sha256": "0d5c911591e2c059ac065654e2907e85a8a9d30fcecea6cfeee6c9e3a25cb30c"
     },
     {
       "path": "js/catalog-view.js",
@@ -50,7 +50,7 @@
     },
     {
       "path": "js/core.js",
-      "sha256": "97ded55de12b168271bf1c163ee2ade037c80e6d7dc969322625f7892a3249a2"
+      "sha256": "edbc50c0655321cab0f2ddc67280ecfa44895cf1f02103fcb16a6c7c3dfdf396"
     },
     {
       "path": "js/course-catalog.js",
@@ -170,7 +170,7 @@
     },
     {
       "path": "styles/views.css",
-      "sha256": "56268e6fad5e37f62d6ed7c8c377e7bc1f8b13e7ba0013e37664d67be49a1e6c"
+      "sha256": "1cdad8672bcbba5b6a1d8e80e7186798c8b6caaff4b830cf385515e182fb33c3"
     },
     {
       "path": "assets/mark.svg",
@@ -253,6 +253,10 @@
       "sha256": "222c72bebc956d598499c3a239e8376ed5f11cc046704b3207b469710aa50969"
     },
     {
+      "path": "scripts/test-render-shell.cjs",
+      "sha256": "1ceda55056911d2fc8a63f2b5ffd05f51ed1933cac1002de629812864ddb4600"
+    },
+    {
       "path": "scripts/test-view-api-config.cjs",
       "sha256": "bb7ac66613ff4fa356a423bbc32e7dd1deedfad2dddfe885fb4f37bd92f59a76"
     },
@@ -266,7 +270,7 @@
     },
     {
       "path": "scripts/test-view-pick.cjs",
-      "sha256": "db72ed685707bf525c0df9189a448f575eb1dc8b9aa164a4632e87018c974654"
+      "sha256": "0228f300591f5924fae9a84cad6fcb14e8d3bcd6ce81daba41d079e2b1754664"
     },
     {
       "path": "scripts/test-view-publish.cjs",

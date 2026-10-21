@@ -78,6 +78,28 @@ App.normalizeRoute = function (route) {
   }
   return { page: route.page, params: route.params };
 };
+// 当前课程条：进了某门课以后，"我在哪门课里、还能去哪儿"必须有常驻答案。
+// 只靠面包屑不够——它太细，一滚就没了；只靠侧边栏高亮也不够——选课之后菜单
+// 本来就不该再变形状。这条把"当前课程"从路由状态变成看得见的东西。
+App.courseBar = function () {
+  const course = App.course;
+  if (!course) return '';
+  const stats = course.stats || {};
+  const page = App.route.page;
+  const ready = course.status === 'ready';
+  const counts = ready
+    ? `${stats.sections || 0} 章 · ${stats.knowledge || 0} 个知识点 · ${stats.exercises || 0} 道习题`
+    : '内容待接入';
+  const links = [['overview', '概览', 'book'], ['outline', '大纲', 'layers'],
+    ['graph', '图谱', 'graph'], ['exercises', '习题', 'pen'], ['resources', '资源', 'folder']]
+    .map(([target, label, icon]) => `<a class="course-bar-link${page === target ? ' active' : ''}" href="${App.url(target, course.id)}">${App.icon(icon)}${label}</a>`)
+    .join('');
+  return `<div class="course-bar" aria-label="当前课程">
+    <div class="course-bar-main">${App.icon('book')}<a class="course-bar-title" href="${App.url('overview', course.id)}">${App.escape(course.title)}</a><span class="muted small">${counts}</span></div>
+    <nav class="course-bar-links" aria-label="本课程页面">${links}</nav>
+    <a class="course-bar-switch" href="${App.url(page === 'pick' ? 'graph' : page, null)}" title="换一门课程">${App.icon('grid')}换课程</a>
+  </div>`;
+};
 App.url = function (page, courseId, params = {}) {
   const scoped = App.coursePages.includes(page);
   const root = courseId ? `#/course/${encodeURIComponent(courseId)}/${page}`
