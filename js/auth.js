@@ -19,6 +19,7 @@
     analytics: ['teacher', 'admin'],
     content: ['teacher', 'admin'],
     review: ['teacher', 'admin'],
+  classes: ['teacher', 'admin'],
     construction: ['teacher', 'admin'],
     accounts: ['admin'],
     'api-config': ['admin']

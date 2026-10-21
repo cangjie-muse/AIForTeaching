@@ -67,6 +67,16 @@ def main() -> int:
 
     with psycopg.connect(url) as conn:
         if args.truncate:
+            # 班级与选课挂在 course(id) 上，TRUNCATE ... CASCADE 会连它们一起清掉。
+            # 这不是我们想悄悄发生的事：先数出来、说清楚，再清。
+            with conn.cursor() as cur:
+                cur.execute("SELECT count(*) FROM teaching_class")
+                classes = cur.fetchone()[0]
+                cur.execute("SELECT count(*) FROM enrollment")
+                seats = cur.fetchone()[0]
+            if classes or seats:
+                print(f"注意：清空课程会连带删除 {classes} 个班级、{seats} 条选课记录"
+                      "（外键 CASCADE）。学习记录与账号不受影响。")
             with conn.cursor() as cur:
                 cur.execute("TRUNCATE " + ", ".join(TABLES) + " CASCADE")
             conn.commit()

@@ -210,3 +210,22 @@
   .api-form { grid-template-columns: 1fr; }
   .api-row-actions { justify-content: flex-start; }
 }
+
+/* ---- 班级与选课 ---- */
+.cls-roster-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.cls-roster-head h2{margin:0}
+.cls-form{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.cls-actions{white-space:nowrap;text-align:right}
+.cls-error{color:#b4322a;font-size:12px;margin:8px 0 0}
+.cls-open td{background:#f7faff}
+.cls-picker{border:1px solid var(--line);border-radius:10px;padding:14px;margin-top:14px;background:#fbfcfe}
+.cls-picker-head{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.cls-picker-head input{flex:1;min-width:180px;padding:7px 10px;border:1px solid var(--line);border-radius:7px;font-size:12px}
+.cls-pick-list{max-height:280px;overflow:auto;display:grid;gap:2px;background:white;border:1px solid var(--line);border-radius:8px;padding:6px}
+.cls-pick-row{display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:6px;font-size:12px;cursor:pointer}
+.cls-pick-row:hover{background:#f2f6fd}
+.cls-pick-row em{font-style:normal;margin-left:4px}
+@media(max-width:720px){
+  .cls-form{flex-direction:column;align-items:stretch}
+  .cls-picker-head input{min-width:0}
+}

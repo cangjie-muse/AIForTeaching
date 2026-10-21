@@ -1461,6 +1461,106 @@ def run() -> None:
               client.get("/api/v1/auth/cas/callback?ticket=ST-1").status_code == 501,
               "回调没有拒绝")
 
+        # ------------------------------------------------------------------
+        # 班级与选课：管理员发账号，教师建班加人，学生没有这些权限
+        # ------------------------------------------------------------------
+        print("\n班级与选课：")
+        student_row = [row for row in listing["items"] if row["username"] == "e2e-student"][0]
+        teacher_row = [row for row in listing["items"] if row["username"] == "e2e-teacher"][0]
+        teacher_headers = {"X-Actor": teacher_row["id"], "X-Roles": "teacher"}
+        inbox = {"course_id": "e2e-course", "name": "E2E-01班", "term": "2026-2027-1"}
+
+        check("学生不能建班", client.post("/api/v1/classes", headers=STUDENT, json=inbox)
+              .status_code == 403, "学生把班建起来了")
+        check("学生不能看班级列表",
+              client.get("/api/v1/classes", headers=STUDENT).status_code == 403, "泄漏了班级")
+        check("学生不能看学生清单",
+              client.get("/api/v1/students", headers=STUDENT).status_code == 403, "泄漏了名单")
+
+        made = client.post("/api/v1/classes", headers=teacher_headers, json=inbox)
+        check("教师能建班", made.status_code == 200, made.text[:200])
+        made_class = made.json() if made.status_code == 200 else {}
+        check("建班返回课程名", made_class.get("course_title") == "端到端测试课",
+              str(made_class.get("course_title")))
+        check("任课教师默认是建班的人", made_class.get("teacher_name") == "端到端教师",
+              str(made_class.get("teacher_name")))
+        check("新班人数为 0", made_class.get("student_count") == 0)
+
+        dup_class = client.post("/api/v1/classes", headers=teacher_headers, json=inbox)
+        check("同课程同学期重名被 409 拒绝", dup_class.status_code == 409, str(dup_class.status_code))
+        bad_term = client.post("/api/v1/classes", headers=teacher_headers,
+                               json={**inbox, "name": "E2E-02班", "term": "2026秋"})
+        check("学期格式不对被 400 拒绝", bad_term.status_code == 400, str(bad_term.status_code))
+        no_course = client.post("/api/v1/classes", headers=teacher_headers,
+                                json={**inbox, "course_id": "nope", "name": "E2E-03班"})
+        check("课程不存在被 404 拒绝", no_course.status_code == 404, str(no_course.status_code))
+
+        class_id = made_class.get("id", "")
+        pupils = client.get("/api/v1/students", headers=teacher_headers).json()["items"]
+        check("学生清单只有学生", all(row["id"] != teacher_row["id"] for row in pupils),
+              "把教师当学生返回了")
+        check("学生清单能按学号搜到人",
+              any(row["username"] == "e2e-student" for row in pupils), str(len(pupils)))
+
+        added = client.post(f"/api/v1/classes/{class_id}/students", headers=teacher_headers,
+                            json={"student_ids": [student_row["id"]]})
+        check("教师能把学生加进班", added.status_code == 200 and added.json()["added"] == 1,
+              added.text[:160])
+        again = client.post(f"/api/v1/classes/{class_id}/students", headers=teacher_headers,
+                            json={"student_ids": [student_row["id"]]})
+        check("重复加入不报错、只记一次",
+              again.status_code == 200 and again.json()["added"] == 0
+              and again.json()["skipped"] == 1 and again.json()["total"] == 1,
+              again.text[:160])
+        wrong_role = client.post(f"/api/v1/classes/{class_id}/students", headers=teacher_headers,
+                                 json={"student_ids": [teacher_row["id"]]})
+        check("教师账号不能塞进学生名单", wrong_role.status_code == 400,
+              str(wrong_role.status_code))
+        ghost = client.post(f"/api/v1/classes/{class_id}/students", headers=teacher_headers,
+                            json={"student_ids": ["acc-does-not-exist"]})
+        check("不存在的账号被 400 拒绝", ghost.status_code == 400, str(ghost.status_code))
+
+        roster = client.get(f"/api/v1/classes/{class_id}/students", headers=teacher_headers).json()
+        check("名单里能看到学生", roster["total"] == 1
+              and roster["items"][0]["username"] == "e2e-student", str(roster["total"]))
+        check("名单记下是谁加进来的",
+              roster["items"][0]["added_by"] == "端到端教师",
+              str(roster["items"][0]["added_by"]))
+
+        listed = client.get("/api/v1/classes?course_id=e2e-course",
+                            headers=teacher_headers).json()
+        check("按课程筛选能查到这门课", listed["total"] == 1
+              and listed["items"][0]["student_count"] == 1, str(listed["total"]))
+        check("班级列表统计选课人次", listed["students"] == 1, str(listed["students"]))
+
+        renamed = client.patch(f"/api/v1/classes/{class_id}", headers=teacher_headers,
+                               json={"name": "E2E-01班（改）"})
+        check("班级能改名", renamed.status_code == 200
+              and renamed.json()["name"] == "E2E-01班（改）", renamed.text[:160])
+
+        removed = client.delete(f"/api/v1/classes/{class_id}/students/{student_row['id']}",
+                                headers=teacher_headers)
+        check("教师能把学生移出名单", removed.status_code == 200
+              and removed.json()["total"] == 0, removed.text[:160])
+        check("重复移出被 404 拒绝",
+              client.delete(f"/api/v1/classes/{class_id}/students/{student_row['id']}",
+                            headers=teacher_headers).status_code == 404, "重复移出没报错")
+
+        dropped = client.delete(f"/api/v1/classes/{class_id}", headers=teacher_headers)
+        check("班级能删除", dropped.status_code == 200, dropped.text[:160])
+        check("删班后列表为空",
+              client.get("/api/v1/classes", headers=teacher_headers).json()["total"] == 0,
+              "删了还在")
+
+        actions = {row["action"] for row in db.query(
+            "SELECT action FROM audit_log WHERE entity = 'teaching_class'")}
+        check("建班/加人/移出/删班都写了审计",
+              {"class.create", "class.update", "enrollment.add",
+               "enrollment.remove", "class.delete"} <= actions, str(sorted(actions)))
+        check("班级不影响学生看到的课程（本阶段）",
+              client.get("/api/v1/catalog", headers=STUDENT).status_code == 200,
+              "目录被班级连带改动了")
+
         # --- 以下会产生真正的数据库错误，必须最后跑（见文件头说明）---
         print("\n数据库约束（放在最后：会让 PGlite 协议错位）：")
         dup = client.post(

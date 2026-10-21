@@ -347,6 +347,42 @@
     return request('PATCH', `/api/v1/auth/accounts/${encodeURIComponent(accountId)}`, { body: payload });
   }
 
+  // ---- 班级与选课（教师 / 管理员） ----
+  function queryString(params) {
+    const query = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') query.set(key, value);
+    });
+    const text = query.toString();
+    return text ? `?${text}` : '';
+  }
+  function classes(params) {
+    return request('GET', `/api/v1/classes${queryString(params)}`);
+  }
+  function createClass(payload) {
+    return request('POST', '/api/v1/classes', { body: payload });
+  }
+  function patchClass(classId, payload) {
+    return request('PATCH', `/api/v1/classes/${encodeURIComponent(classId)}`, { body: payload });
+  }
+  function deleteClass(classId) {
+    return request('DELETE', `/api/v1/classes/${encodeURIComponent(classId)}`);
+  }
+  function classStudents(classId) {
+    return request('GET', `/api/v1/classes/${encodeURIComponent(classId)}/students`);
+  }
+  function addStudents(classId, studentIds) {
+    return request('POST', `/api/v1/classes/${encodeURIComponent(classId)}/students`,
+      { body: { student_ids: studentIds } });
+  }
+  function removeStudent(classId, studentId) {
+    return request('DELETE',
+      `/api/v1/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(studentId)}`);
+  }
+  function students(params) {
+    return request('GET', `/api/v1/students${queryString(params)}`);
+  }
+
   // 一门课全部题目的审核总表（不是队列：含已发布、含没人审过的）。
   function reviewLedger(params) {
     const query = new URLSearchParams();
@@ -404,6 +440,8 @@
     logout,
     changePassword,
     accounts,
+    classes, createClass, patchClass, deleteClass,
+    classStudents, addStudents, removeStudent, students,
     createAccount,
     patchAccount,
     get: (path, options) => request('GET', path, options),

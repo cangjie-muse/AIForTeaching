@@ -26,6 +26,7 @@ from .accounts import router as accounts_router
 from .admin import router as admin_router
 from .attempts import router as attempts_router
 from .catalog import router as catalog_router
+from .classes import router as classes_router
 from .content import router as content_router
 from .generation import router as generation_router
 from .qa import router as qa_router
@@ -92,6 +93,7 @@ app.include_router(generation_router)
 app.include_router(content_router)
 app.include_router(catalog_router)
 app.include_router(visibility_router)
+app.include_router(classes_router)
 
 
 _ROOT = Path(__file__).resolve().parents[2]
