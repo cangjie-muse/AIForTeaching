@@ -618,7 +618,11 @@ def export_course_content(course_id: str, actor: Actor = Depends(require("admin"
 
 @router.patch("/courses/{course_id}/nodes/{node_id}")
 def patch_knowledge_node(course_id: str, node_id: str, body: NodePatchIn,
-                         actor: Actor = Depends(require("admin"))) -> dict:
+                         actor: Actor = Depends(require("reviewer"))) -> dict:
+    """改知识点。教师也能改：审核图谱时发现"标题不对/挂错层"，就地改比退回给管理员快。
+
+    写 audit_log 的 `node.patch`，谁改的、改了哪些字段都留痕。
+    """
     return patch_node(course_id, node_id, body, actor.id)
 
 

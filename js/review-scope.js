@@ -1,9 +1,9 @@
-/* 内容审核页的"可见范围 / 知识图谱 / 审核总表 / 按题号查"四块。
+/* 内容审核页的两块辅助面板：可见范围已搬去「学生可见范围」页（js/visibility.js），
+ * 这里只剩「知识图谱审核」的章节树，以及「课程审核总表」「按题号查」这两块全量清单。
  *
- * 和 js/review.js 的分工：那边是队列与详情（"接下来审哪几道"），
- * 这边是口径与全量清单（"这门课 400 道题各自什么状态"）。
- * 拆开是因为 review.js 已经超过 eslint 的行数上限，再堆下去没人愿意读。
- * 共用工具（状态读取、等级徽标）由 A.reviewShared 提供，不在这里重复定义。
+ * 图谱为什么做成树：原来是一张按章的长表格，老师只看到「第一章 32 个节点」，
+ * 看不到挂了哪些知识点，也就判断不了"挂得对不对"。现在每章展开就是它的子节点，
+ * 逐条通过/撤销，标题错了就地改——和图谱页看到的形状一致，不用在两套表达之间换算。
  */
 (function () {
   const A = App, e = A.escape;
@@ -53,96 +53,163 @@
     </div>`;
   }
 
-  function policyPanel() {
-    const policy = S().visibility;
-    if (!policy) return '';
-    const draft = S().policyDraft || {
-      exercise_tier: policy.effective.exercise_tier,
-      qa_tier: policy.effective.qa_tier,
-      graph_tier: policy.effective.graph_tier
-    };
-    const scope = S().policyScope || '';
-    const options = current => (policy.options || ['human', 'verified', 'all']).map(key =>
-      `<option value="${key}"${key === current ? ' selected' : ''}>${e(policy.labels[key] || key)} · 学生可见 ${policy.impact[key] ?? 0} 题</option>`).join('');
-    const graphOptions = current => (policy.graph_options || ['all', 'human']).map(key =>
-      `<option value="${key}"${key === current ? ' selected' : ''}>${e(policy.graph_labels[key] || key)} · 学生可见 ${policy.graph.impact[key] ?? 0} 节点</option>`).join('');
-    const chips = (policy.tiers || []).map(row =>
-      `<span class="rv-tier">${shared().tierBadge(row.tier)}<b>${row.total}</b> 题，已发布 ${row.published}</span>`).join('');
-    const visible = policy.impact[draft.exercise_tier] ?? 0;
-    const graphVisible = policy.graph.impact[draft.graph_tier] ?? 0;
-    const warnings = [];
-    if (visible === 0) {
-      warnings.push(`这一档现在放不出任何已发布习题——还没有题达到这个验证等级。要么先去审核，要么换回更宽的档。`);
-    }
-    if (draft.graph_tier === 'human' && graphVisible === 0) {
-      warnings.push('这一档下没有任何节点通过人工审核，学生端会看不到知识图谱。');
-    }
-    if (draft.exercise_tier === 'verified') {
-      warnings.push('Lean 验证尚未接入：选这一档目前与「仅人工审核通过」效果相同。');
-    }
-    const warningHtml = warnings.map(text =>
-      `<div class="notice amber">${A.icon('info')}<span>${e(text)}</span></div>`).join('');
-    const scopeOptions = [{ id: '', title: '全局默认（所有课程）', has_override: false }]
-      .concat(policy.courses || [])
-      .map(course => `<option value="${e(course.id)}"${course.id === scope ? ' selected' : ''}>${e(course.title)}${course.has_override ? '（单独设置）' : ''}</option>`)
-      .join('');
-    return `<div class="panel rv-policy">
-      <div class="rv-policy-head">
-        <div><h2>学生可见范围</h2><p class="muted">审核不是二元的。这里决定学生端的习题、AI 问答、知识图谱从哪一档可信等级取内容；它与发布闸是「与」的关系：先发布，再按等级过滤。口径分两级，课程可以覆盖全局。</p></div>
-        <div class="button-row">
-          ${scope && policy.override ? `<button class="btn small" data-action="visibility-reset">取消本课设置</button>` : ''}
-          ${A.button('保存设置', 'visibility-save', 'check', '', 'primary small')}
+  // ---------------- 知识图谱审核：章节树 ----------------
+
+  // 按章归拢节点，再在章内按 parent_id 连成树。
+  // 章节容器节点自己也算一章的根（它可能没有 chapter_id，用 id 顶替）。
+  function groupByChapter(nodes) {
+    const byChapter = new Map();
+    nodes.forEach(node => {
+      const key = node.chapter_id || node.id;
+      if (!byChapter.has(key)) byChapter.set(key, []);
+      byChapter.get(key).push(node);
+    });
+    return byChapter;
+  }
+
+  // 章内的根 = 父节点不在本章里的那些（父节点是章节容器、是章外节点，或者没有父节点）。
+  // 只看 parent_id === chapter_id 会漏掉"父节点为空"的老数据。
+  function rootsOf(chapterNodes) {
+    const ids = new Set(chapterNodes.map(node => node.id));
+    return chapterNodes.filter(node => !node.parent_id || !ids.has(node.parent_id));
+  }
+
+  function childrenOf(chapterNodes) {
+    const byParent = new Map();
+    chapterNodes.forEach(node => {
+      const key = node.parent_id || '';
+      if (!byParent.has(key)) byParent.set(key, []);
+      byParent.get(key).push(node);
+    });
+    return byParent;
+  }
+
+  function nodeRow(node, byParent, depth, courseId) {
+    const editing = S().editingNode === node.id;
+    const children = byParent.get(node.id) || [];
+    const hasChildren = children.length > 0;
+    const fold = S().graphOpen[`node:${node.id}`] !== false;   // 子节点默认展开
+    const verified = node.verified
+      ? A.badge('已通过', 'green')
+      : '<span class="rv-node-state">未审</span>';
+    if (editing) {
+      return `<li class="rv-tree-node" style="--depth:${depth}" data-node="${e(node.id)}">
+        <div class="rv-node-row rv-node-editing">
+          <input data-input="graph-node-title" value="${e(S().editingTitle)}"
+                 aria-label="修改知识点标题" autocomplete="off">
+          <button class="btn small primary" data-action="graph-node-save"
+                  data-node="${e(node.id)}" data-course="${e(courseId)}">保存</button>
+          <button class="btn small text-btn" data-action="graph-node-cancel">取消</button>
         </div>
+      </li>`;
+    }
+    return `<li class="rv-tree-node" style="--depth:${depth}" data-node="${e(node.id)}">
+      <div class="rv-node-row">
+        ${hasChildren ? `<button class="rv-fold" data-action="graph-fold" data-node="${e(node.id)}"
+          aria-label="${fold ? '收起子节点' : '展开子节点'}">${fold ? '▾' : '▸'}</button>` : '<span class="rv-fold-space"></span>'}
+        <span class="rv-node-title">${e(node.title)}</span>
+        ${node.kind === 'container' ? '<span class="rv-node-kind">节</span>' : ''}
+        ${verified}
+        <span class="rv-node-actions">
+          <button class="btn small${node.verified ? ' text-btn' : ''}" data-action="graph-node-verify"
+                  data-node="${e(node.id)}" data-course="${e(courseId)}" data-verb="${node.verified ? 'unverify' : 'verify'}">
+            ${node.verified ? '撤销' : '通过'}
+          </button>
+          <button class="btn small text-btn" data-action="graph-node-edit"
+                  data-node="${e(node.id)}" data-title="${e(node.title)}">修改</button>
+        </span>
       </div>
-      <div class="rv-policy-scope">
-        <label class="rv-select"><span>作用范围</span>
-          <select data-input="visibility-scope">${scopeOptions}</select>
-        </label>
-        <p class="muted small">${shared().scopeStatus(policy)}</p>
+      ${hasChildren && fold ? `<ul class="rv-tree">${children
+        .map(child => nodeRow(child, byParent, depth + 1, courseId)).join('')}</ul>` : ''}
+    </li>`;
+  }
+
+  function chapterCard(chapter, chapterNodes, courseId) {
+    const done = chapter.verified >= chapter.nodes;
+    const open = S().graphOpen[chapter.chapter_id] === true;
+    const byParent = childrenOf(chapterNodes);
+    // 章节容器节点（id === chapter_id）本身不算"子节点"——它的标题已经在章头上。
+    // 有子节点时把子节点提上来当根，避免章头下面又出现一行同名节点。
+    const children = byParent.get(chapter.chapter_id) || [];
+    const roots = children.length
+      ? chapterNodes.filter(node => node.parent_id === chapter.chapter_id)
+      : rootsOf(chapterNodes);
+    const body = roots.length
+      ? `<ul class="rv-tree">${roots.map(node => nodeRow(node, byParent, 0, courseId)).join('')}</ul>`
+      : '<p class="muted small">这一章没有挂知识点。</p>';
+    return `<section class="rv-chapter ${done ? 'done' : ''}">
+      <div class="rv-chapter-head">
+        <button class="rv-chapter-toggle" data-action="graph-chapter-toggle" data-chapter="${e(chapter.chapter_id)}">
+          <span class="rv-chapter-caret">${open ? '▾' : '▸'}</span>
+          <b>${e(chapter.title || chapter.chapter_id)}</b>
+          <span class="muted small">${chapter.nodes} 个知识点 · 已审 ${chapter.verified}</span>
+        </button>
+        <span class="rv-chapter-actions">
+          ${done ? A.badge('本章已通过', 'green') : ''}
+          <button class="btn small${done ? ' text-btn' : ' primary'}"
+                  data-action="graph-verify" data-chapter="${e(chapter.chapter_id)}"
+                  data-course="${e(courseId)}" data-verb="${done ? 'unverify' : 'verify'}">
+            ${done ? '撤销本章通过' : '整章通过'}
+          </button>
+        </span>
       </div>
-      <div class="rv-policy-row">
-        <label class="rv-select"><span>习题与测验</span><select data-input="visibility-tier" data-kind="exercise">${options(draft.exercise_tier)}</select></label>
-        <label class="rv-select"><span>AI 问答（完整解答）</span><select data-input="visibility-tier" data-kind="qa">${options(draft.qa_tier)}</select></label>
-        <label class="rv-select"><span>知识图谱</span><select data-input="visibility-tier" data-kind="graph">${graphOptions(draft.graph_tier)}</select></label>
-      </div>
-      <div class="rv-policy-tiers">${chips}
-        <span class="rv-tier">${'图谱'}<b>${policy.graph.verified}</b>/${policy.graph.total} 节点已人工审核</span>
-      </div>
-      ${warningHtml}
-      <p class="muted small">当前设置下，学生端可见 <b>${visible}</b> 道已发布习题、<b>${graphVisible}</b> 个图谱节点；当前范围共 ${policy.total} 道题（已发布 ${policy.published_total}）、${policy.graph.total} 个节点。</p>
-      <p class="muted small">${policy.updated_at ? `上次修改：${e(String(policy.updated_at).slice(0, 19).replace('T', ' '))}${policy.updated_by ? ` · ${e(policy.updated_by)}` : ''}` : '还没有改过，当前是默认设置（全部）。'}</p>
-    </div>`;
+      ${open ? body : ''}
+    </section>`;
   }
 
   function graphPanel() {
+    const course = S().filters.course_id;
     const facts = S().graph;
-    const scope = S().policyScope;
-    if (!scope) {
-      return `<div class="panel rv-graph"><h2>知识图谱审核</h2>
-        <p class="muted">教材切片正文不审（原文转载）。需要人工确认的是图谱结构挂得对不对——在上面选一门课，就能按章通过。</p></div>`;
-    }
-    if (!facts) return '';
-    const totals = facts.totals || { nodes: 0, verified: 0 };
-    const rows = (facts.chapters || []).map(chapter => {
-      const done = chapter.verified >= chapter.nodes;
-      return `<tr>
-        <td class="rv-main"><b>${e(chapter.title || chapter.chapter_id)}</b><small>${e(chapter.course_id)} · ${chapter.nodes} 个节点</small></td>
-        <td>${done ? A.badge('已通过', 'green') : `<span class="muted">${chapter.verified}/${chapter.nodes} 已审</span>`}</td>
-        <td class="rv-actions">
-          <button class="btn small${done ? '' : ' primary'}" data-action="graph-verify" data-chapter="${e(chapter.chapter_id)}" data-verb="${done ? 'unverify' : 'verify'}">
-            ${done ? '撤销本课通过' : '整章人工通过'}
-          </button>
-        </td>
-      </tr>`;
-    }).join('');
-    return `<div class="panel rv-graph">
-      <div class="rv-policy-head">
-        <div><h2>知识图谱审核</h2>
-          <p class="muted">教材切片正文不审（原文转载，审的是作者不是我们）。这里审「图谱挂得对不对」，只有人工一档——它不是定理，谈不上形式化验证。</p></div>
-      </div>
-      <p class="muted small">当前课程 ${totals.nodes} 个节点，已人工审核 <b>${totals.verified}</b> 个${totals.nodes && totals.verified === totals.nodes ? '（全部通过）' : ''}。</p>
-      ${rows ? `<table class="rv-table"><thead><tr><th>章节</th><th>状态</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : '<p class="muted">这门课还没有知识节点。</p>'}
+    const heading = `<div class="rv-policy-head">
+      <div><h2>知识图谱审核</h2>
+        <p class="muted">教材切片正文不审（原文转载，审的是作者不是我们）。这里审「树挂得对不对」：
+          每章展开就是它的知识点，确认无误就通过；挂错或标题不对，就地改，改完再通过。</p></div>
     </div>`;
+    if (!course) {
+      return `<div class="panel rv-graph">${heading}
+        <p class="muted">先在上面选一门课。图谱审核按课程进行——一次只审一棵树，才看得清结构。</p>
+        ${coursePicker()}</div>`;
+    }
+    if (!facts) {
+      return `<div class="panel rv-graph">${heading}
+        ${coursePicker()}<p class="muted">正在读取这门课的图谱…</p></div>`;
+    }
+    const totals = facts.totals || { nodes: 0, verified: 0 };
+    const byChapter = groupByChapter(facts.nodes || []);
+    const chapters = (facts.chapters || []).map(chapter =>
+      chapterCard(chapter, byChapter.get(chapter.chapter_id) || [], course));
+    const allDone = totals.nodes > 0 && totals.verified === totals.nodes;
+    const root = facts.root;
+    return `<div class="panel rv-graph">
+      ${heading}
+      ${coursePicker()}
+      <div class="rv-graph-summary">
+        <span>共 <b>${totals.nodes}</b> 个节点（含课程根节点），已人工审核 <b>${totals.verified}</b> 个</span>
+        ${root ? `<span class="rv-root">
+          ${root.verified ? A.badge('课程根节点已通过', 'green') : '<span class="muted small">课程根节点未审，学生端的树长不出来</span>'}
+          <button class="btn small${root.verified ? ' text-btn' : ''}" data-action="graph-root-verify"
+                  data-node="${e(root.id)}" data-course="${e(course)}" data-verb="${root.verified ? 'unverify' : 'verify'}">
+            ${root.verified ? '撤销整门课' : '整门课通过'}
+          </button>
+        </span>` : ''}
+        ${allDone ? '' : `<span class="muted small">点章节展开，逐条看；没问题也可以整章通过。</span>`}
+      </div>
+      ${chapters.length ? chapters.join('') : '<p class="muted">这门课还没有知识节点。</p>'}
+    </div>`;
+  }
+
+  // 图谱这块自己带一个课程选择器：审核时换课比换筛选条件更频繁，
+  // 藏在别的区域的筛选里容易被忽略。
+  function coursePicker() {
+    const courses = S().courses || [];
+    const current = S().filters.course_id;
+    if (!courses.length) return '';
+    return `<label class="rv-select rv-graph-course"><span>课程</span>
+      <select data-input="review-course">
+        <option value="">选一门课</option>
+        ${courses.map(course => `<option value="${e(course.id)}"${course.id === current ? ' selected' : ''}>${e(course.title)}</option>`).join('')}
+      </select>
+    </label>`;
   }
 
   function ledgerPanel() {
@@ -208,7 +275,6 @@
 
   A.reviewScope = {
     verificationBlock,
-    policyPanel,
     graphPanel,
     ledgerPanel,
     lookupBar
@@ -265,93 +331,102 @@
     A.render();
   };
 
-  A.inputs['visibility-scope'] = function (select) {
-    // 换作用域 = 换一份口径，草案必须丢掉，否则会把全局的值带到某门课上
-    S().policyScope = select.value;
-    S().policyDraft = null;
-    S().graph = null;
-    shared().reload();
-  };
+  // ---------------- 图谱树交互 ----------------
 
-  A.inputs['visibility-tier'] = function (select) {
-    const policy = S().visibility;
-    if (!policy) return;
-    const draft = S().policyDraft || {
-      exercise_tier: policy.effective.exercise_tier,
-      qa_tier: policy.effective.qa_tier,
-      graph_tier: policy.effective.graph_tier
-    };
-    const key = select.dataset.kind === 'qa' ? 'qa_tier'
-      : select.dataset.kind === 'graph' ? 'graph_tier' : 'exercise_tier';
-    draft[key] = select.value;
-    S().policyDraft = draft;
-    // 立刻重渲染，把"这一档会放出多少题"算给操作者看——保存前就知道后果
+  A.actions['graph-chapter-toggle'] = function (button) {
+    const key = button.dataset.chapter;
+    S().graphOpen[key] = S().graphOpen[key] !== true;
     A.render();
   };
 
-  A.actions['visibility-save'] = async function (button) {
-    const policy = S().visibility;
-    if (!policy) return;
-    const draft = S().policyDraft || {
-      exercise_tier: policy.effective.exercise_tier,
-      qa_tier: policy.effective.qa_tier,
-      graph_tier: policy.effective.graph_tier
-    };
-    const scope = S().policyScope || '';
+  A.actions['graph-fold'] = function (button) {
+    const key = button.dataset.node;
+    S().graphOpen[key] = S().graphOpen[key] === false;
+    A.render();
+  };
+
+  A.actions['graph-node-edit'] = function (button) {
+    S().editingNode = button.dataset.node;
+    S().editingTitle = button.dataset.title || '';
+    A.render();
+  };
+
+  A.inputs['graph-node-title'] = function (input) {
+    S().editingTitle = input.value;
+  };
+
+  A.actions['graph-node-cancel'] = function () {
+    S().editingNode = '';
+    S().editingTitle = '';
+    A.render();
+  };
+
+  A.actions['graph-node-save'] = async function (button) {
+    const title = (S().editingTitle || '').trim();
+    if (!title) {
+      A.toast('标题不能为空');
+      return;
+    }
     button.disabled = true;
     try {
-      await A.api.saveVisibility({
-        exercise_tier: draft.exercise_tier,
-        qa_tier: draft.qa_tier,
-        graph_tier: draft.graph_tier
-      }, scope || undefined);
-      S().policyDraft = null;
-      A.toast(scope ? '已保存：这门课单独设置生效（其余课程仍用全局口径）。' : '已保存：全局口径生效，没有单独设置的课程都按它来。');
+      await A.api.patchNode(button.dataset.course, button.dataset.node, { title });
+      A.toast('标题已改。改完记得看一遍再通过。');
+      S().editingNode = '';
+      S().editingTitle = '';
       S().status = 'idle';
       shared().reload();
     } catch (error) {
-      A.toast(`保存失败：${error.message}`);
+      button.disabled = false;
+      A.toast(`改不了：${error.message}`);
     }
-    button.disabled = false;
-    A.render();
   };
 
-  A.actions['visibility-reset'] = async function (button) {
-    const scope = S().policyScope;
-    if (!scope || !window.confirm('取消这门课的单独设置，让它回到跟随全局？')) return;
-    button.disabled = true;
+  async function verifyNodes(payload, message) {
     try {
-      await A.api.resetVisibility(scope);
-      S().policyDraft = null;
-      A.toast('已取消：这门课回到跟随全局。');
-      S().status = 'idle';
-      shared().reload();
-    } catch (error) {
-      A.toast(`取消失败：${error.message}`);
-    }
-    button.disabled = false;
-    A.render();
-  };
-
-  A.actions['graph-verify'] = async function (button) {
-    const scope = S().policyScope;
-    if (!scope) return;
-    const verifying = button.dataset.verb !== 'unverify';
-    if (!verifying && !window.confirm('撤销这一章的人工审核？学生端会重新看不到它（若图谱口径为仅人工审核）。')) return;
-    button.disabled = true;
-    try {
-      const result = await A.api.verifyGraph({
-        course_id: scope, chapter_id: button.dataset.chapter,
-        action: verifying ? 'verify' : 'unverify'
-      });
-      A.toast(verifying ? `已通过 ${result.changed} 个节点。` : `已撤销 ${result.changed} 个节点。`);
+      const result = await A.api.verifyGraph(payload);
+      A.toast(`${message}（${result.changed} 个节点）`);
       S().status = 'idle';
       shared().reload();
     } catch (error) {
       A.toast(`操作失败：${error.message}`);
     }
+  }
+
+  A.actions['graph-node-verify'] = async function (button) {
+    const verifying = button.dataset.verb !== 'unverify';
+    button.disabled = true;
+    await verifyNodes({
+      course_id: button.dataset.course,
+      node_ids: [button.dataset.node],
+      action: verifying ? 'verify' : 'unverify'
+    }, verifying ? '已通过这个节点' : '已撤销这个节点');
     button.disabled = false;
-    A.render();
+  };
+
+  // 整门课 = 课程根节点 + 整棵子树。学生端的图谱从根开始渲染，根没通过时
+  // 只通过各章会得到一棵"有枝无干"的树。
+  A.actions['graph-root-verify'] = async function (button) {
+    const verifying = button.dataset.verb !== 'unverify';
+    if (!verifying && !window.confirm('撤销整门课的人工审核？学生端会重新看不到整棵树（若图谱口径为仅人工审核）。')) return;
+    button.disabled = true;
+    await verifyNodes({
+      course_id: button.dataset.course,
+      node_ids: [button.dataset.node],
+      action: verifying ? 'verify' : 'unverify'
+    }, verifying ? '整门课已通过' : '已撤销整门课');
+    button.disabled = false;
+  };
+
+  A.actions['graph-verify'] = async function (button) {
+    const verifying = button.dataset.verb !== 'unverify';
+    if (!verifying && !window.confirm('撤销这一章的人工审核？学生端会重新看不到它（若图谱口径为仅人工审核）。')) return;
+    button.disabled = true;
+    await verifyNodes({
+      course_id: button.dataset.course,
+      chapter_id: button.dataset.chapter,
+      action: verifying ? 'verify' : 'unverify'
+    }, verifying ? '整章已通过' : '已撤销本章');
+    button.disabled = false;
   };
 
 })();

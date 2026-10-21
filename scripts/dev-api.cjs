@@ -154,7 +154,12 @@ async function main() {
   // IMPORT_COURSES=1：把 data/course-*.json 那 14 门课真正搬进数据库。
   // 平时只灌 3 门演示课——那会让"审核看不到我的课"永远复现不出来。
   // 导入后按约定标为已审已发布（scripts/mark_imported_courses.py，留审计痕迹）。
-  if (process.env.IMPORT_COURSES === '1') {
+  // DEV_SKIP_SEED=1：数据已就位、只想重启后端加载新代码（不灌数据、不清表）。
+  if (process.env.DEV_SKIP_SEED === '1') {
+    // 数据已经就位时别再灌一遍：dev_seed 会插一门"演示课"，把课程数从 14 变成 15，
+    // 而 import_seed 会 truncate 清掉手工建的班级。改完后端代码只想重启时用这个。
+    console.log('  · 跳过灌数据（DEV_SKIP_SEED=1）');
+  } else if (process.env.IMPORT_COURSES === '1') {
     console.log('  · 导入 db/seed.sql（会先清空业务表）…');
     await run('导入课程包', ['scripts/import_seed.py', 'db/seed.sql', '--truncate']);
     await run('标记迁移课程', ['scripts/mark_imported_courses.py']);

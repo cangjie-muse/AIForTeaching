@@ -22,6 +22,8 @@
     bookmark: stroke('M7 4.5h10v15l-5-3-5 3zM9.5 8h5'),
     clock: '<ellipse cx="12" cy="12" rx="8" ry="8.5"/>' + stroke('M12 6v6l4 3'),
     user: dot(12, 7.5, 3.2) + stroke('M5 19.5c0-6.5 14-6.5 14 0M8 20h8'),
+    // 眼睛：学生可见范围。用"看得见/看不见"这个直觉，比齿轮更贴题。
+    eye: stroke('M3.5 12c2.8-4.6 14.2-4.6 17 0-2.8 4.6-14.2 4.6-17 0') + dot(12, 12, 2.4),
     info: '<ellipse cx="12" cy="12" rx="8.5" ry="8"/>' + stroke('M11 11h1.5v5M10 16h4') + dot(12, 8, .55),
     layers: stroke('m4 7 8-3 8 3-8 3zM4 11.5l8 3 8-3M4 16l8 3 8-3'),
     activity: stroke('M4 14c3 0 2-8 5-8s2 12 5 12 3-9 6-9'),

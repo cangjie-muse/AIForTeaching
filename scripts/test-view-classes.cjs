@@ -144,8 +144,11 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
     teacherNav.indexOf('内容审核') > teachingAt, '还在系统管理里');
   check('班级与选课也在教学与建设分组里',
     teacherNav.indexOf('班级与选课') > teachingAt, '没放进教学与建设');
-  check('教师看不到系统管理（那两项只有管理员有）',
-    !teacherNav.includes('系统管理') && !teacherNav.includes('账号管理'));
+  check('教师看不到账号管理与模型接口配置',
+    !teacherNav.includes('账号管理') && !teacherNav.includes('模型接口配置'));
+  check('教师能在系统管理里看到学生可见范围',
+    teacherNav.includes('系统管理') && teacherNav.includes('学生可见范围'),
+    '可见范围是教师的活儿，不该只给管理员');
 
   App.state.auth = { actor: { id: 'acc-a', role: 'admin', display_name: '管理员' } };
   App.render();
@@ -153,9 +156,9 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   const adminNav = elements.get('app').innerHTML;
   const adminSection = adminNav.slice(adminNav.indexOf('系统管理'), adminNav.indexOf('<main'));
   check('管理员能看到系统管理', adminNav.includes('系统管理'));
-  check('系统管理里只剩账号管理与模型接口配置',
-    adminSection.includes('账号管理') && !adminSection.includes('内容审核'),
-    '内容审核没搬走');
+  check('系统管理里是可见范围 + 账号管理 + 模型接口配置',
+    adminSection.includes('账号管理') && adminSection.includes('学生可见范围')
+    && !adminSection.includes('内容审核'), '内容审核没搬走');
   // 后面的用例要用教师身份继续
   App.state.auth = { actor: { id: 'acc-t', role: 'teacher', display_name: '张老师' } };
 

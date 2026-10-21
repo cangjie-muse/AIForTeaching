@@ -339,27 +339,17 @@ def graph(
     course_id: str | None = None,
     _actor: Actor = Depends(require("reviewer")),
 ) -> dict:
-    """知识图谱的审核状态：按章分组，给"整章通过"用。
+    """知识图谱的审核状态：按章分组，并给出每个节点，供审核界面的章节树渲染。
 
-    为什么按章而不是按节点：图谱节点几百个，逐个点不现实；老师看图时也是按章看
-    "这一章的树挂得对不对"。逐节点通过留到后面再加。
+    两个坑：
+
+    1. `knowledge_node.chapter_id` 在真实导入数据里是空的（导入器只填 parent_id），
+       所以不能用 `coalesce(chapter_id, id)` 分组——那样每个节点都会自成一"章"，
+       数学分析 II 会出现 135 个"章"，比原来更难看。这里按 parent_id 往上走，
+       取 level=2 的祖先当章。
+    2. 不传 course_id 时只返回汇总，不返回章节与节点：14 门课 4146 个节点，
+       没有界面上需要它们。
     """
-    chapters = db.query(
-        """
-        SELECT n.course_id,
-               coalesce(n.chapter_id, n.id) AS chapter_id,
-               coalesce(ch.title, n.title) AS title,
-               count(*)::int AS nodes,
-               count(*) FILTER (WHERE n.human_verified_at IS NOT NULL)::int AS verified
-          FROM knowledge_node n
-          LEFT JOIN knowledge_node ch ON ch.course_id = n.course_id AND ch.id = n.chapter_id
-         WHERE n.review_status <> 'retired'
-           AND (%s::text IS NULL OR n.course_id = %s)
-         GROUP BY n.course_id, coalesce(n.chapter_id, n.id), ch.title, n.title
-         ORDER BY n.course_id, chapter_id
-        """,
-        (course_id, course_id),
-    )
     totals = db.query_one(
         """
         SELECT count(*)::int AS nodes,
@@ -371,7 +361,81 @@ def graph(
         """,
         (course_id, course_id),
     ) or {"nodes": 0, "verified": 0, "courses": 0}
-    return {"chapters": chapters, "totals": totals}
+    if not course_id:
+        return {"chapters": [], "totals": totals, "nodes": [], "root": None}
+
+    rows = db.query(
+        """
+        SELECT id, parent_id, title, kind, level, review_status,
+               human_verified_at, human_verified_by
+          FROM knowledge_node
+         WHERE course_id = %s AND review_status <> 'retired'
+         ORDER BY level, created_at, id
+        """,
+        (course_id,),
+    )
+    # level=1 是课程根节点，不是"一章"。它单列成 root：学生端的树要从根长出来，
+    # 所以根也得能通过，但它不该占一张章节卡片。
+    root_row = next((row for row in rows if row["level"] == 1), None)
+    rows = [row for row in rows if row["level"] >= 2]
+    by_id = {row["id"]: row for row in rows}
+
+    def chapter_of(node: dict) -> str:
+        # 往上走到 level=2；走不到（数据里没有章这一层）就拿自己当章，至少不丢节点。
+        current, guard = node, 0
+        while current is not None and guard < 32:
+            if current["level"] == 2:
+                return current["id"]
+            parent_id = current["parent_id"]
+            if not parent_id or parent_id not in by_id:
+                return node["id"] if node["level"] > 2 else current["id"]
+            current, guard = by_id[parent_id], guard + 1
+        return node["id"]
+
+    chapter_ids = {row["id"]: chapter_of(row) for row in rows}
+    counters: dict[str, dict] = {}
+    nodes = []
+    for row in rows:
+        chapter = chapter_ids[row["id"]]
+        verified = row["human_verified_at"] is not None
+        nodes.append({
+            "id": row["id"],
+            "chapter_id": chapter,
+            "parent_id": row["parent_id"],
+            "title": row["title"],
+            "kind": row["kind"],
+            "level": row["level"],
+            "review_status": row["review_status"],
+            "verified": verified,
+            "verified_at": row["human_verified_at"],
+            "verified_by": row["human_verified_by"],
+        })
+        if row["id"] == chapter:
+            continue  # 章节点本身不算"章里的知识点"
+        bucket = counters.setdefault(chapter, {"nodes": 0, "verified": 0})
+        bucket["nodes"] += 1
+        if verified:
+            bucket["verified"] += 1
+
+    chapters = []
+    for row in rows:
+        if chapter_ids.get(row["id"]) != row["id"]:
+            continue  # 只列真正的章（level=2 或没有祖先的顶层节点）
+        bucket = counters.get(row["id"], {"nodes": 0, "verified": 0})
+        chapters.append({
+            "course_id": course_id,
+            "chapter_id": row["id"],
+            "title": row["title"],
+            "nodes": bucket["nodes"],
+            "verified": bucket["verified"],
+            "self_verified": row["human_verified_at"] is not None,
+        })
+    root = None if root_row is None else {
+        "id": root_row["id"],
+        "title": root_row["title"],
+        "verified": root_row["human_verified_at"] is not None,
+    }
+    return {"chapters": chapters, "totals": totals, "nodes": nodes, "root": root}
 
 
 @router.post("/graph/verify")
@@ -379,34 +443,39 @@ def graph_verify(
     body: GraphVerifyIn,
     actor: Actor = Depends(require("reviewer")),
 ) -> dict:
-    """把一章（或一批节点）标为人工审核通过 / 撤销。
+    """把一章（或若干节点）连同其整棵子树标为人工审核通过 / 撤销。
 
-    写 human_verified_at + human_verified_by；图谱可见范围的 human 档就看这两个字段。
+    为什么要连子树一起标：真实数据里 `chapter_id` 是空的，按它更新会一个节点也
+    改不到（changed=0），老师点了"整章通过"却什么都没发生。逐节点通过同理——
+    只标记顶层容器会让学生端看到"有章没节"的断树，所以一并往下走。
     """
     if not body.chapter_id and not body.node_ids:
         raise HTTPException(400, "要么给 chapter_id（整章），要么给 node_ids（逐个）")
     verified = body.action == "verify"
-    if body.chapter_id:
-        changed = db.execute(
-            """UPDATE knowledge_node
-                  SET human_verified_at = CASE WHEN %s THEN now() ELSE NULL END,
-                      human_verified_by = CASE WHEN %s THEN %s ELSE NULL END
-                WHERE course_id = %s AND (chapter_id = %s OR id = %s)
-                  AND review_status <> 'retired'
-                  AND (human_verified_at IS NOT NULL) <> %s""",
-            (verified, verified, actor.id, body.course_id, body.chapter_id, body.chapter_id,
-             verified),
+    seeds = [body.chapter_id] if body.chapter_id else list(body.node_ids or [])
+    changed = db.execute(
+        """
+        WITH RECURSIVE subtree AS (
+            SELECT id
+              FROM knowledge_node
+             WHERE course_id = %s AND id = ANY(%s::text[])
+               AND review_status <> 'retired'
+            UNION ALL
+            SELECT child.id
+              FROM knowledge_node child
+              JOIN subtree ON child.parent_id = subtree.id
+             WHERE child.course_id = %s AND child.review_status <> 'retired'
         )
-    else:
-        changed = db.execute(
-            """UPDATE knowledge_node
-                  SET human_verified_at = CASE WHEN %s THEN now() ELSE NULL END,
-                      human_verified_by = CASE WHEN %s THEN %s ELSE NULL END
-                WHERE course_id = %s AND id = ANY(%s::text[])
-                  AND review_status <> 'retired'
-                  AND (human_verified_at IS NOT NULL) <> %s""",
-            (verified, verified, actor.id, body.course_id, body.node_ids, verified),
-        )
+        UPDATE knowledge_node
+           SET human_verified_at = CASE WHEN %s THEN now() ELSE NULL END,
+               human_verified_by = CASE WHEN %s THEN %s ELSE NULL END
+         WHERE course_id = %s
+           AND id IN (SELECT id FROM subtree)
+           AND (human_verified_at IS NOT NULL) <> %s
+        """,
+        (body.course_id, seeds, body.course_id, verified, verified, actor.id,
+         body.course_id, verified),
+    )
     db.execute(
         """INSERT INTO audit_log (actor, action, entity, entity_key, detail)
            VALUES (%s, %s, 'knowledge_node', %s, %s::jsonb)""",

@@ -58,16 +58,19 @@
     checked: {},
     diffs: {},       // 按「课程/题目」缓存修订历史，避免每次重渲染都请求
     busy: false,
-    visibility: null, // 学生可见范围（验证等级闸）
-    policyScope: '',  // '' = 全局口径；课程号 = 这门课的覆盖
-    graph: null,      // 当前课程的知识图谱审核状态
+    // 两块工作分开看：习题逐题判断、图谱按章看树。混在一页里，审题时被几百个
+    // 节点挤走视线，审图时又被题队列打断。
+    tab: 'exercises',   // exercises | graph
+    graph: null,        // 当前课程的知识图谱审核状态（含每个节点）
+    graphOpen: {},      // 展开了哪几章（默认全收起）
+    editingNode: '',    // 正在就地改标题的节点
+    editingTitle: '',   // 改到一半的标题
     ledger: null,     // 当前课程的全部题目审核总表
     ledgerTier: '',   // 总表的等级筛选
     ledgerQuery: '',  // 总表的题号/题干搜索
     verification: null,      // 按题号查到的审核记录
     lookupId: '',            // 查询框里填的题号
-    detailVerification: null, // 当前打开那条任务的完整审核记录
-    policyDraft: null // 未保存的草案：先让人看到"这一档会放出多少题"，再决定保存
+    detailVerification: null // 当前打开那条任务的完整审核记录
   };
 
   const S = () => A.state.review;
@@ -117,17 +120,16 @@
     state.error = '';
     A.render();
     try {
-      const scope = state.policyScope || '';
-      const ledgerCourse = state.filters.course_id;
-      const [summary, queue, courses, policy, graph, ledger] = await Promise.all([
+      const course = state.filters.course_id;
+      const [summary, queue, courses, graph, ledger] = await Promise.all([
         A.api.get('/api/v1/review/summary'),
         A.api.get(`/api/v1/review/queue?${query()}`),
         A.api.get('/api/v1/courses'),
-        A.api.visibility(scope || undefined),
-        scope ? A.api.reviewGraph(scope) : Promise.resolve(null),
-        ledgerCourse
+        // 图谱审核按课程走：没选课就是没有树可审，别把 14 门课的节点全拉下来
+        course ? A.api.reviewGraph(course) : Promise.resolve(null),
+        course
           ? A.api.reviewLedger({
-            course_id: ledgerCourse, tier: state.ledgerTier,
+            course_id: course, tier: state.ledgerTier,
             question: state.ledgerQuery, limit: 100
           })
           : Promise.resolve(null)
@@ -135,7 +137,6 @@
       state.summary = summary;
       state.items = queue.items || [];
       state.courses = courses.items || [];
-      state.visibility = policy;
       state.graph = graph;
       state.ledger = ledger;
       state.checked = {};
@@ -394,6 +395,29 @@
   // 这里只留一个取用点，两侧加载顺序无关：面板渲染时才去取。
   A.reviewScopeOf = () => A.reviewScope;
 
+  // 老会话里可能没有 tab 字段：统一按"习题审核"兜底，别让两个标签都不高亮。
+  function currentTab() {
+    return S().tab === 'graph' ? 'graph' : 'exercises';
+  }
+
+  function tabs() {
+    // 两块工作各自什么状态，直接写在入口上——不用点进去才知道有没有活要干。
+    const state = S();
+    const tab = currentTab();
+    const graphScope = state.filters.course_id;
+    const graphCount = state.graph && graphScope
+      ? (state.graph.totals || {}).nodes : 0;
+    const pending = (state.summary?.task_states || [])
+      .find(row => row.state === 'pending')?.n || 0;
+    const item = (key, label, badge) => `<button class="rv-tab ${tab === key ? 'active' : ''}"
+      data-action="review-tab" data-tab="${key}" role="tab" aria-selected="${tab === key}">
+      ${label}${badge ? `<em>${badge}</em>` : ''}</button>`;
+    return `<div class="rv-tabs" role="tablist">
+      ${item('exercises', '习题审核', pending ? `${pending} 待审` : '')}
+      ${item('graph', '知识图谱审核', graphCount ? `${graphCount} 个节点` : '')}
+    </div>`;
+  }
+
   A.views.review = function () {
     const state = S();
     const heading = A.sectionTitle(
@@ -401,7 +425,7 @@
       '内容审核',
       '机器标出可疑之处，人做判断。通过、退回、发布都是独立动作，全部留痕。',
       `<div class="button-row">
-        ${A.button('从数据生成队列', 'review-build', 'refresh')}
+        ${currentTab() === 'exercises' ? A.button('从数据生成队列', 'review-build', 'refresh') : ''}
         ${A.button('刷新', 'review-refresh', 'refresh')}
       </div>`
     );
@@ -418,10 +442,16 @@
       </div>`;
     }
 
+    if (currentTab() === 'graph') {
+      return heading + tabs() + A.reviewScopeOf().graphPanel();
+    }
+
     const openId = state.open;
     const detail = openId ? state.items.find(item => String(item.task_id) === String(openId)) : null;
 
-    return heading + A.reviewScopeOf().policyPanel() + A.reviewScopeOf().graphPanel() + statsPanel() + `<div class="rv-filters">${courseFilter()}${issueSummary()}</div>` + A.reviewScopeOf().lookupBar() + A.reviewScopeOf().ledgerPanel() + `
+    return heading + tabs() + statsPanel()
+      + `<div class="rv-filters">${courseFilter()}${issueSummary()}</div>`
+      + A.reviewScopeOf().lookupBar() + A.reviewScopeOf().ledgerPanel() + `
       <div class="rv-layout ${detail ? 'has-detail' : ''}">
         ${listPanel()}
         ${detail ? detailPanel(detail) : ''}
@@ -438,8 +468,15 @@
 
   A.actions['review-refresh'] = function () { reload(); };
 
+  A.actions['review-tab'] = function (button) {
+    S().tab = button.dataset.tab === 'graph' ? 'graph' : 'exercises';
+    A.render();
+  };
+
   A.inputs['review-course'] = function (select) {
     S().filters.course_id = select.value;
+    S().graph = null;
+    S().editingNode = '';
     reload();
   };
 

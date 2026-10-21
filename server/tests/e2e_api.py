@@ -1103,6 +1103,42 @@ def run() -> None:
         chapter_ids = {row["chapter_id"] for row in graph_list.json()["chapters"]}
         check("按章分组", {"ch-pub"} <= chapter_ids or "course-e2e-pub" in chapter_ids,
               str(sorted(chapter_ids)))
+        graph_body = graph_list.json()
+        node_rows = graph_body.get("nodes") or []
+        check("同时给出每个节点（界面按章节树渲染）", len(node_rows) >= 2,
+              str(len(node_rows)))
+        check("课程根节点单列成 root（学生端的树要从根长出来）",
+              (graph_body.get("root") or {}).get("id") == "course-e2e-pub",
+              str(graph_body.get("root")))
+        check("root 不出现在章节或节点清单里（避免一张同名卡片）",
+              all(row["id"] != "course-e2e-pub" for row in node_rows)
+              and all(row["chapter_id"] != "course-e2e-pub" for row in graph_body["chapters"]))
+        node_by_id = {row["id"]: row for row in node_rows}
+        check("节点带父子关系（能连成树）",
+              all("parent_id" in row and "chapter_id" in row for row in node_rows))
+        check("节点带章节归属",
+              node_by_id.get("kp-pub", {}).get("chapter_id") == "ch-pub",
+              str(node_by_id.get("kp-pub", {}).get("chapter_id")))
+        check("节点带人工审核状态",
+              all(isinstance(row["verified"], bool) for row in node_rows))
+        check("不指定课程时不给节点明细（四千多个节点不白吐）",
+              client.get("/api/v1/review/graph", headers=REVIEWER).json().get("nodes") == [])
+
+        # 审核时发现"标题不对"要能就地改：退回管理员再改一轮，审核就断了
+        renamed = client.patch("/api/v1/courses/e2e-publish/nodes/kp-pub",
+                               headers=REVIEWER, json={"title": "改过的知识点"})
+        check("教师能就地改知识点标题", renamed.status_code == 200, renamed.text[:120])
+        check("改标题返回新标题", renamed.json().get("title") == "改过的知识点",
+              str(renamed.json().get("title")))
+        check("改标题写了审计",
+              "node.patch" in {row["action"] for row in db.query(
+                  "SELECT action FROM audit_log ORDER BY id DESC LIMIT 20")})
+        check("学生不能改知识点",
+              client.patch("/api/v1/courses/e2e-publish/nodes/kp-pub",
+                           headers=STUDENT, json={"title": "学生改的"}).status_code == 403,
+              "学生身份改了知识点")
+        client.patch("/api/v1/courses/e2e-publish/nodes/kp-pub",
+                     headers=REVIEWER, json={"title": "知识点"})
 
         verified = client.post("/api/v1/review/graph/verify", headers=REVIEWER,
                                json={"course_id": "e2e-publish", "chapter_id": "ch-pub",

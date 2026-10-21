@@ -178,7 +178,142 @@ App.state.review.open = 9;
 html = App.views.review();
 check('读不到修订历史时不白屏', html.includes('读不到修订历史') && html.includes('后端未启动'));
 
+// 5. 分栏：习题 / 图谱
+reset();
+html = App.views.review();
+check('审核页分成两块：习题审核 / 知识图谱审核',
+  html.includes('rv-tabs') && html.includes('习题审核') && html.includes('知识图谱审核'));
+check('默认停在习题审核', html.includes('data-action="review-tab" data-tab="exercises" role="tab" aria-selected="true"'));
+check('习题审核里不再有学生可见范围', !html.includes('学生可见范围'),
+  '可见范围应该搬去系统设置');
+
+reset({
+  tab: 'graph',
+  courses: [{ id: 'analysis-ii', title: '数学分析 II' }],
+  filters: { course_id: '', category: '', priority: '' }
+});
+html = App.views.review();
+check('图谱审核没选课时先要人选课', html.includes('先在上面选一门课'));
+check('图谱审核自带课程选择器', html.includes('data-input="review-course"'));
+
+reset({
+  tab: 'graph',
+  courses: [{ id: 'analysis-ii', title: '数学分析 II' }],
+  filters: { course_id: 'analysis-ii', category: '', priority: '' },
+  graphOpen: { 'ch-1': true },
+  graph: {
+    totals: { nodes: 3, verified: 1 },
+    root: { id: 'analysis-ii', title: '数学分析 II', verified: false },
+    chapters: [{ chapter_id: 'ch-1', title: '第一章 极限', nodes: 2, verified: 1 }],
+    nodes: [
+      { id: 'ch-1', chapter_id: 'ch-1', parent_id: null, title: '第一章 极限',
+        kind: 'container', level: 2, verified: false },
+      { id: 'k-1', chapter_id: 'ch-1', parent_id: 'ch-1', title: '数列极限',
+        kind: 'knowledge', level: 3, verified: true },
+      { id: 'k-2', chapter_id: 'ch-1', parent_id: 'ch-1', title: '函数极限',
+        kind: 'knowledge', level: 3, verified: false }
+    ]
+  }
+});
+html = App.views.review();
+check('图谱按章成卡片', html.includes('rv-chapter') && html.includes('第一章 极限'));
+check('章节显示知识点数与已审数', html.includes('2 个知识点 · 已审 1'));
+check('展开后列出这一章的子节点',
+  html.includes('数列极限') && html.includes('函数极限'), '子节点没渲染出来');
+check('已审节点显示"已通过"', html.includes('已通过'));
+check('未审节点显示"未审"', html.includes('未审'));
+check('每个节点都有通过/撤销与修改',
+  html.includes('data-action="graph-node-verify"') && html.includes('data-action="graph-node-edit"'));
+check('章一级仍可整章通过',
+  html.includes('data-action="graph-verify" data-chapter="ch-1"'));
+check('没有重复渲染章节容器节点',
+  (html.match(/data-node="ch-1"/g) || []).length === 0,
+  '章节容器不该出现在子节点列表里');
+check('课程根节点单列，给「整门课通过」',
+  html.includes('data-action="graph-root-verify"') && html.includes('整门课通过'),
+  '根节点没通过时学生端的树长不出来');
+
+reset({
+  tab: 'graph',
+  courses: [{ id: 'analysis-ii', title: '数学分析 II' }],
+  filters: { course_id: 'analysis-ii', category: '', priority: '' },
+  graph: {
+    totals: { nodes: 1, verified: 1 },
+    root: { id: 'analysis-ii', title: '数学分析 II', verified: true },
+    chapters: [],
+    nodes: []
+  }
+});
+html = App.views.review();
+check('根节点已通过时显示徽标并可撤销',
+  html.includes('课程根节点已通过') && html.includes('data-verb="unverify"')
+  && html.includes('撤销整门课'));
+
+reset({
+  tab: 'graph',
+  courses: [{ id: 'analysis-ii', title: '数学分析 II' }],
+  filters: { course_id: 'analysis-ii', category: '', priority: '' },
+  graphOpen: { 'ch-1': true, 'node:k-1': true },
+  editingNode: 'k-2',
+  editingTitle: '函数极限（改）',
+  graph: {
+    totals: { nodes: 3, verified: 0 },
+    chapters: [{ chapter_id: 'ch-1', title: '第一章 极限', nodes: 2, verified: 0 }],
+    nodes: [
+      { id: 'k-1', chapter_id: 'ch-1', parent_id: 'ch-1', title: '数列极限',
+        kind: 'knowledge', level: 3, verified: false },
+      { id: 'k-2', chapter_id: 'ch-1', parent_id: 'ch-1', title: '函数极限',
+        kind: 'knowledge', level: 3, verified: false }
+    ]
+  }
+});
+html = App.views.review();
+check('点"修改"就地变成输入框',
+  html.includes('data-input="graph-node-title"') && html.includes('函数极限（改）'));
+check('就地改的时候给保存与取消',
+  html.includes('data-action="graph-node-save"') && html.includes('data-action="graph-node-cancel"'));
+
 (async () => {
+  // 逐节点通过：只传这一个节点的 id，不要顺手把整章标掉
+  reset({
+    tab: 'graph',
+    status: 'ready',
+    filters: { course_id: 'analysis-ii', category: '', priority: '' }
+  });
+  const graphCalls = [];
+  App.api.verifyGraph = async payload => { graphCalls.push(payload); return { changed: 1 }; };
+  App.render = () => {};
+  App.toast = message => graphCalls.push({ toast: message });
+  await App.actions['graph-node-verify']({
+    dataset: { course: 'analysis-ii', node: 'k-2', verb: 'verify' }, disabled: false
+  });
+  await App.actions['graph-root-verify']({
+    dataset: { course: 'analysis-ii', node: 'analysis-ii', verb: 'verify' }, disabled: false
+  });
+  const rootCall = graphCalls.find(call => call.node_ids && call.node_ids[0] === 'analysis-ii');
+  check('整门课通过提交的是课程根节点',
+    rootCall && rootCall.node_ids.length === 1 && !rootCall.chapter_id,
+    JSON.stringify(rootCall || null));
+
+  const nodeCall = graphCalls.find(call => call.node_ids);
+  check('单节点通过只提交这个节点',
+    nodeCall && nodeCall.node_ids.length === 1 && nodeCall.node_ids[0] === 'k-2'
+    && !nodeCall.chapter_id, JSON.stringify(nodeCall));
+  check('单节点通过后提示了结果',
+    graphCalls.some(call => String(call.toast || '').includes('已通过这个节点')));
+
+  reset({ filters: { course_id: 'analysis-ii', category: '', priority: '' } });
+  const patchCalls = [];
+  App.api.patchNode = async (course, node, body) => { patchCalls.push([course, node, body]); return {}; };
+  App.state.review.editingNode = 'k-2';
+  App.state.review.editingTitle = '  函数极限（新） ';
+  await App.actions['graph-node-save']({
+    dataset: { course: 'analysis-ii', node: 'k-2' }, disabled: false
+  });
+  check('改标题提交的是去掉空白的标题',
+    patchCalls.length === 1 && patchCalls[0][2].title === '函数极限（新）', JSON.stringify(patchCalls));
+  check('改完退出编辑态', App.state.review.editingNode === '');
+
   // ---------------------------------------------------------------------------
   // 决定之后的反馈：通过到底改了什么，得让人一眼看见
   // ---------------------------------------------------------------------------
