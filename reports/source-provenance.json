@@ -1,8 +1,8 @@
 {
-  "checkedAt": "2026-10-21T06:17:49.553Z",
+  "checkedAt": "2026-10-21T06:47:57.051Z",
   "scope": "Project source/provenance audit; no private competitor source or internet-wide similarity database comparison",
   "checks": {
-    "runtimeFiles": 38,
+    "runtimeFiles": 39,
     "generatedCourseScriptIsDataOnly": true,
     "competitorMarkerHits": [],
     "remoteEntryAssets": [],
@@ -18,11 +18,11 @@
   "projectSourceInventory": [
     {
       "path": "index.html",
-      "sha256": "4f67b39994bf840f60015ef98e5721915af7f8b2b20587b9425e81dadbae2f81"
+      "sha256": "f9d4934352c7d2f7fc46f8dc47bf8011ba4fc4aa0744469fe207be16f06d44b2"
     },
     {
       "path": "js/api-client.js",
-      "sha256": "18f9e6c99fbb5f8bafdde425c9c5d439f101c8c5c1bd174b5b6e5272ac298c74"
+      "sha256": "a550b33e382bd8fe78a82f9e36e156c9a1025dfb3f81022773169a458459d6e1"
     },
     {
       "path": "js/api-config.js",
@@ -30,7 +30,7 @@
     },
     {
       "path": "js/app.js",
-      "sha256": "65ca581db11ee517cc94e68e2bad1eb1a42550dbd1c9f7ce5f692747de272a06"
+      "sha256": "33160695c60c7d421e31358e1d7777585556cfcc3c820fb1269b3e83bda2a2ab"
     },
     {
       "path": "js/catalog-view.js",
@@ -63,6 +63,10 @@
     {
       "path": "js/diff.js",
       "sha256": "26423535caa57b7ce8e182c5538a1f1307c6f4cd2d1f4f84a89268d09886d06e"
+    },
+    {
+      "path": "js/generate.js",
+      "sha256": "622f5a9115df52b2273a8bcde89c3b24c2172e2f0a39efe5c97f0f12afeb79b4"
     },
     {
       "path": "js/graph-atlas.js",
@@ -189,8 +193,20 @@
       "sha256": "e0aed163e0e0b9d3ba246b50bd0a37c0cfa666856f64dadfba96bb5918e4a8b9"
     },
     {
+      "path": "scripts/e2e-seed.cjs",
+      "sha256": "8f7727cb997d21b1fea77b786abf8c645464aa36ebb2f2b02b6cd3dba1f2c132"
+    },
+    {
+      "path": "scripts/extract_pdf.py",
+      "sha256": "63b582a85f8ea0a4eb78be54a388a555b48d2f59bed28ece98d9ab28b97b1b73"
+    },
+    {
       "path": "scripts/import-course.cjs",
       "sha256": "2fc825e980c89d3f95a56078d9197999fdf776ec60c8332ef05cded264e90f91"
+    },
+    {
+      "path": "scripts/import_seed.py",
+      "sha256": "685416cdda32b19b95e9080fe633952399ceadd1828eb9ed5f5d01d841a6eef0"
     },
     {
       "path": "scripts/launch.py",
@@ -201,8 +217,16 @@
       "sha256": "313257a228f3fbad2daf5e8fe9347e0c5b0c3769084fbf3f8e8fe9b0c19ccd53"
     },
     {
+      "path": "scripts/pack_to_xlsx.cjs",
+      "sha256": "5409f930eabe90b3012e3916fe4ab500d264d12d3a2c0c6d78bb00e56f259cec"
+    },
+    {
       "path": "scripts/preflight.py",
       "sha256": "163dedad71433d5c2e5031d3412ab7fe1185855f0fff61683e71fcc32b08b550"
+    },
+    {
+      "path": "scripts/run_worker.py",
+      "sha256": "c1bfceaa7d4a7920c5d3cb32efb23ab265c87e6e0cd65170ceb171f8ace0a0e8"
     },
     {
       "path": "scripts/serve-lan.py",
@@ -222,11 +246,15 @@
     },
     {
       "path": "scripts/test-python.cjs",
-      "sha256": "dbf893181171d21c472c5ffb5125e7a823058fbfc69a8d334c33d02865ac4b91"
+      "sha256": "c985a60c943774ae873100ae387468a0c1b85b3e3485dc7821bf2ae8d2b75de6"
     },
     {
       "path": "scripts/test-view-api-config.cjs",
       "sha256": "bb7ac66613ff4fa356a423bbc32e7dd1deedfad2dddfe885fb4f37bd92f59a76"
+    },
+    {
+      "path": "scripts/test-view-generate.cjs",
+      "sha256": "538a1ffe620e6161b5516304d7d882965fc1a941686e4710f7dbf6b4e60d028b"
     },
     {
       "path": "scripts/test-view-qa.cjs",
@@ -254,7 +282,7 @@
     },
     {
       "path": "eslint.config.mjs",
-      "sha256": "a2d0ad7c14913987f72fdc3cde0c08a4bddf49b323e887121425e8abb86c2e5d"
+      "sha256": "8a76e6e4bb123689986d3d37b42181304caff749875e0f3d15c93a8e4bf0025c"
     }
   ],
   "openSource": [
@@ -473,6 +501,22 @@
     {
       "path": "course-packs/course-symplectic-math-physics/知识节点.xlsx",
       "sha256": "d1bf8ad5ab4b65c9fbe322063f107b491536f8cc9b874b7bca150dcb2fe7fec8"
+    },
+    {
+      "path": "course-packs/analysis-ii/generated/job-1/习题.md",
+      "sha256": "ae46ccb8534da30f1e6e43fdfcc15ef8903746c5289c293eddbf86875cc961f5"
+    },
+    {
+      "path": "course-packs/analysis-ii/generated/job-1/生成说明.json",
+      "sha256": "bc5bc6d7e497e8dbde25638e5623ea3b645ca2d82478eaf00a2a3ef25067dca0"
+    },
+    {
+      "path": "course-packs/analysis-ii/generated/job-1/知识点.md",
+      "sha256": "6f0bb6bd63e3f78de7118069f31f629d32923c5d8b5db6345bf98ba58acf890a"
+    },
+    {
+      "path": "course-packs/analysis-ii/generated/job-1/知识节点.json",
+      "sha256": "b74ef113a920a5dfd2a2db41e4d88fb64175790c12cf1af62385e1164ed4ddef"
     },
     {
       "path": "course-packs/course-analysis/资料/插图/analysis-i-093f273aacea-word-1790587520-a7f1cfad0cf22923db05c5bef93303cb.jpg",
@@ -1149,6 +1193,38 @@
     {
       "path": "course-packs/course-symplectic-math-physics/资料/插图/figure203.png",
       "sha256": "787bb2612a5e52e0794e35866bd27aa427fccdc90cc3be4de1deee4b6c71eeb5"
+    },
+    {
+      "path": "course-packs/e2e-course/generated/job-1/习题.md",
+      "sha256": "d92f431ddad617e2d97a6fb02e10f87de608e8c2c891d76e2415210db179aa9a"
+    },
+    {
+      "path": "course-packs/e2e-course/generated/job-1/生成说明.json",
+      "sha256": "da47135f062303e6f147fd07e9e408bea4fea38e75ce4b4cf2e516b5e1cfa6ab"
+    },
+    {
+      "path": "course-packs/e2e-course/generated/job-1/知识点.md",
+      "sha256": "a981ab3956e15cda27eb13aa75784f009649eecf2ac32c9999060a40e9a454e5"
+    },
+    {
+      "path": "course-packs/e2e-course/generated/job-1/知识节点.json",
+      "sha256": "5d9b3f6e4208f5615d7c2ce23a06dae888543e859e7571363ed5ef6826a74a22"
+    },
+    {
+      "path": "course-packs/gen-debug/generated/job-1/习题.md",
+      "sha256": "98a86200ee35d82ac1f555a40b5314b7d8efe24842f02113ad231ff751c08ebf"
+    },
+    {
+      "path": "course-packs/gen-debug/generated/job-1/生成说明.json",
+      "sha256": "a97cbfa62a46fe7d5d6d166cde7c5e510f55f99b86439684842017a6251f032c"
+    },
+    {
+      "path": "course-packs/gen-debug/generated/job-1/知识点.md",
+      "sha256": "f59afd20b2bcabc51caf33a59f1437995a00b53200bebc33b248a98bee169fde"
+    },
+    {
+      "path": "course-packs/gen-debug/generated/job-1/知识节点.json",
+      "sha256": "9a6da75a09b2a400aaa7c4de544494fcbfbf3af484a48b0f7bb8987597cfe4c1"
     }
   ],
   "generatedData": [

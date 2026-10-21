@@ -1,0 +1,21 @@
+{
+  "prompt_version": "gen-v1",
+  "source": {
+    "pdf_page": 1,
+    "page_from": 1,
+    "page_to": 2,
+    "book_line": "作者，《调试教材》，第1版",
+    "book_short": "调试教材",
+    "generated_at": "2026-10-21 14:41:47.355000+08:00",
+    "prompt_version": "gen-v1",
+    "model": "demo",
+    "provider": "demo",
+    "chars": 53,
+    "truncated": false
+  },
+  "book": {
+    "short": "调试教材",
+    "line": "作者，《调试教材》，第1版"
+  },
+  "warnings": []
+}

@@ -24,6 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import auth, db, llm
 from .admin import router as admin_router
 from .attempts import router as attempts_router
+from .generation import router as generation_router
 from .qa import router as qa_router
 from .review import router as review_router
 
@@ -74,6 +75,7 @@ app.include_router(review_router)
 app.include_router(admin_router)
 app.include_router(qa_router)
 app.include_router(attempts_router)
+app.include_router(generation_router)
 
 
 _ROOT = Path(__file__).resolve().parents[2]

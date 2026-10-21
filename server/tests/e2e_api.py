@@ -519,6 +519,110 @@ def run() -> None:
         check("队列读到的是修改后的题干", target and target["prompt_md"] == "改过的题干（第二版）",
               str(target["prompt_md"]) if target else "未找到 ex-2")
 
+        print("\n教材上传与生成：")
+
+        # 一份最小但结构真实的 PDF：2 页、有字体对象、有文字绘制指令。
+        # 探测走的是不依赖库的字节启发式，所以这里不需要 pypdf。
+        pdf_bytes = (
+            b"%PDF-1.4\n"
+            b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
+            b"2 0 obj\n<< /Type /Pages /Count 2 /Kids [3 0 R 6 0 R] >>\nendobj\n"
+            b"3 0 obj\n<< /Type /Page /Parent 2 0 R /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n"
+            b"4 0 obj\n<< /Length 44 >>\nstream\nBT /F1 12 Tf 72 720 Td (Chapter 1) Tj ET\nendstream\nendobj\n"
+            b"5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n"
+            b"6 0 obj\n<< /Type /Page /Parent 2 0 R /Contents 7 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n"
+            b"7 0 obj\n<< /Length 44 >>\nstream\nBT /F1 12 Tf 72 720 Td (Chapter 1) Tj ET\nendstream\nendobj\n"
+            b"trailer\n<< /Root 1 0 R >>\n%%EOF\n"
+        )
+        uploaded = client.post(
+            "/api/v1/textbooks", headers=ADMIN, params={
+                "title": "端到端测试教材", "course_id": "e2e-course", "authors": "测试作者",
+                "edition": "第 1 版", "page_offset": 0,
+            }, content=pdf_bytes,
+        )
+        check("上传教材 PDF", uploaded.status_code == 201, uploaded.text[:140])
+        book = uploaded.json() if uploaded.status_code == 201 else {}
+        check("探测到页数", book.get("page_count") == 2, str(book.get("page_count")))
+        check("识别出文字层", book.get("has_text_layer") is True, str(book.get("has_text_layer")))
+        check("探测不依赖 PDF 库", book.get("probe_engine") == "heuristic",
+              str(book.get("probe_engine")))
+
+        refused = client.post(
+            "/api/v1/textbooks", headers=REVIEWER,
+            params={"title": "x", "course_id": "e2e-course"}, content=pdf_bytes,
+        )
+        check("审核员不能上传教材", refused.status_code == 403, str(refused.status_code))
+
+        # 抽取这一步在装了 pypdf 的机器上由 scripts/extract_pdf.py 完成；
+        # 测试环境没有该库，所以直接放一份抽取结果，模拟"已经抽好"。
+        import tempfile
+
+        text_dir = Path(tempfile.mkdtemp(prefix="e2e-gen-"))
+        text_path = text_dir / "chapter.md"
+        text_path.write_text(
+            "<!-- page 1 -->\n第1章 实数\n实数系有上确界性质。\n\n"
+            "<!-- page 2 -->\n1.1 上确界\n设 $S$ 非空有上界，则存在最小上界。\n",
+            encoding="utf-8",
+        )
+        db.query("UPDATE textbook SET text_path = %s WHERE id = %s",
+                 (str(text_path), book["textbook_id"]))
+
+        started = client.post(
+            f"/api/v1/textbooks/{book['textbook_id']}/generate", headers=ADMIN,
+            json={"page_from": 1, "page_to": 2, "chapter_hint": "实数"},
+        )
+        check("生成任务入队", started.status_code == 202, started.text[:140])
+        job_id = (started.json() or {}).get("job", {}).get("id") if started.status_code == 202 else None
+        queued = client.get(f"/api/v1/jobs/{job_id}", headers=REVIEWER)
+        check("审核员能看到任务", queued.status_code == 200 and queued.json()["status"] == "queued",
+              queued.text[:100])
+
+        from app import generation  # noqa: E402  - 放在这里，避免影响文件头的导入顺序
+
+        # 端到端测试不联网：强制走演示模型。真实模型调用另有单元测试覆盖
+        # （test_generation 调模型返回值与 JSON 提取），这里要验的是队列与落库。
+        generation.DEV_FAKE_MODEL = True
+        done = generation.process_once()
+        generation.DEV_FAKE_MODEL = False
+        check("worker 领到任务并执行", done is not None and done["id"] == job_id,
+              f"{done['id'] if done else None} vs {job_id}")
+        check("生成任务成功", done is not None and done["status"] == "succeeded",
+              str(done.get("error") if done else ""))
+
+        result = (done or {}).get("result") or {}
+        check("生成了知识点", result.get("nodes", 0) >= 1, str(result.get("nodes")))
+        check("生成了习题", result.get("exercises", 0) >= 1, str(result.get("exercises")))
+        check("记录了所用提示词版本", result.get("prompt_version") == generation.PROMPT_VERSION,
+              str(result.get("prompt_version")))
+        check("演示模型不会假装成真模型", result.get("model") == "demo", str(result.get("model")))
+
+        pack_dir = Path(result.get("pack_dir") or "")
+        exercises_md = pack_dir / "习题.md"
+        check("资源包落在磁盘上", exercises_md.exists(), str(pack_dir))
+        check("资源包里带可导入的题目标记",
+              exercises_md.exists() and "<!-- source-exercise:" in exercises_md.read_text(encoding="utf-8"))
+
+        # 生成出来的题必须进审核队列，而不是直接给学生看
+        rebuilt = client.post("/api/v1/review/queue/build", headers=REVIEWER,
+                              params={"course_id": "e2e-course"})
+        check("生成后可以建审核队列", rebuilt.status_code == 200, rebuilt.text[:100])
+        items = client.get("/api/v1/review/queue?limit=100", headers=REVIEWER).json()["items"]
+        generated = [item for item in items if item["exercise_id"].startswith("gen-")]
+        check("生成的题进了审核队列", bool(generated), f"{len(generated)} 道")
+        if generated:
+            first = generated[0]
+            check("生成的题是 draft 待审", first["state"] == "pending", str(first["state"]))
+            check("生成的题标了溯源", first["provenance"] in ("textbook", "self-authored", "ai-generated"),
+                  str(first["provenance"]))
+            check("生成的题带精确页码", first["source_page"] is not None, str(first["source_page"]))
+            check("生成的题挂在知识点上", bool(first["node_ids"]), str(first["node_ids"]))
+
+        # 重跑同一个任务不能产生重复题
+        before = len(generated)
+        generation.run_job(job_id)
+        items = client.get("/api/v1/review/queue?limit=100", headers=REVIEWER).json()["items"]
+        after = len([item for item in items if item["exercise_id"].startswith("gen-")])
+        check("重跑任务不重复出题", after == before, f"{before} → {after}")
         # --- 以下会产生真正的数据库错误，必须最后跑（见文件头说明）---
         print("\n数据库约束（放在最后：会让 PGlite 协议错位）：")
         dup = client.post(

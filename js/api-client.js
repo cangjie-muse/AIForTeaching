@@ -123,12 +123,66 @@
     return { status: 'submitted', attempt };
   }
 
+  // ---------------------------------------------------------------------
+  // 教材上传与生成
+  //
+  // 上传发的是文件原始字节，不是 multipart：后端为此省掉 python-multipart
+  // 依赖（服务器上少一个可能装不上的包）。所以这里不能用 request()，
+  // 它会 JSON.stringify 请求体。
+  // ---------------------------------------------------------------------
+  async function uploadTextbook({ file, courseId, title, authors, edition, pageOffset }) {
+    const query = new URLSearchParams({
+      title,
+      course_id: courseId,
+      ...(authors ? { authors } : {}),
+      ...(edition ? { edition } : {}),
+      page_offset: String(pageOffset || 0)
+    });
+    let response;
+    try {
+      response = await fetch(`${base()}/api/v1/textbooks?${query}`, {
+        method: 'POST',
+        headers: headers({ 'Content-Type': 'application/pdf' }),
+        body: file
+      });
+    } catch (cause) {
+      throw new ApiError(`无法连接后端（${base() || '同源'}）：${cause.message}`, 0,
+        '请确认后端已启动，或在页面上填写正确的后端地址');
+    }
+    const text = await response.text();
+    let data = {};
+    if (text) {
+      try { data = JSON.parse(text); } catch { data = { detail: text.slice(0, 300) }; }
+    }
+    if (!response.ok) {
+      throw new ApiError(data.detail || `上传失败（HTTP ${response.status}）`, response.status, data.detail);
+    }
+    return data;
+  }
+
+  function startGeneration(textbookId, body) {
+    return request('POST', `/api/v1/textbooks/${encodeURIComponent(textbookId)}/generate`, { body });
+  }
+
+  function job(jobId) {
+    return request('GET', `/api/v1/jobs/${encodeURIComponent(jobId)}`);
+  }
+
+  function jobList(status) {
+    const query = status ? `?status=${encodeURIComponent(status)}` : '';
+    return request('GET', `/api/v1/jobs${query}`);
+  }
+
   A.api = {
     ApiError,
     base,
     courseList,
     matchCourse,
     submitAttempt,
+    uploadTextbook,
+    startGeneration,
+    job,
+    jobList,
     get: (path, options) => request('GET', path, options),
     post: (path, body, options) => request('POST', path, { ...options, body }),
     patch: (path, body, options) => request('PATCH', path, { ...options, body }),
