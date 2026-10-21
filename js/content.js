@@ -244,7 +244,34 @@
       ${S().error ? `<p class="small">${e(S().error)}</p>` : ''}
     </div>`;
     if (!content) return heading;
-    return heading + nodeList(content) + exerciseList(content);
+    return heading + publishPanel() + nodeList(content) + exerciseList(content);
+  }
+
+  // 发布是"课程级"开关：条目级发布（审核页逐题点）只决定单条能不能露出来，
+  // 这一层决定整门课在学生端存不存在。没发布时公开目录里根本不出现这门课。
+  function publishPanel() {
+    const state = S().publish;
+    if (!state) return `<div class="panel"><p class="muted small">读取发布状态…</p></div>`;
+    const published = Boolean(state.published_at);
+    return `<div class="panel">
+      <div class="panel-heading"><h2>学生端发布</h2>
+        ${published ? A.badge('已发布', 'green') : A.badge('未发布', 'amber')}</div>
+      <table class="data-table"><tbody>
+        <tr><th>知识点（学生可见）</th><td>${Number(state.nodes) || 0}</td></tr>
+        <tr><th>已审核发布的题</th><td>${Number(state.published) || 0}</td></tr>
+        <tr><th>不会出现的题（草稿/待审/停用）</th><td>${Number(state.hidden) || 0}</td></tr>
+        ${published && state.published_at ? `<tr><th>发布时间</th><td>${e(String(state.published_at).slice(0, 19).replace('T', ' '))}</td></tr>` : ''}
+      </tbody></table>
+      <p class="muted small">${published
+        ? '学生端直接读库里的内容：改知识点正文、标签或题干会立刻生效（题目本身仍须是「已发布」状态）。新导入的题要等它在「内容审核」里被发布才会出现。'
+        : '发布后学生端会读这门课；只有「内容审核」里点过发布的题会出现，其余仍然隐藏。'}</p>
+      <div class="button-row">
+        ${published
+          ? `<button class="btn" data-action="content-unpublish" ${S().saving ? 'disabled' : ''}>撤回发布</button>`
+          : `<button class="btn primary" data-action="content-publish" ${S().saving || !Number(state.published) ? 'disabled' : ''}>发布到学生端</button>`}
+        ${Number(state.published) ? '' : `<span class="muted small">还没有题通过审核发布——先去「内容审核」处理。</span>`}
+      </div>
+    </div>`;
   }
 
   function nodeList(content) {
@@ -437,16 +464,48 @@
   async function loadContent(force = false) {
     if (!S().courseId || S().courseId === '__new__') throw new Error('先选一门课程');
     S().error = '';
+    S().publish = null;
     try {
       S().content = await A.api.courseContent(S().courseId, force);
       S().editKey = '';
       S().editDraft = null;
+      S().publish = await A.api.publishStatus(S().courseId);
     } catch (error) {
       S().content = null;
       S().error = error.message;
     }
     A.render();
   }
+
+  A.actions['content-publish'] = async () => {
+    S().saving = true;
+    try {
+      const result = await A.api.publishCourse(S().courseId);
+      S().notice = `已发布：学生端可见 ${result.exercises} 道题、${result.nodes} 个知识点；` +
+        `${result.drafts_hidden} 道未审核发布的题仍然隐藏。`;
+      S().publish = await A.api.publishStatus(S().courseId);
+    } catch (error) {
+      S().error = error.message;
+    } finally {
+      S().saving = false;
+      A.render();
+    }
+  };
+
+  A.actions['content-unpublish'] = async () => {
+    if (!window.confirm('撤回发布？学生端将立刻看不到这门课。')) return;
+    S().saving = true;
+    try {
+      await A.api.unpublishCourse(S().courseId);
+      S().notice = '已撤回发布，学生端不再出现这门课。';
+      S().publish = await A.api.publishStatus(S().courseId);
+    } catch (error) {
+      S().error = error.message;
+    } finally {
+      S().saving = false;
+      A.render();
+    }
+  };
 
   A.actions['content-export'] = async () => {
     try { await exportBundle(); }

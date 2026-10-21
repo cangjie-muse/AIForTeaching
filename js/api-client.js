@@ -234,6 +234,32 @@
     return request('POST', `/api/v1/courses/${encodeURIComponent(courseId)}/exercises/${encodeURIComponent(exerciseId)}/retire`, {});
   }
 
+  // ---------------------------------------------------------------------
+  // 学生端发布出口
+  //
+  // 目录接口不带鉴权（学生要能读），只返回已发布课程。前端启动时把它合并进
+  // A.courses：库里有已发布内容的课程覆盖静态包，没有的继续用静态包。
+  // ---------------------------------------------------------------------
+  function catalog() {
+    return request('GET', '/api/v1/catalog');
+  }
+
+  function catalogCourse(courseId) {
+    return request('GET', `/api/v1/catalog/${encodeURIComponent(courseId)}`);
+  }
+
+  function publishStatus(courseId) {
+    return request('GET', `/api/v1/courses/${encodeURIComponent(courseId)}/publish/status`);
+  }
+
+  function publishCourse(courseId, note) {
+    return request('POST', `/api/v1/courses/${encodeURIComponent(courseId)}/publish`, { body: note ? { note } : {} });
+  }
+
+  function unpublishCourse(courseId, note) {
+    return request('POST', `/api/v1/courses/${encodeURIComponent(courseId)}/unpublish`, { body: note ? { note } : {} });
+  }
+
   A.api = {
     ApiError,
     base,
@@ -257,6 +283,11 @@
     createExercise,
     retireNode,
     retireExercise,
+    catalog,
+    catalogCourse,
+    publishStatus,
+    publishCourse,
+    unpublishCourse,
     get: (path, options) => request('GET', path, options),
     post: (path, body, options) => request('POST', path, { ...options, body }),
     patch: (path, body, options) => request('PATCH', path, { ...options, body }),

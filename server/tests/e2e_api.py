@@ -849,6 +849,100 @@ def run() -> None:
                                      headers=STUDENT, json=content_pack(["ex-a"]))
         check("学生不能导入资源包", student_import.status_code == 403, str(student_import.status_code))
 
+        print("\n发布出口（学生端只看得见已审核发布的内容）：")
+
+        publish_pack = {
+            "course": {"title": "发布测试课程", "description": "发布链路", "subject": "数学"},
+            "nodes": [
+                {"id": "course-e2e-pub", "title": "发布测试课程", "level": 1,
+                 "path": ["发布测试课程"], "content_md": ""},
+                {"id": "ch-pub", "title": "第一章 极限", "level": 2, "parent_id": "course-e2e-pub",
+                 "path": ["发布测试课程", "第一章 极限"], "content_md": ""},
+                {"id": "kp-pub", "title": "数列极限", "level": 3, "parent_id": "ch-pub",
+                 "path": ["发布测试课程", "第一章 极限", "数列极限"],
+                 "content_md": "极限的定义。", "tags": ["定义"]},
+            ],
+            "exercises": [
+                {"id": "pub-a", "prompt_md": "证明收敛数列有界。", "answer_md": "略",
+                 "difficulty": 2, "source_raw": "教材《数学分析》上册，书页30，教材习题2.1-1",
+                 "node_ids": ["kp-pub"]},
+                {"id": "pub-b", "prompt_md": "举例说明极限不唯一。", "answer_md": "略",
+                 "difficulty": 3, "source_raw": "自拟", "node_ids": ["kp-pub"]},
+            ],
+            "mode": "replace",
+        }
+        imported = client.post("/api/v1/courses/e2e-publish/content/import", headers=ADMIN,
+                               json=publish_pack)
+        check("发布测试课程导入成功", imported.status_code == 200, imported.text[:120])
+
+        status = client.get("/api/v1/courses/e2e-publish/publish/status", headers=REVIEWER)
+        check("发布前能看到自检信息", status.status_code == 200, status.text[:120])
+        check("自检：还没有题被发布", status.json()["published"] == 0, str(status.json().get("published")))
+        check("自检：待审题数", status.json()["hidden"] == 2, str(status.json().get("hidden")))
+
+        early = client.post("/api/v1/courses/e2e-publish/publish", headers=ADMIN, json={})
+        check("没有已发布题时拒绝发布", early.status_code == 400, early.text[:120])
+        check("拒绝原因指向审核队列", "审核" in early.text, early.text[:90])
+
+        public = client.get("/api/v1/catalog")
+        check("公开目录不含未发布课程",
+              "e2e-publish" not in {item["id"] for item in public.json()["items"]})
+
+        queue = client.post("/api/v1/review/queue/build?course_id=e2e-publish", headers=REVIEWER)
+        check("生成审核任务", queue.status_code == 200, queue.text[:120])
+        tasks = client.get("/api/v1/review/queue?course_id=e2e-publish&limit=50",
+                           headers=REVIEWER).json()["items"]
+        target = next((task for task in tasks if task["exercise_id"] == "pub-a"), None)
+        check("队列里有 pub-a 的任务", target is not None,
+              str(sorted(task["exercise_id"] for task in tasks)))
+        decided = client.post(f"/api/v1/review/tasks/{target['task_id']}/decision",
+                              headers=REVIEWER, json={"action": "publish"})
+        check("审核通过并发布 pub-a", decided.status_code == 200, decided.text[:120])
+
+        status2 = client.get("/api/v1/courses/e2e-publish/publish/status", headers=REVIEWER).json()
+        check("自检：已发布 1 题", status2["published"] == 1, str(status2["published"]))
+
+        published = client.post("/api/v1/courses/e2e-publish/publish", headers=ADMIN,
+                                json={"note": "端到端发布"})
+        check("课程发布成功", published.status_code == 200, published.text[:140])
+        check("发布报告题目数", published.json().get("exercises") == 1,
+              str(published.json().get("exercises")))
+        check("发布报告藏起来的题数", published.json().get("drafts_hidden") == 1,
+              str(published.json().get("drafts_hidden")))
+
+        catalog_now = client.get("/api/v1/catalog").json()["items"]
+        entry = next((item for item in catalog_now if item["id"] == "e2e-publish"), None)
+        check("公开目录出现已发布课程", entry is not None, str([i["id"] for i in catalog_now]))
+        check("目录里只报已发布题目数", bool(entry) and entry["exercises"] == 1, str(entry))
+
+        as_student = client.get("/api/v1/catalog", headers=STUDENT)
+        check("学生身份能读目录", as_student.status_code == 200, str(as_student.status_code))
+        detail = client.get("/api/v1/catalog/e2e-publish", headers=STUDENT)
+        check("学生能读已发布课程", detail.status_code == 200, detail.text[:120])
+        payload = detail.json()
+        ids = {item["id"] for item in payload["exercises"]}
+        check("课程里只有已发布的题", ids == {"pub-a"}, str(sorted(ids)))
+        check("未发布的题没有泄露", "pub-b" not in ids)
+        check("节点树完整",
+              {"course-e2e-pub", "ch-pub", "kp-pub"} <= {node["id"] for node in payload["nodes"]},
+              str(sorted(node["id"] for node in payload["nodes"])))
+        check("前端需要的字段都在",
+              {"schemaVersion", "relationships", "stats", "files"} <= set(payload),
+              str(sorted({"schemaVersion", "relationships", "stats", "files"} - set(payload))))
+        anchor_node = next(node for node in payload["nodes"] if node["id"] == "kp-pub")
+        check("锚点可用", anchor_node["exerciseAnchor"] == "kp-pub", anchor_node["exerciseAnchor"])
+        check("章节归属传下来了", anchor_node["chapterId"] == "ch-pub", str(anchor_node["chapterId"]))
+
+        unpub = client.post("/api/v1/courses/e2e-publish/unpublish", headers=ADMIN, json={})
+        check("撤回发布成功", unpub.status_code == 200, unpub.text[:120])
+        check("撤回后学生读不到",
+              client.get("/api/v1/catalog/e2e-publish", headers=STUDENT).status_code == 404)
+        check("撤回后目录里消失",
+              "e2e-publish" not in {item["id"] for item in client.get("/api/v1/catalog").json()["items"]})
+
+        student_publish = client.post("/api/v1/courses/e2e-publish/publish", headers=STUDENT, json={})
+        check("学生不能发布课程", student_publish.status_code == 403, str(student_publish.status_code))
+
         # --- 以下会产生真正的数据库错误，必须最后跑（见文件头说明）---
         print("\n数据库约束（放在最后：会让 PGlite 协议错位）：")
         dup = client.post(

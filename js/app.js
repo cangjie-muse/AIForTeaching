@@ -76,4 +76,15 @@
     records.forEach(record => A.applyImported(record));
     if (records.length) A.render();
   }).catch(error => { console.warn('[course/restore]', error); });
+
+  // 已发布的课程来自后端：库里有已发布内容的课覆盖静态包，其余继续用静态包。
+  // 只覆盖"有已发布习题"的课——否则刚发布一个空壳会把演示课程顶掉。
+  // 后端不可用时静默退回静态包，页面照常能看。
+  A.api.catalog().then(items => {
+    if (!items.length) return;
+    return Promise.all(items.map(item => A.api.catalogCourse(item.id).catch(() => null)))
+      .then(courses => {
+        if (A.mergePublishedCourses(courses)) A.render();
+      });
+  }).catch(error => { console.warn('[catalog/publish]', error); });
 })();

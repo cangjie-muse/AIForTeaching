@@ -16,6 +16,33 @@ App.save = function () {
 };
 App.log = (action, data) => { if (App.local.debug) console.info(new Date().toISOString(), action, data); };
 App.allCourses = () => CourseCatalog.merge(App.courses);
+
+// 已发布的课程覆盖静态包。抽成函数是为了能单独测：合并规则错一处，
+// 学生端看到的就是另一门课的内容，而这种错在页面上不容易发现。
+// resourceBase / textbook / attachments 只在静态包里有（数据库不存这些），
+// 所以"新值为空就保留旧值"——否则学生端会变成一堆裂图和空书名。
+App.mergePublishedCourses = function (courses) {
+  let changed = 0;
+  (courses || []).filter(Boolean).forEach(course => {
+    const index = App.courses.findIndex(entry => entry.id === course.id);
+    if (index >= 0) {
+      const old = App.courses[index];
+      App.courses[index] = {
+        ...old,
+        ...course,
+        resourceBase: course.resourceBase || old.resourceBase || '',
+        textbook: course.textbook || old.textbook || '',
+        attachments: (course.attachments && course.attachments.length)
+          ? course.attachments
+          : (old.attachments || [])
+      };
+    } else {
+      App.courses.push(course);
+    }
+    changed += 1;
+  });
+  return changed;
+};
 App.featuredCourse = () => App.courses.find(course => course.id === 'course-symplectic-math-physics') || App.courses[0];
 App.url = function (page, courseId, params = {}) {
   const root = courseId ? `#/course/${encodeURIComponent(courseId)}/${page}` : `#/${page}`;
