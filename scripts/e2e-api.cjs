@@ -19,7 +19,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
-const PORT = Number(process.env.E2E_PG_PORT || 55432);
+// 默认换到 55442，不再和设备开发库（dev:api 的 55432）抢端口。
+// 以前两者同端口，跑一次 test:api 就必须先把 dev:api 杀掉——开发服务器每被
+// 杀一次，正在看页面的人就撞上一次"网页打不开"。测试不该有这种副作用。
+const PORT = Number(process.env.E2E_PG_PORT || 55442);
 const PYTHON = process.platform === 'win32'
   ? path.join(root, '.venv', 'Scripts', 'python.exe')
   : path.join(root, '.venv', 'bin', 'python');
