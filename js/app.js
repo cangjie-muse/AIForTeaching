@@ -1,24 +1,31 @@
 (function () {
   const A = App, e = A.escape;
-  const labels = { catalog: '课程中心', overview: '课程概览', outline: '课程大纲', graph: '知识图谱', exercises: '习题与测验', ai: 'AI 学习助手', resources: '课程资源', teaching: '教学工作台', courseware: '课件生成与修改', analytics: '建设与学习分析', study: '我的学习', content: '课程内容', import: '课程内容', generate: '课程内容', settings: '平台设置', construction: '建设进度汇总', 'api-config': '模型接口配置', review: '内容审核' };
+  const labels = { catalog: '课程中心', overview: '课程概览', outline: '课程大纲', graph: '知识图谱', exercises: '习题与测验', ai: 'AI 学习助手', resources: '课程资源', teaching: '教学工作台', courseware: '课件生成与修改', analytics: '建设与学习分析', study: '我的学习', content: '课程内容', import: '课程内容', generate: '课程内容', settings: '平台设置', construction: '建设进度汇总', 'api-config': '模型接口配置', review: '内容审核', pick: '选择课程' };
   function navItem(page, title, icon, courseId, tag = '') {
-    return `<a class="nav-item ${A.route.page === page ? 'active' : ''}" href="${A.url(page, courseId)}" ${A.route.page === page ? 'aria-current="page"' : ''}>${A.icon(icon)}${title}${tag ? `<em>${tag}</em>` : ''}</a>`;
+    const active = A.route.page === page || (A.route.page === 'pick' && A.route.want === page);
+    return `<a class="nav-item ${active ? 'active' : ''}" href="${A.url(page, courseId)}" ${active ? 'aria-current="page"' : ''}>${A.icon(icon)}${title}${tag ? `<em>${tag}</em>` : ''}</a>`;
   }
   function sidebar() {
-    const id = A.course?.id || A.featuredCourse()?.id;
-    return `<aside class="sidebar"><a href="#/catalog" class="brand"><img src="assets/mark.svg" alt=""><span><b>智慧武大</b><small>MATHEMATICS LEARNING</small></span></a><nav aria-label="主导航"><div class="nav-group-label">课程与学习</div>${navItem('catalog', '课程中心', 'grid', null)}${A.course ? navItem('overview', '课程概览', 'book', id) + navItem('outline', '课程大纲', 'layers', id) : ''}${navItem('graph', '知识图谱', 'graph', id)}${navItem('exercises', '习题与测验', 'pen', id)}${navItem('ai', 'AI 学习助手', 'ai', id, 'AI')}${navItem('qa', 'AI 问答（已接入模型）', 'ai', id, '新')}<div class="nav-group-label">教学与建设</div>${navItem('teaching', '教学工作台', 'activity', A.course?.id)}${navItem('courseware', '课件生成与修改', 'layers', A.course?.id || A.featuredCourse()?.id)}${navItem('resources', '课程资源', 'folder', A.course?.id)}${navItem('analytics', '建设与学习分析', 'chart', A.course?.id)}<div class="nav-group-label">工作空间</div>${navItem('study', '我的学习', 'bookmark', null)}${navItem('content', '课程内容', 'upload', null)}${navItem('settings', '平台设置', 'settings', null)}<div class="nav-group-label">系统管理</div>${navItem('review', '内容审核', 'check', null)}${navItem('api-config', '模型接口配置', 'settings', null, '管理')}<div class="nav-group-label construction-group-label">信息汇总(仅建设过程用)</div>${navItem('construction', '建设进度汇总', 'chart', null)}</nav><div class="sidebar-bottom"><div class="sidebar-note">${A.icon('graph')}<b>以数学知识，连接教与学</b><p>课程 · 图谱 · 习题 · 智能助教</p></div><div class="sidebar-foot"><span class="tiny-dot"></span>本地展示版 <span>v${A.version}</span></div></div></aside>`;
+    // 没有打开中的课程时，课程相关入口不预设课程：交给 #/pick/<page> 让老师自己选。
+    const id = A.course?.id || null;
+    return `<aside class="sidebar"><a href="#/catalog" class="brand"><img src="assets/mark.svg" alt=""><span><b>智慧武大</b><small>MATHEMATICS LEARNING</small></span></a><nav aria-label="主导航"><div class="nav-group-label">课程与学习</div>${navItem('catalog', '课程中心', 'grid', null)}${A.course ? navItem('overview', '课程概览', 'book', id) + navItem('outline', '课程大纲', 'layers', id) : ''}${navItem('graph', '知识图谱', 'graph', id)}${navItem('exercises', '习题与测验', 'pen', id)}${navItem('ai', 'AI 学习助手', 'ai', id, 'AI')}${navItem('qa', 'AI 问答（已接入模型）', 'ai', id, '新')}<div class="nav-group-label">教学与建设</div>${navItem('teaching', '教学工作台', 'activity', id)}${navItem('courseware', '课件生成与修改', 'layers', id)}${navItem('resources', '课程资源', 'folder', id)}${navItem('analytics', '建设与学习分析', 'chart', id)}<div class="nav-group-label">工作空间</div>${navItem('study', '我的学习', 'bookmark', null)}${navItem('content', '课程内容', 'upload', null)}${navItem('settings', '平台设置', 'settings', null)}<div class="nav-group-label">系统管理</div>${navItem('review', '内容审核', 'check', null)}${navItem('api-config', '模型接口配置', 'settings', null, '管理')}<div class="nav-group-label construction-group-label">信息汇总(仅建设过程用)</div>${navItem('construction', '建设进度汇总', 'chart', null)}</nav><div class="sidebar-bottom"><div class="sidebar-note">${A.icon('graph')}<b>以数学知识，连接教与学</b><p>课程 · 图谱 · 习题 · 智能助教</p></div><div class="sidebar-foot"><span class="tiny-dot"></span>本地展示版 <span>v${A.version}</span></div></div></aside>`;
   }
   function topbar() {
-    return `<header class="topbar"><div class="breadcrumb"><button class="icon-btn mobile-menu" data-action="toggle-menu" aria-label="打开导航">${A.icon('menu')}</button><a href="#/catalog">课程平台</a>${A.icon('chevron')}${A.course ? `<a href="${A.url('overview', A.course.id)}">${e(A.course.title)}</a>${A.icon('chevron')}` : ''}<span>${labels[A.route.page] || '页面'}</span></div><div class="topbar-right"><button class="top-search" data-action="global-search">${A.icon('search')}搜索知识<kbd>⌘ K</kbd></button><span class="display-status"><span class="tiny-dot"></span>建设展示</span><button class="avatar" data-action="help" aria-label="查看使用指南">数</button></div></header>`;
+    // 选课页的面包屑：课程平台 > 知识图谱 > 选择课程。
+    // 顺序别反——先把"要去哪个功能"说清楚，再说"还没选课程"。
+    const trail = A.route.page === 'pick'
+      ? `<a href="#/pick/${A.route.want || 'graph'}">${labels[A.route.want] || '课程功能'}</a>${A.icon('chevron')}<span>选择课程</span>`
+      : `<span>${labels[A.route.page] || '页面'}</span>`;
+    return `<header class="topbar"><div class="breadcrumb"><button class="icon-btn mobile-menu" data-action="toggle-menu" aria-label="打开导航">${A.icon('menu')}</button><a href="#/catalog">课程平台</a>${A.icon('chevron')}${A.course ? `<a href="${A.url('overview', A.course.id)}">${e(A.course.title)}</a>${A.icon('chevron')}` : ''}${trail}</div><div class="topbar-right"><button class="top-search" data-action="global-search">${A.icon('search')}搜索知识<kbd>⌘ K</kbd></button><span class="display-status"><span class="tiny-dot"></span>建设展示</span><button class="avatar" data-action="help" aria-label="查看使用指南">数</button></div></header>`;
   }
   function parseRoute() {
-    const [path, query] = (location.hash.slice(1) || '/catalog').split('?');
-    const segments = path.split('/').filter(Boolean).map(decodeURIComponent);
-    const isCourse = segments[0] === 'course';
-    A.course = isCourse ? A.courseData(segments[1]) : null;
-    A.route = { page: isCourse ? segments[2] || 'overview' : segments[0] || 'catalog', params: new URLSearchParams(query || '') };
-    return !isCourse || !!A.course;
+    const route = App.parseHash(location.hash);
+    A.course = route.isCourse ? A.courseData(route.courseId) : null;
+    if (route.isCourse) App.rememberCourse(A.course?.id);
+    A.route = App.normalizeRoute(route);
+    return !route.isCourse || !!A.course;
   }
+  A.parseRoute = parseRoute;
   // 旧入口重定向：老师收藏过 #/import 或 #/generate 的话，不能给他一个空白页。
   const LEGACY_TABS = { import: 'import', generate: 'generate' };
   A.render = function () {

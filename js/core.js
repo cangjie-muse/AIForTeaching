@@ -44,10 +44,54 @@ App.mergePublishedCourses = function (courses) {
   return changed;
 };
 App.featuredCourse = () => App.courses.find(course => course.id === 'course-symplectic-math-physics') || App.courses[0];
+// 需要"先选课程"的页面。以前这些链接带着 A.featuredCourse() 的默认课程id，
+// 点「知识图谱」会直接掉进辛几何那门课——像是平台替你选了课，实际上你还没选。
+// 现在没有当前课程时，它们一律指向 #/pick/<page>（选课页）。
+App.coursePages = ['overview', 'outline', 'graph', 'exercises', 'ai', 'qa',
+  'resources', 'teaching', 'courseware', 'analytics'];
+// 路由解析抽成纯函数：`#/course/x/graph`、`#/pick/graph`、`#/catalog` 三种形态
+// 各自的含义要能单独验证——路由错一处，用户点「知识图谱」就会落到别的课程或空白页。
+App.parseHash = function (hash) {
+  const [path, query] = (String(hash || '').replace(/^#/, '') || '/catalog').split('?');
+  const segments = path.split('/').filter(Boolean).map(segment => {
+    try { return decodeURIComponent(segment); } catch (error) { return segment; }
+  });
+  const isCourse = segments[0] === 'course';
+  const isPick = segments[0] === 'pick';
+  return {
+    isCourse,
+    isPick,
+    courseId: isCourse ? segments[1] || '' : '',
+    page: isPick ? 'pick' : (isCourse ? segments[2] || 'overview' : segments[0] || 'catalog'),
+    want: isPick ? segments[1] || 'graph' : '',
+    params: new URLSearchParams(query || '')
+  };
+};
+// 把解析结果收敛成"这次到底渲染哪一页"。
+// 老书签 `#/graph` 这类没有课程 id 的课程页，不该报错，也不该猜一门课，
+// 一律转成选课页并记住用户想去哪个功能。
+App.normalizeRoute = function (route) {
+  if (route.isPick) return { page: 'pick', want: route.want || 'graph', params: route.params };
+  // 只有"不是课程路由"的课程页才需要拦；#/course/x/graph 当然是直接渲染。
+  if (!route.isCourse && App.coursePages.includes(route.page)) {
+    return { page: 'pick', want: route.page, params: route.params };
+  }
+  return { page: route.page, params: route.params };
+};
 App.url = function (page, courseId, params = {}) {
-  const root = courseId ? `#/course/${encodeURIComponent(courseId)}/${page}` : `#/${page}`;
+  const scoped = App.coursePages.includes(page);
+  const root = courseId ? `#/course/${encodeURIComponent(courseId)}/${page}`
+    : (scoped ? `#/pick/${page}` : `#/${page}`);
   const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value != null && value !== ''));
   return root + (query.size ? `?${query}` : '');
+};
+// 记住上次打开的课程，只为在选课页给一个"继续上次"的入口。
+// 注意：它不会自动跳转——选课是用户的动作，不能替他做。
+App.lastCourse = function () {
+  try { return localStorage.getItem('whu-math-last-course') || ''; } catch (error) { return ''; }
+};
+App.rememberCourse = function (id) {
+  try { if (id) localStorage.setItem('whu-math-last-course', id); } catch (error) { /* 隐私模式下忽略 */ }
 };
 App.go = (page, params = {}, courseId = App.course?.id) => { location.hash = App.url(page, courseId, params); };
 App.button = (text, action, icon = '', extra = '', variant = '') => `<button class="btn ${variant}" data-action="${action}" ${extra}>${icon ? App.icon(icon) : ''}${text}</button>`;
