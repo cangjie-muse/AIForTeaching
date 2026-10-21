@@ -16,7 +16,8 @@
     "test:api": "node scripts/e2e-api.cjs",
     "test:preflight": "node scripts/test-preflight.cjs",
     "dev:api": "node scripts/dev-api.cjs",
-    "test:python": "node scripts/test-python.cjs"
+    "test:python": "node scripts/test-python.cjs",
+    "test:seed": "node scripts/e2e-seed.cjs"
   },
   "dependencies": {
     "dompurify": "3.4.16",
