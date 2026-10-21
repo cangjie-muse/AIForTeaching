@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-21T02:50:37.860Z",
+  "checkedAt": "2026-10-21T02:55:05.487Z",
   "scope": "Project source/provenance audit; no private competitor source or internet-wide similarity database comparison",
   "checks": {
     "runtimeFiles": 35,
@@ -166,11 +166,11 @@
     },
     {
       "path": "scripts/dev-api.cjs",
-      "sha256": "c2ea6549982cf3d59b0041d30c961737c9c90d9ba2548102aeb3f4fe3e3e1a0e"
+      "sha256": "00c0f6044c2f1d06ceb9caffb8d8ad509acf858d22ebe62f2d4beabad26dabe4"
     },
     {
       "path": "scripts/dev_seed.py",
-      "sha256": "c1a3676e13be65adb03d03d33c322cd7ac0492bc2de5ca932b3166c46b59d32c"
+      "sha256": "607175257ba4bb525d416b395f7e35509ccd4b292476c54a897a957b7573ea8a"
     },
     {
       "path": "scripts/e2e-api.cjs",

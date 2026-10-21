@@ -124,6 +124,8 @@ async function main() {
     AUTH_DEV_ROLES: 'admin',
     APP_ENV: 'dev',
     MODEL_EGRESS: 'allowlist',
+    // 没有 API Key 也能点通问答链路；生产环境会被 main.py 拒绝
+    DEV_FAKE_MODEL: process.env.DEV_FAKE_MODEL || '1',
     SECRETS_DIR: secretsDir,
     // Windows 控制台默认 GBK，中文日志会变成乱码
     PYTHONIOENCODING: 'utf-8',

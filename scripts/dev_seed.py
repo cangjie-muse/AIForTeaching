@@ -83,7 +83,41 @@ def seed() -> None:
                    VALUES (%s, %s, %s) ON CONFLICT (course_id, exercise_id, node_id) DO NOTHING""",
                 (COURSE, ex_id, node_id),
             )
-    print(f"示例数据就绪：1 门课、{len(NODES)} 个节点、{len(EXERCISES)} 道题")
+    seed_textbook()
+    print(f"示例数据就绪：1 门课、{len(NODES)} 个节点、{len(EXERCISES)} 道题、"
+          f"{len(CHUNKS)} 个教材片段")
+
+
+CHUNKS = [
+    (1, ["第一章 极限", "数列极限"], 18, 18,
+     "定义 1.1（数列极限）设 {a_n} 为数列，a 为实数。若对任意给定的 ε>0，"
+     "总存在正整数 N，使得当 n>N 时恒有 |a_n - a| < ε，则称数列 {a_n} 收敛于 a，"
+     "记作 lim(n→∞) a_n = a。ε 刻画的是「任意接近」，N 的存在性刻画的是「最终保持」。"),
+    (2, ["第一章 极限", "数列极限"], 19, 19,
+     "例 1.2 用 ε-N 语言证明 lim(n→∞) (2n+1)/(n+2) = 2。"
+     "关键是先把 |(2n+1)/(n+2) - 2| 化简为 3/(n+2)，再令其小于 ε，解出 n > 3/ε - 2，"
+     "取 N = ceil(3/ε)。这里先化简再放大的顺序不能颠倒。"),
+    (3, ["第一章 极限", "函数极限"], 22, 23,
+     "函数极限与数列极限的区别：自变量取连续值，所以用 δ 控制 x 与 x0 的距离。"
+     "常见错误是只验证了 x 从右侧趋近的情形，忽略了双侧。"),
+]
+
+
+def seed_textbook() -> None:
+    """教材片段：没有它，问答链路只能拒答（这是设计使然）。"""
+    db.query(
+        """INSERT INTO textbook (id, course_id, title, edition, authors, publisher,
+                                 copyright_status, pdf_sha256)
+           VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING""",
+        ("demo-tb-analysis", COURSE, "数学分析（示例片段）", "第 1 版", "示例",
+         "示例出版社", "licensed", "d" * 64),
+    )
+    for seq, path, page_from, page_to, content in CHUNKS:
+        db.query(
+            """INSERT INTO textbook_chunk (textbook_id, seq, section_path, page_from, page_to, content_md)
+               VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (textbook_id, seq) DO NOTHING""",
+            ("demo-tb-analysis", seq, path, page_from, page_to, content),
+        )
 
 
 if __name__ == "__main__":

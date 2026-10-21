@@ -37,6 +37,11 @@ def _check_auth_config() -> None:
             "任何人只要加一个 X-Roles: admin 头就能改模型配置。"
             "请先接入统一认证（AUTH_MODE=cas）。"
         )
+    if APP_ENV == "prod" and os.environ.get("DEV_FAKE_MODEL") == "1":
+        raise RuntimeError(
+            "生产环境不允许 DEV_FAKE_MODEL=1：那会让学伴返回固定演示文本，"
+            "学生拿到的是假答案。"
+        )
     if auth.AUTH_MODE == "dev":
         print(
             f"[警告] 当前 AUTH_MODE=dev，身份取自请求头，默认角色 {sorted(auth.DEV_ROLES)}。"

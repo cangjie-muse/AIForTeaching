@@ -41,6 +41,21 @@ TOP_K = int(os.environ.get("RAG_TOP_K", "6"))
 MIN_EXCERPT_CHARS = 120          # 剩余预算不足这么多字就不放这一段，免得只塞半句
 PROMPT_VERSION = "qa-v1"
 
+# 演示模式：没有 API Key 时也能把「检索 → 引用 → 落库」整条链路点通。
+# 它明确标注自己不是真回答，并且在 APP_ENV=prod 下由 main.py 拒绝启动。
+DEV_FAKE_MODEL = os.environ.get("DEV_FAKE_MODEL") == "1"
+
+
+def fake_answer(mode: str, citations: list[dict[str, Any]]) -> str:
+    first = citations[0] if citations else {}
+    excerpt = (first.get("excerpt") or "")[:200]
+    hint = "先看定义里 ε 与 N 的关系" if mode == "guide" else "完整推导见下（演示）"
+    return (
+        "【演示模式，不是模型输出】\n\n"
+        f"{hint}。教材原文（第 {first.get('page', '?')} 页）：\n\n> {excerpt}\n\n"
+        "配置好模型端点与 API Key 后，这条消息会换成真实回答。"
+    )
+
 GUIDE_SYSTEM = """你是武汉大学数学与统计学院的教学助手，面向本科生。
 
 规则（必须遵守）：
@@ -257,6 +272,17 @@ def ask(body: AskIn, actor: Actor = Depends(require("student"))) -> dict:
         {"role": "system", "content": system},
         {"role": "user", "content": f"教材片段：\n\n{context}\n\n学生的问题：{body.question}"},
     ]
+
+    if DEV_FAKE_MODEL:
+        answer = fake_answer(body.mode, citations)
+        _record_call(succeeded=True, provider="demo", model="demo",
+                     latency_ms=0, context_chars=used)
+        message_id = _save_turn(conversation_id, body.question, answer, False, citations)
+        return {
+            "conversation_id": conversation_id, "message_id": message_id,
+            "answer_md": answer, "refused": False, "mode": body.mode,
+            "citations": citations, "context_chars": used, "demo": True,
+        }
 
     started = time.monotonic()
     try:
