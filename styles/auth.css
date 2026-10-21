@@ -1,0 +1,62 @@
+/* 登录、身份区、账号管理。单独一个文件：这些样式只在"人"相关的界面用到，
+ * 混进 pages.css 会让它继续变胖。 */
+
+/* ---------- 顶栏身份区 ---------- */
+.who-block{display:flex;align-items:center;gap:10px}
+.who-block .avatar{flex:none}
+.who-meta{display:flex;flex-direction:column;line-height:1.25}
+.who-meta b{font-size:13px;font-weight:600;color:var(--ink,#1d2430)}
+.who-meta small{font-size:11px;color:var(--muted)}
+.login-btn{display:inline-flex;align-items:center;gap:6px}
+
+/* 初始密码提醒：一条，不弹窗 */
+.auth-banner{margin:0 0 14px;padding:10px 14px;border:1px solid #f2d6a8;background:#fffaf0;
+  border-radius:10px;font-size:13px;color:#8a5a12}
+.auth-banner .link-btn{background:none;border:0;padding:0;color:#8a5a12;text-decoration:underline;cursor:pointer;font:inherit}
+
+/* ---------- 登录页 ---------- */
+.auth-page{min-height:calc(100vh - 180px);display:flex;align-items:flex-start;justify-content:center;padding:48px 16px}
+.auth-card{width:100%;max-width:400px;background:var(--panel,#fff);border:1px solid var(--line,#e3e6ec);
+  border-radius:16px;padding:28px 26px;box-shadow:0 18px 40px rgba(31,45,72,.06)}
+.auth-brand{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.auth-brand svg{width:32px;height:32px;color:var(--brand,#1f4e8c)}
+.auth-brand b{display:block;font-size:15px}
+.auth-brand small{font-size:11px;color:var(--muted);letter-spacing:.08em}
+.auth-card h1{margin:0 0 6px;font-size:22px}
+.auth-card > p{margin:0 0 18px;font-size:13px}
+.auth-field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.auth-field span{font-size:12px;color:var(--muted)}
+.auth-field input{padding:10px 12px;border:1px solid var(--line,#d8dde6);border-radius:9px;font:inherit;font-size:14px}
+.auth-field input:focus-visible{outline:2px solid var(--brand,#1f4e8c);outline-offset:1px}
+.auth-submit{width:100%;justify-content:center;padding:11px 0;font-size:14px}
+.auth-error{margin:0 0 12px;padding:9px 12px;border-radius:8px;background:#fff1f0;color:#b42318;font-size:13px}
+.auth-divider{display:flex;align-items:center;gap:10px;margin:18px 0;color:var(--muted);font-size:12px}
+.auth-divider::before,.auth-divider::after{content:"";flex:1;height:1px;background:var(--line,#e3e6ec)}
+.auth-cas{width:100%;justify-content:center;gap:8px}
+.auth-cas[disabled]{opacity:.6;cursor:not-allowed}
+.auth-hint{margin:14px 0 0;padding:8px 10px;border-radius:8px;background:var(--panel-soft,#f7f9fc);
+  font-size:12px;color:var(--muted)}
+.auth-dialog .auth-field input{padding:9px 11px}
+.auth-dialog .button-row{justify-content:flex-end;margin-top:6px}
+
+/* ---------- 账号管理 ---------- */
+.ax-stats{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+.ax-stat{display:inline-flex;align-items:baseline;gap:6px;font-size:13px;color:var(--muted)}
+.ax-stat b{font-size:20px;color:var(--ink,#1d2430);font-variant-numeric:tabular-nums}
+.ax-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:12px}
+.ax-inline{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.ax-inline input,.ax-inline select{padding:7px 10px;border:1px solid var(--line,#d8dde6);border-radius:8px;font:inherit;font-size:13px}
+.ax-table{width:100%}
+.ax-table td small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.ax-table tr.ax-disabled td{color:var(--muted);background:#fbfbfc}
+.ax-table td.ax-actions{text-align:right;white-space:nowrap}
+.ax-table td.ax-actions .btn + .btn{margin-left:6px}
+.ax-warn{display:inline-block;margin-left:6px;font-size:12px;color:#b45309}
+.ax-form{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px}
+.ax-form .ax-inline{flex-direction:column;align-items:stretch;gap:5px}
+.ax-form .ax-inline input,.ax-form .ax-inline select{min-width:150px}
+@media(max-width:720px){
+  .who-meta{display:none}
+  .ax-table td.ax-actions{white-space:normal}
+  .ax-form .ax-inline{flex:1 1 100%}
+}

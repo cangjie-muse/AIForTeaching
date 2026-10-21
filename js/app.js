@@ -1,7 +1,9 @@
 (function () {
   const A = App, e = A.escape;
-  const labels = { catalog: '课程中心', overview: '课程概览', outline: '课程大纲', graph: '知识图谱', exercises: '习题与测验', ai: 'AI 学习助手', resources: '课程资源', teaching: '教学工作台', courseware: '课件生成与修改', analytics: '建设与学习分析', study: '我的学习', content: '课程内容', import: '课程内容', generate: '课程内容', settings: '平台设置', construction: '建设进度汇总', 'api-config': '模型接口配置', review: '内容审核', pick: '选择课程' };
+  const labels = { catalog: '课程中心', overview: '课程概览', outline: '课程大纲', graph: '知识图谱', exercises: '习题与测验', ai: 'AI 学习助手', resources: '课程资源', teaching: '教学工作台', courseware: '课件生成与修改', analytics: '建设与学习分析', study: '我的学习', content: '课程内容', import: '课程内容', generate: '课程内容', settings: '平台设置', construction: '建设进度汇总', 'api-config': '模型接口配置', review: '内容审核', accounts: '账号管理', login: '登录', pick: '选择课程' };
   function navItem(page, title, icon, courseId, tag = '') {
+    // 没权限的入口直接不渲染：菜单里留一堆 403 入口比不显示更糟。
+    if (A.auth && !A.auth.can(page)) return '';
     const active = A.route.page === page || (A.route.page === 'pick' && A.route.want === page);
     return `<a class="nav-item ${active ? 'active' : ''}" href="${A.url(page, courseId)}" ${active ? 'aria-current="page"' : ''}>${A.icon(icon)}${title}${tag ? `<em>${tag}</em>` : ''}</a>`;
   }
@@ -10,15 +12,31 @@
     // 菜单形状固定（课程概览/大纲一直存在），选课前后位置不变——菜单跳来跳去
     // 会让人以为是两套系统。
     const id = A.course?.id || null;
-    return `<aside class="sidebar"><a href="#/catalog" class="brand"><img src="assets/mark.svg" alt=""><span><b>智慧武大</b><small>MATHEMATICS LEARNING</small></span></a><nav aria-label="主导航"><div class="nav-group-label">课程与学习</div>${navItem('catalog', '课程中心', 'grid', null)}${navItem('overview', '课程概览', 'book', id)}${navItem('outline', '课程大纲', 'layers', id)}${navItem('graph', '知识图谱', 'graph', id)}${navItem('exercises', '习题与测验', 'pen', id)}${navItem('ai', 'AI 学习助手', 'ai', id, 'AI')}${navItem('qa', 'AI 问答（已接入模型）', 'ai', id, '新')}<div class="nav-group-label">教学与建设</div>${navItem('teaching', '教学工作台', 'activity', id)}${navItem('courseware', '课件生成与修改', 'layers', id)}${navItem('resources', '课程资源', 'folder', id)}${navItem('analytics', '建设与学习分析', 'chart', id)}<div class="nav-group-label">工作空间</div>${navItem('study', '我的学习', 'bookmark', null)}${navItem('content', '课程内容', 'upload', null)}${navItem('settings', '平台设置', 'settings', null)}<div class="nav-group-label">系统管理</div>${navItem('review', '内容审核', 'check', null)}${navItem('api-config', '模型接口配置', 'settings', null, '管理')}<div class="nav-group-label construction-group-label">信息汇总(仅建设过程用)</div>${navItem('construction', '建设进度汇总', 'chart', null)}</nav><div class="sidebar-bottom"><div class="sidebar-note">${A.icon('graph')}<b>以数学知识，连接教与学</b><p>课程 · 图谱 · 习题 · 智能助教</p></div><div class="sidebar-foot"><span class="tiny-dot"></span>本地展示版 <span>v${A.version}</span></div></div></aside>`;
+    return `<aside class="sidebar"><a href="#/catalog" class="brand"><img src="assets/mark.svg" alt=""><span><b>智慧武大</b><small>MATHEMATICS LEARNING</small></span></a><nav aria-label="主导航"><div class="nav-group-label">课程与学习</div>${navItem('catalog', '课程中心', 'grid', null)}${navItem('overview', '课程概览', 'book', id)}${navItem('outline', '课程大纲', 'layers', id)}${navItem('graph', '知识图谱', 'graph', id)}${navItem('exercises', '习题与测验', 'pen', id)}${navItem('ai', 'AI 学习助手', 'ai', id, 'AI')}${navItem('qa', 'AI 问答（已接入模型）', 'ai', id, '新')}<div class="nav-group-label">教学与建设</div>${navItem('teaching', '教学工作台', 'activity', id)}${navItem('courseware', '课件生成与修改', 'layers', id)}${navItem('resources', '课程资源', 'folder', id)}${navItem('analytics', '建设与学习分析', 'chart', id)}<div class="nav-group-label">工作空间</div>${navItem('study', '我的学习', 'bookmark', null)}${navItem('content', '课程内容', 'upload', null)}${navItem('settings', '平台设置', 'settings', null)}<div class="nav-group-label">系统管理</div>${navItem('review', '内容审核', 'check', null)}${navItem('accounts', '账号管理', 'user', null, '管理')}${navItem('api-config', '模型接口配置', 'settings', null, '管理')}<div class="nav-group-label construction-group-label">信息汇总(仅建设过程用)</div>${navItem('construction', '建设进度汇总', 'chart', null)}</nav><div class="sidebar-bottom"><div class="sidebar-note">${A.icon('graph')}<b>以数学知识，连接教与学</b><p>课程 · 图谱 · 习题 · 智能助教</p></div><div class="sidebar-foot"><span class="tiny-dot"></span>本地展示版 <span>v${A.version}</span></div></div></aside>`;
   }
+  function authArea() {
+    if (!A.auth) return '';
+    if (A.auth.anonymous()) {
+      return `<button class="btn small primary login-btn" data-action="auth-login-open">${A.icon('user')}登录</button>`;
+    }
+    const actor = A.auth.actor();
+    const role = A.auth.roleLabel();
+    const initial = (actor.display_name || actor.id || '?').slice(0, 1);
+    return `<div class="who-block">
+      <span class="avatar" aria-hidden="true">${e(initial)}</span>
+      <span class="who-meta"><b>${e(actor.display_name || actor.id)}</b><small>${e(role)}</small></span>
+      <button class="btn small text-btn" data-action="auth-password-open" title="修改密码">改密</button>
+      <button class="btn small" data-action="auth-logout">退出</button>
+    </div>`;
+  }
+
   function topbar() {
     // 选课页的面包屑：课程平台 > 知识图谱 > 选择课程。
     // 顺序别反——先把"要去哪个功能"说清楚，再说"还没选课程"。
     const trail = A.route.page === 'pick'
       ? `<a href="#/pick/${A.route.want || 'graph'}">${labels[A.route.want] || '课程功能'}</a>${A.icon('chevron')}<span>选择课程</span>`
       : `<span>${labels[A.route.page] || '页面'}</span>`;
-    return `<header class="topbar"><div class="breadcrumb"><button class="icon-btn mobile-menu" data-action="toggle-menu" aria-label="打开导航">${A.icon('menu')}</button><a href="#/catalog">课程平台</a>${A.icon('chevron')}${A.course ? `<a href="${A.url('overview', A.course.id)}">${e(A.course.title)}</a>${A.icon('chevron')}` : ''}${trail}</div><div class="topbar-right"><button class="top-search" data-action="global-search">${A.icon('search')}搜索知识<kbd>⌘ K</kbd></button><span class="display-status"><span class="tiny-dot"></span>建设展示</span><button class="avatar" data-action="help" aria-label="查看使用指南">数</button></div></header>`;
+    return `<header class="topbar"><div class="breadcrumb"><button class="icon-btn mobile-menu" data-action="toggle-menu" aria-label="打开导航">${A.icon('menu')}</button><a href="#/catalog">课程平台</a>${A.icon('chevron')}${A.course ? `<a href="${A.url('overview', A.course.id)}">${e(A.course.title)}</a>${A.icon('chevron')}` : ''}${trail}</div><div class="topbar-right"><button class="top-search" data-action="global-search">${A.icon('search')}搜索知识<kbd>⌘ K</kbd></button>${authArea()}</div></header>`;
   }
   function parseRoute() {
     const route = App.parseHash(location.hash);
@@ -41,12 +59,28 @@
     document.getElementById('dialog').close(); document.body.classList.remove('menu-open');
     const view = A.views[A.route.page];
     let body;
-    if (!exists || !view) body = A.empty('book', '没有找到这个页面', '可返回课程中心继续浏览。', A.link('返回课程中心', 'catalog', null, 'arrow', 'primary'));
+    const allowed = !A.auth || A.auth.can(A.route.page);
+    if (!allowed) {
+      const need = (A.auth.rolesFor(A.route.page) || []).map(role => ({ student: '学生', teacher: '教师', admin: '管理员' })[role] || role).join(' / ');
+      body = A.auth.anonymous()
+        ? A.empty(
+          'lock',
+          '这个页面需要登录',
+          `「${labels[A.route.page] || A.route.page}」只对${need}开放。登录后再回来。`,
+          A.button('去登录', 'auth-login-open', 'user', '', 'primary')
+        )
+        : A.empty(
+          'lock',
+          '当前身份没有这个页面的权限',
+          `「${labels[A.route.page] || A.route.page}」只对${need}开放，你当前是${A.auth.roleLabel() || '未登录'}。`,
+          `<div class="button-row">${A.link('返回课程中心', 'catalog', null, '', 'primary')}</div>`
+        );
+    } else if (!exists || !view) body = A.empty('book', '没有找到这个页面', '可返回课程中心继续浏览。', A.link('返回课程中心', 'catalog', null, 'arrow', 'primary'));
     else {
       try { body = view(); }
       catch (error) { console.error('[page/render]', error); body = A.empty('info', '页面暂时无法显示', e(error.message), A.link('返回课程中心', 'catalog', null)); }
     }
-    document.getElementById('app').innerHTML = `${sidebar()}<div class="main-shell">${topbar()}<main id="main" tabindex="-1">${A.courseBar()}${body}</main></div>`;
+    document.getElementById('app').innerHTML = `${sidebar()}<div class="main-shell">${topbar()}<main id="main" tabindex="-1">${A.mustChangeBanner ? A.mustChangeBanner() : ''}${A.courseBar()}${body}</main></div>`;
     document.title = `${A.course?.title || labels[A.route.page] || '智慧武大'} · 数学课程平台`;
     if (exists && view) A.after[A.route.page]?.();
     A.log('navigate', { page: A.route.page, courseId: A.course?.id });
@@ -64,6 +98,7 @@
   });
   document.addEventListener('submit', event => {
     if (event.target.matches('[data-form="chat"]')) { event.preventDefault(); A.actions['send-chat'](); }
+    if (event.target.matches('[data-form="login"]')) { event.preventDefault(); A.actions['auth-submit'](document.querySelector('[data-action="auth-submit"]') || {}); }
   });
   document.addEventListener('keydown', event => {
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); A.actions['global-search'](); }
@@ -80,6 +115,12 @@
     results.innerHTML = `${courses.map(c => `<a class="search-hit" href="${A.url('overview', c.id)}">${A.icon('book')}<span><b>${e(c.title)}</b><small>课程</small></span>${A.icon('arrow')}</a>`).join('')}${nodes.slice(0, 30).map(({ c, n }) => `<a class="search-hit" href="${A.url('outline', c.id, { node: n.id })}">${A.icon('graph')}<span><b>${e(n.title)}</b><small>${e(c.title)} · ${e(n.path[1])}</small></span>${A.icon('arrow')}</a>`).join('')}` || '<p class="muted">未找到匹配结果。</p>';
   };
   window.addEventListener('hashchange', () => { A.render(); window.scrollTo(0, 0); });
+
+  // 先问一次"我是谁"，再渲染首屏：否则已登录的人会先看到"登录"按钮闪一下。
+  // 后端不可达时也照常渲染——匿名浏览课程本来就允许。
+  if (A.auth) {
+    A.auth.load().then(() => { if (A.route.page === 'login') A.render(); });
+  }
   A.render();
   CourseStore.load().then(records => {
     records.forEach(record => A.applyImported(record));

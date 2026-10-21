@@ -135,7 +135,10 @@ def run() -> None:
         )
 
         print("\n配置接口权限：")
-        check("未授权身份默认 admin（开发模式）", client.get("/api/v1/admin/whoami").json()["can_edit"] is True)
+        anonymous_who = client.get("/api/v1/admin/whoami").json()
+        check("没有身份时不再默认 admin（必须登录）",
+              anonymous_who["can_edit"] is False and anonymous_who["can_view"] is False,
+              str(anonymous_who))
         chinese = client.get("/api/v1/admin/whoami", headers=ADMIN).json()
         check("百分号编码的中文身份被还原", chinese["actor"] == "信息化专员", chinese["actor"])
         reviewer_me = client.get("/api/v1/admin/whoami", headers=REVIEWER).json()
@@ -479,7 +482,7 @@ def run() -> None:
 
         print("\n修订差异：")
 
-        before = client.get("/api/v1/review/exercises/e2e-course/ex-2/revisions")
+        before = client.get("/api/v1/review/exercises/e2e-course/ex-2/revisions", headers=REVIEWER)
         check("未修改时没有修订历史", before.status_code == 200 and before.json()["count"] == 0,
               str(before.json().get("count")) if before.status_code == 200 else before.text[:80])
 
@@ -493,7 +496,7 @@ def run() -> None:
             json={"prompt_md": "改过的题干（第二版）", "difficulty": 4},
         )
 
-        after = client.get("/api/v1/review/exercises/e2e-course/ex-2/revisions")
+        after = client.get("/api/v1/review/exercises/e2e-course/ex-2/revisions", headers=REVIEWER)
         payload = after.json() if after.status_code == 200 else {}
         check("两次修改产生两条快照", payload.get("count") == 2, str(payload.get("count")))
         check("当前版本在 exercise 表", payload.get("current", {}).get("prompt_md") == "改过的题干（第二版）",
@@ -510,11 +513,11 @@ def run() -> None:
         check("最早一条快照保留了原始题干", "第 2 题" in str(oldest.get("prompt_md")),
               str(oldest.get("prompt_md"))[:40])
 
-        gone = client.get("/api/v1/review/exercises/e2e-course/no-such/revisions")
+        gone = client.get("/api/v1/review/exercises/e2e-course/no-such/revisions", headers=REVIEWER)
         check("不存在的题目查修订返回 404", gone.status_code == 404, str(gone.status_code))
 
         # 改完之后，审核队列里读到的应该是新题干
-        refreshed = client.get("/api/v1/review/queue?limit=100")
+        refreshed = client.get("/api/v1/review/queue?limit=100", headers=REVIEWER)
         target = next((item for item in refreshed.json()["items"]
                        if item["exercise_id"] == "ex-2"), None)
         check("队列读到的是修改后的题干", target and target["prompt_md"] == "改过的题干（第二版）",
@@ -1216,6 +1219,205 @@ def run() -> None:
 
         student_publish = client.post("/api/v1/courses/e2e-publish/publish", headers=STUDENT, json={})
         check("学生不能发布课程", student_publish.status_code == 403, str(student_publish.status_code))
+
+        # ------------------------------------------------------------------
+        # 登录与会话（账号密码），以及三个角色的权限边界
+        #
+        # 全部用同一个 client：cookie 会一直带着，所以每换一个身份就
+        # 先清 cookie（或退出），否则后面的请求会以"上一个人"的身份发出去。
+        # ------------------------------------------------------------------
+        print("\n账号密码登录：")
+        client.cookies.clear()
+        me0 = client.get("/api/v1/auth/me")
+        check("未登录时 me 返回 authenticated=false",
+              me0.status_code == 200 and me0.json()["authenticated"] is False, me0.text[:120])
+        providers = client.get("/api/v1/auth/providers").json()
+        check("登录方式里账号密码可用", providers["password"]["available"] is True)
+        check("统一认证明确标为未接入", providers["cas"]["available"] is False,
+              str(providers["cas"].get("hint"))[:60])
+        check("登录方式带会话时长", providers["session_hours"] >= 1, str(providers["session_hours"]))
+
+        wrong = client.post("/api/v1/auth/login",
+                            json={"username": "nobody", "password": "whatever123"})
+        check("不存在的账号 401", wrong.status_code == 401, wrong.text[:100])
+        check("不泄露账号是否存在", "账号或密码" in wrong.json()["detail"], wrong.json()["detail"])
+
+        created = client.post("/api/v1/auth/accounts", headers=ADMIN, json={
+            "username": "e2e-teacher", "display_name": "端到端教师",
+            "role": "teacher", "password": "e2e-teacher-2026", "must_change_password": False,
+        })
+        check("管理员能建教师账号", created.status_code == 200, created.text[:160])
+        check("新账号默认有平台密码", created.json()["has_password"] is True)
+        check("重名账号 409",
+              client.post("/api/v1/auth/accounts", headers=ADMIN, json={
+                  "username": "e2e-teacher", "display_name": "重复", "role": "teacher",
+                  "password": "e2e-teacher-2026",
+              }).status_code == 409, "重名没有拒绝")
+        check("弱密码 400",
+              client.post("/api/v1/auth/accounts", headers=ADMIN, json={
+                  "username": "e2e-weak", "display_name": "弱口令", "role": "student",
+                  "password": "123",
+              }).status_code == 400, "弱密码被接受")
+        check("非法角色 400",
+              client.post("/api/v1/auth/accounts", headers=ADMIN, json={
+                  "username": "e2e-role", "display_name": "错角色", "role": "superuser",
+                  "password": "e2e-role-2026",
+              }).status_code == 400, "非法角色被接受")
+
+        # 教师：用 cookie 登录后不再发任何身份请求头
+        client.cookies.clear()
+        signed = client.post("/api/v1/auth/login",
+                             json={"username": "e2e-teacher", "password": "e2e-teacher-2026"})
+        check("正确密码能登录", signed.status_code == 200, signed.text[:160])
+        check("登录响应带角色", signed.json()["actor"]["role"] == "teacher",
+              str(signed.json()["actor"]))
+        check("会话 cookie 是 httpOnly", "httponly" in signed.headers.get("set-cookie", "").lower(),
+              signed.headers.get("set-cookie", "")[:80])
+        me1 = client.get("/api/v1/auth/me").json()
+        check("登录后 me 认得这个人",
+              me1["authenticated"] and me1["actor"]["display_name"] == "端到端教师",
+              str(me1.get("actor")))
+        check("教师带 cookie 就能读审核总表（无需请求头）",
+              client.get("/api/v1/review/ledger?course_id=e2e-publish").status_code == 200,
+              "cookie 没生效")
+        check("教师能审核（reviewer 权限由 teacher 覆盖）",
+              client.get("/api/v1/review/graph").status_code == 200, "教师审不了图谱")
+        check("教师不能建账号 403",
+              client.post("/api/v1/auth/accounts", json={
+                  "username": "e2e-x", "display_name": "x", "role": "student",
+                  "password": "e2e-x-2026",
+              }).status_code == 403, "教师也能建账号")
+        check("教师不能把别人提成管理员 403",
+              client.patch("/api/v1/auth/accounts/" + created.json()["id"],
+                           json={"role": "admin"}).status_code == 403, "教师也能提权")
+
+        # 学生：能看课程，不能审内容，也不能改口径
+        client.post("/api/v1/auth/logout")
+        client.cookies.clear()
+        client.post("/api/v1/auth/accounts", headers=ADMIN, json={
+            "username": "e2e-student", "display_name": "端到端学生",
+            "role": "student", "password": "e2e-student-2026",
+        })
+        check("学生登录成功",
+              client.post("/api/v1/auth/login", json={
+                  "username": "e2e-student", "password": "e2e-student-2026",
+              }).status_code == 200, "学生登录失败")
+        check("学生能看课程目录",
+              client.get("/api/v1/catalog").status_code == 200, "目录都看不了")
+        check("学生不能读审核队列 403",
+              client.get("/api/v1/review/queue").status_code == 403, "学生看到了审核队列")
+        check("学生不能改可见范围 403",
+              client.put("/api/v1/visibility",
+                         json={"exercise_tier": "all"}).status_code == 403, "学生改了可见范围")
+        check("学生不能读账号列表 403",
+              client.get("/api/v1/auth/accounts").status_code == 403, "学生看到了账号列表")
+
+        # 退出：会话失效，再访问受保护接口是 401（不是 403）
+        check("退出成功", client.post("/api/v1/auth/logout").status_code == 200)
+        check("退出后 me 变匿名",
+              client.get("/api/v1/auth/me").json()["authenticated"] is False)
+        check("退出后受保护接口 401（可据此跳登录）",
+              client.get("/api/v1/review/ledger").status_code == 401,
+              "退出后还是 403，前端分不清该不该弹登录")
+        client.cookies.clear()
+
+        # 改密：旧密码失效、新密码可登录
+        client.post("/api/v1/auth/login",
+                    json={"username": "e2e-teacher", "password": "e2e-teacher-2026"})
+        check("改密前旧密码可登录",
+              client.get("/api/v1/auth/me").json()["authenticated"] is True)
+        check("当前密码错时拒绝改密",
+              client.post("/api/v1/auth/password", json={
+                  "current_password": "wrong-password", "new_password": "e2e-teacher-2027",
+              }).status_code == 400, "错的当前密码被接受")
+        check("新密码太短被拒",
+              client.post("/api/v1/auth/password", json={
+                  "current_password": "e2e-teacher-2026", "new_password": "short",
+              }).status_code in {400, 422}, "弱新密码被接受")
+        check("改密成功",
+              client.post("/api/v1/auth/password", json={
+                  "current_password": "e2e-teacher-2026", "new_password": "e2e-teacher-2027",
+              }).status_code == 200, "改密失败")
+        check("改密后当前会话仍可用",
+              client.get("/api/v1/auth/me").json()["authenticated"] is True)
+        client.post("/api/v1/auth/logout")
+        client.cookies.clear()
+        check("旧密码不能再登录",
+              client.post("/api/v1/auth/login", json={
+                  "username": "e2e-teacher", "password": "e2e-teacher-2026",
+              }).status_code == 401, "旧密码还能登录")
+        check("新密码能登录",
+              client.post("/api/v1/auth/login", json={
+                  "username": "e2e-teacher", "password": "e2e-teacher-2027",
+              }).status_code == 200, "新密码登录失败")
+        client.post("/api/v1/auth/logout")
+        client.cookies.clear()
+
+        # 连续失败锁定
+        client.post("/api/v1/auth/accounts", headers=ADMIN, json={
+            "username": "e2e-lock", "display_name": "锁定测试", "role": "student",
+            "password": "e2e-lock-2026",
+        })
+        codes = []
+        for _ in range(5):
+            codes.append(client.post("/api/v1/auth/login", json={
+                "username": "e2e-lock", "password": "definitely-wrong",
+            }).status_code)
+        check("连续失败计数", codes[:4] == [401, 401, 401, 401], str(codes))
+        check("第五次失败后锁定", codes[4] == 423, str(codes))
+        check("锁定期间正确密码也进不去",
+              client.post("/api/v1/auth/login", json={
+                  "username": "e2e-lock", "password": "e2e-lock-2026",
+              }).status_code == 423, "锁定了还能登录")
+        client.cookies.clear()
+
+        # 管理员账号管理
+        listing = client.get("/api/v1/auth/accounts", headers=ADMIN).json()
+        usernames = [row["username"] for row in listing["items"]]
+        check("账号列表含刚建的三个", {"e2e-teacher", "e2e-student", "e2e-lock"} <= set(usernames),
+              str(usernames[:6]))
+        check("账号列表带角色统计", listing["counts"].get("teacher", 0) >= 1,
+              str(listing["counts"]))
+        check("账号列表不返回密码哈希",
+              all("password_hash" not in row for row in listing["items"]), "泄漏了哈希")
+        check("按角色筛选",
+              all(row["role"] == "student" for row in
+                  client.get("/api/v1/auth/accounts?role=student",
+                             headers=ADMIN).json()["items"]),
+              "筛角色没生效")
+        lock_id = [row["id"] for row in listing["items"] if row["username"] == "e2e-lock"][0]
+        check("停用账号成功",
+              client.patch("/api/v1/auth/accounts/" + lock_id, headers=ADMIN,
+                           json={"disabled": True}).status_code == 200, "停用失败")
+        check("停用后连锁定中的账号也进不来",
+              client.post("/api/v1/auth/login", json={
+                  "username": "e2e-lock", "password": "e2e-lock-2026",
+              }).status_code in {403, 423}, "停用了还能登录")
+        # 库里的管理员账号是 0 个（上面的 admin 身份来自请求头），
+        # 先建一个真的，才能验证"最后一个管理员不能被降级"。
+        made_admin = client.post("/api/v1/auth/accounts", headers=ADMIN, json={
+            "username": "e2e-admin", "display_name": "端到端管理员",
+            "role": "admin", "password": "e2e-admin-2026",
+        })
+        check("管理员能建管理员账号", made_admin.status_code == 200, made_admin.text[:160])
+        admin_items = client.get("/api/v1/auth/accounts?role=admin", headers=ADMIN).json()["items"]
+        check("管理员账号能被列出来", len(admin_items) == 1, str(len(admin_items)))
+        check("最后一个管理员不能被降级",
+              client.patch("/api/v1/auth/accounts/" + admin_items[0]["id"], headers=ADMIN,
+                           json={"role": "teacher"}).status_code == 400,
+              "把最后一个管理员降级了")
+        check("最后一个管理员不能被停用",
+              client.patch("/api/v1/auth/accounts/" + admin_items[0]["id"], headers=ADMIN,
+                           json={"disabled": True}).status_code == 400,
+              "把最后一个管理员停用了")
+
+        # 统一认证：留了位置，但明确说没接
+        check("CAS 登录入口明确报未接入",
+              client.get("/api/v1/auth/cas/login", follow_redirects=False).status_code == 501,
+              "CAS 入口没有明确拒绝")
+        check("CAS 回调明确报未接入",
+              client.get("/api/v1/auth/cas/callback?ticket=ST-1").status_code == 501,
+              "回调没有拒绝")
 
         # --- 以下会产生真正的数据库错误，必须最后跑（见文件头说明）---
         print("\n数据库约束（放在最后：会让 PGlite 协议错位）：")

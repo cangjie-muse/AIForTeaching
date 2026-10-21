@@ -71,7 +71,7 @@ async function main() {
     DATABASE_URL: `postgresql://postgres@127.0.0.1:${PORT}/postgres?sslmode=disable`,
     DB_POOL_MAX: '1',              // PGlite 单连接，池开大会撞车
     AUTH_MODE: 'dev',
-    AUTH_DEV_ROLES: 'admin',
+    AUTH_DEV_ROLES: '',  // 默认不兜底角色：本地也必须登录，否则权限无从验证
     APP_ENV: 'test',
     MODEL_EGRESS: 'allowlist',
     SECRETS_DIR: secretsDir

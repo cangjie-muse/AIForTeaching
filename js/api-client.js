@@ -26,16 +26,19 @@
     return (A.local.apiBase || '').replace(/\/+$/, '');
   }
 
-  function devMode() {
-    return A.local.devActor !== false;
+  // 只有显式选择"用请求头冒充身份"时才发 X-Actor/X-Roles。
+  // 默认不发：否则本地开发里"没登录也是 admin"，登录按钮就成了装饰，
+  // 权限也就无从验证。生产（AUTH_MODE=password/cas）服务端根本不看这两个头。
+  function headerIdentity() {
+    return A.local.devActor === true;
   }
 
   function headers(extra) {
     const result = { 'Content-Type': 'application/json', ...(extra || {}) };
-    if (devMode()) {
+    if (headerIdentity()) {
       // 头值只能是 ASCII：中文姓名必须编码，服务端 unquote 还原
-      result['X-Actor'] = encodeURIComponent(A.local.actorId || '信息化专员');
-      result['X-Roles'] = (A.local.actorRoles || ['admin']).join(',');
+      result['X-Actor'] = encodeURIComponent(A.local.actorId || '本地调试');
+      result['X-Roles'] = (A.local.actorRoles || []).join(',');
     }
     return result;
   }
@@ -47,6 +50,7 @@
       response = await fetch(url, {
         method,
         headers: headers(options.headers),
+        credentials: 'same-origin',  // 会话 cookie：登录态靠它，不靠请求头
         body: options.body === undefined ? undefined : JSON.stringify(options.body)
       });
     } catch (cause) {
@@ -64,7 +68,10 @@
       try { data = JSON.parse(text); } catch { data = { detail: text.slice(0, 300) }; }
     }
     if (!response.ok) {
-      throw new ApiError(data.detail || `请求失败（HTTP ${response.status}）`, response.status, data.detail);
+      const error = new ApiError(data.detail || `请求失败（HTTP ${response.status}）`, response.status, data.detail);
+      // 401 只有一个意思：没登录或会话过期。统一在这里广播，页面不必各自判断。
+      if (response.status === 401 && A.auth && !options.noAuthRedirect) A.auth.needed();
+      throw error;
     }
     return data;
   }
@@ -286,6 +293,52 @@
     return request('POST', '/api/v1/review/graph/verify', { body: payload });
   }
 
+  // ---------------------------------------------------------------------
+  // 登录与会话
+  // ---------------------------------------------------------------------
+
+  function providers() {
+    return request('GET', '/api/v1/auth/providers', { noAuthRedirect: true });
+  }
+
+  function me() {
+    return request('GET', '/api/v1/auth/me', { noAuthRedirect: true });
+  }
+
+  function login(username, password, next) {
+    return request('POST', '/api/v1/auth/login', {
+      body: { username, password, next: next || null },
+      noAuthRedirect: true
+    });
+  }
+
+  function logout() {
+    return request('POST', '/api/v1/auth/logout', { noAuthRedirect: true });
+  }
+
+  function changePassword(currentPassword, newPassword) {
+    return request('POST', '/api/v1/auth/password', {
+      body: { current_password: currentPassword, new_password: newPassword },
+      noAuthRedirect: true
+    });
+  }
+
+  function accounts(params) {
+    const query = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') query.set(key, value);
+    });
+    return request('GET', `/api/v1/auth/accounts?${query.toString()}`);
+  }
+
+  function createAccount(payload) {
+    return request('POST', '/api/v1/auth/accounts', { body: payload });
+  }
+
+  function patchAccount(accountId, payload) {
+    return request('PATCH', `/api/v1/auth/accounts/${encodeURIComponent(accountId)}`, { body: payload });
+  }
+
   // 一门课全部题目的审核总表（不是队列：含已发布、含没人审过的）。
   function reviewLedger(params) {
     const query = new URLSearchParams();
@@ -336,6 +389,14 @@
     verifyGraph,
     reviewLedger,
     exerciseVerification,
+    providers,
+    me,
+    login,
+    logout,
+    changePassword,
+    accounts,
+    createAccount,
+    patchAccount,
     get: (path, options) => request('GET', path, options),
     post: (path, body, options) => request('POST', path, { ...options, body }),
     patch: (path, body, options) => request('PATCH', path, { ...options, body }),

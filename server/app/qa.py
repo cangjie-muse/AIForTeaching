@@ -32,7 +32,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from . import db, llm, visibility
-from .auth import Actor, require
+from .auth import Actor, require, require_login
 
 router = APIRouter(prefix="/api/v1/qa", tags=["qa"])
 
@@ -239,7 +239,7 @@ def _record_call(*, succeeded: bool, provider: str, model: str, latency_ms: int,
 
 
 @router.post("/ask")
-def ask(body: AskIn, actor: Actor = Depends(require("student"))) -> dict:
+def ask(body: AskIn, actor: Actor = Depends(require_login)) -> dict:
     if body.mode == "full":
         _require_attempt(actor, body)
         _require_tier(body)

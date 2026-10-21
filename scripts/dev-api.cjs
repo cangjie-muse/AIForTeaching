@@ -67,7 +67,15 @@ function post(url) {
     const target = new URL(url);
     const request = http.request({
       hostname: target.hostname, port: target.port, path: target.pathname,
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': 0 }
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': 0,
+        // 启动时的自动建队不是人点的：审核接口现在要求身份，这里带开发身份头。
+        // 生产环境（AUTH_MODE=password/cas）不会执行这个分支。
+        'X-Actor': encodeURIComponent('启动脚本'),
+        'X-Roles': 'admin'
+      }
     }, (response) => {
       let body = '';
       response.setEncoding('utf8');
@@ -121,7 +129,7 @@ async function main() {
     DATABASE_URL: `postgresql://postgres@127.0.0.1:${PG_PORT}/postgres?sslmode=disable`,
     DB_POOL_MAX: '1',
     AUTH_MODE: 'dev',
-    AUTH_DEV_ROLES: 'admin',
+    AUTH_DEV_ROLES: '',  // 默认不兜底角色：本地也必须登录，否则权限无从验证
     APP_ENV: 'dev',
     MODEL_EGRESS: 'allowlist',
     // 没有 API Key 也能点通问答链路；生产环境会被 main.py 拒绝
@@ -143,6 +151,7 @@ async function main() {
   await run('应用迁移', ['db/migrate.py', '--apply', '--pglite-compat']);
   console.log('[2/4] 迁移已应用');
   await run('写入示例数据', ['scripts/dev_seed.py']);
+  await run('写入演示账号', ['scripts/dev_seed_accounts.py']);
   console.log('[3/4] 示例数据已就绪');
 
   const api = spawn(

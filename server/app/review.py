@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from . import db, lean_service
-from .auth import Actor, current_actor
+from .auth import Actor, require
 
 router = APIRouter(prefix="/api/v1/review", tags=["review"])
 
@@ -52,7 +52,10 @@ class GraphVerifyIn(BaseModel):
 
 
 @router.get("/summary")
-def summary(course_id: str | None = None) -> dict:
+def summary(
+    course_id: str | None = None,
+    _actor: Actor = Depends(require("reviewer")),
+) -> dict:
     """审核大盘：按可信等级、审核状态、错误分类三个维度统计。"""
     tier_sql = """
         SELECT course_id, tier, count(*)::int AS n
@@ -83,7 +86,11 @@ def summary(course_id: str | None = None) -> dict:
 
 
 @router.post("/queue/build")
-def build_queue(course_id: str | None = None, limit: int = 2000) -> dict:
+def build_queue(
+    course_id: str | None = None,
+    limit: int = 2000,
+    _actor: Actor = Depends(require("reviewer")),
+) -> dict:
     """从数据异常自动生成待审任务与错误清单。
 
     只处理"机器能判定"的异常：缺挂载、溯源缺失、页码不精确、带待核标记。
@@ -165,6 +172,7 @@ def queue(
     category: str | None = None,
     limit: int = 50,
     offset: int = 0,
+    _actor: Actor = Depends(require("reviewer")),
 ) -> dict:
     rows = db.query(
         """
@@ -195,7 +203,7 @@ def queue(
 
 
 @router.post("/tasks/{task_id}/decision")
-def decide(task_id: int, body: DecisionIn, actor: Actor = Depends(current_actor)) -> dict:
+def decide(task_id: int, body: DecisionIn, actor: Actor = Depends(require("reviewer"))) -> dict:
     x_actor = actor.id
     task = db.query_one("SELECT * FROM review_task WHERE id = %s", (task_id,))
     if not task:
@@ -255,7 +263,10 @@ def decide(task_id: int, body: DecisionIn, actor: Actor = Depends(current_actor)
 
 
 @router.get("/graph")
-def graph(course_id: str | None = None) -> dict:
+def graph(
+    course_id: str | None = None,
+    _actor: Actor = Depends(require("reviewer")),
+) -> dict:
     """知识图谱的审核状态：按章分组，给"整章通过"用。
 
     为什么按章而不是按节点：图谱节点几百个，逐个点不现实；老师看图时也是按章看
@@ -294,7 +305,7 @@ def graph(course_id: str | None = None) -> dict:
 @router.post("/graph/verify")
 def graph_verify(
     body: GraphVerifyIn,
-    actor: Actor = Depends(current_actor),
+    actor: Actor = Depends(require("reviewer")),
 ) -> dict:
     """把一章（或一批节点）标为人工审核通过 / 撤销。
 
@@ -302,9 +313,6 @@ def graph_verify(
     """
     if not body.chapter_id and not body.node_ids:
         raise HTTPException(400, "要么给 chapter_id（整章），要么给 node_ids（逐个）")
-    if not actor.has("teacher", "reviewer", "admin"):
-        raise HTTPException(403, "学生不能审核知识图谱")
-
     verified = body.action == "verify"
     if body.chapter_id:
         changed = db.execute(
@@ -343,7 +351,7 @@ def patch_exercise(
     course_id: str,
     exercise_id: str,
     body: ExercisePatch,
-    actor: Actor = Depends(current_actor),
+    actor: Actor = Depends(require("reviewer")),
 ) -> dict:
     """改题干/答案/难度/页码/挂载。修订历史由触发器自动落盘。"""
     x_actor = actor.id
@@ -394,7 +402,7 @@ def ledger(
     question: str | None = None,
     limit: int = 100,
     offset: int = 0,
-    actor: Actor = Depends(current_actor),
+    actor: Actor = Depends(require("reviewer")),
 ) -> dict:
     """一门课全部题目的审核总表（不只待审的）。
 
@@ -402,8 +410,6 @@ def ledger(
     没有总表，老师只能一行行翻，或者相信四个汇总数字——这也正是"哪些题还没人审"
     这种问题最容易糊过去的地方。
     """
-    if not actor.has("teacher", "reviewer", "admin"):
-        raise HTTPException(403, "审核总表只对教师/审核员开放")
     if tier and tier not in {"none", "lean", "human", "strongest"}:
         raise HTTPException(400, f"未知的可信等级：{tier}")
     limit = max(1, min(limit, 500))
@@ -484,16 +490,13 @@ def ledger(
 def exercise_verification(
     course_id: str,
     exercise_id: str,
-    actor: Actor = Depends(current_actor),
+    actor: Actor = Depends(require("reviewer")),
 ) -> dict:
     """"这道题标注过什么"：可信等级、人工审核时间与人、Lean 证明状态、审核后是否被改过。
 
     为什么单独一个接口：发布之后题目从审核队列里消失（task.state = published），
     按队列查就查不到了；但老师最常问的恰恰是"这道已发布的题，到底谁审过、审的哪一版"。
     """
-    if not actor.has("teacher", "reviewer", "admin"):
-        raise HTTPException(403, "审核记录只对教师/审核员开放")
-
     row = db.query_one(
         """
         SELECT e.course_id, e.id AS exercise_id, e.review_status, e.provenance,
@@ -539,7 +542,11 @@ def exercise_verification(
 
 
 @router.get("/exercises/{course_id}/{exercise_id}/revisions")
-def revisions(course_id: str, exercise_id: str) -> dict:
+def revisions(
+    course_id: str,
+    exercise_id: str,
+    _actor: Actor = Depends(require("reviewer")),
+) -> dict:
     """修订历史 + 当前版本，供审核界面做差异对照。
 
     触发器在每次 UPDATE **之前**快照旧值，所以 exercise_revision 里存的是"改之前长什么样"，

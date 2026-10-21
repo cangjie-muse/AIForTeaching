@@ -22,6 +22,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import auth, db, llm
+from .accounts import router as accounts_router
 from .admin import router as admin_router
 from .attempts import router as attempts_router
 from .catalog import router as catalog_router
@@ -48,9 +49,17 @@ def _check_auth_config() -> None:
             "学生拿到的是假答案。"
         )
     if auth.AUTH_MODE == "dev":
+        fallback = sorted(auth.DEV_ROLES) or "无（必须登录）"
         print(
-            f"[警告] 当前 AUTH_MODE=dev，身份取自请求头，默认角色 {sorted(auth.DEV_ROLES)}。"
-            "仅限本地开发，生产必须改为 cas。",
+            f"[警告] AUTH_MODE=dev：身份优先取会话 cookie，没有 cookie 时信任请求头，"
+            f"兜底角色 {fallback}。仅限本地开发，生产必须改为 password 或 cas。",
+            file=sys.stderr,
+        )
+    if APP_ENV == "prod" and auth.AUTH_MODE == "password":
+        # 账号密码登录在校内网够用，但要提醒：强口令与 HTTPS 是前提。
+        print(
+            "[提示] AUTH_MODE=password：请确认已启用 HTTPS（cookie 带 Secure），"
+            "并要求师生首次登录改密。",
             file=sys.stderr,
         )
 
@@ -74,6 +83,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(accounts_router)
 app.include_router(review_router)
 app.include_router(admin_router)
 app.include_router(qa_router)

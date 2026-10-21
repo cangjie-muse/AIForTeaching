@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from . import db
-from .auth import Actor, require
+from .auth import Actor, require, require_login
 
 router = APIRouter(prefix="/api/v1/attempts", tags=["attempts"])
 
@@ -30,7 +30,7 @@ class AttemptIn(BaseModel):
 
 
 @router.post("", status_code=201)
-def submit(body: AttemptIn, actor: Actor = Depends(require("student"))) -> dict:
+def submit(body: AttemptIn, actor: Actor = Depends(require_login)) -> dict:
     exercise = db.query_one(
         "SELECT 1 FROM exercise WHERE course_id = %s AND id = %s",
         (body.course_id, body.exercise_id),
@@ -72,7 +72,7 @@ def list_attempts(
     course_id: str | None = Query(default=None),
     exercise_id: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),
-    actor: Actor = Depends(require("student")),
+    actor: Actor = Depends(require_login),
 ) -> dict:
     """只返回本人的作答。教师查看学生作答应走另一个接口，且要有班级授权。"""
     rows: list[dict[str, Any]] = db.query(

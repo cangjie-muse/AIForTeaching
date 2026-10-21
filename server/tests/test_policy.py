@@ -140,11 +140,16 @@ check(
 
 print("\n身份解析（开发模式）：")
 auth.AUTH_MODE = "dev"
+auth.DEV_ROLES = frozenset()  # 默认不兜底：本地也必须登录
 actor = auth.resolve_actor("teacher-01", "teacher,reviewer")
 check("解析 id", actor.id == "teacher-01")
-check("解析多角色", actor.roles == frozenset({"teacher", "reviewer"}))
+check("请求头里的 reviewer 仍被接受", actor.has("reviewer"),
+      "老脚本/端到端测试还这么传")
+check("教师天然覆盖 reviewer", auth.Actor("t1", frozenset({"teacher"})).has("reviewer"))
 check("未知角色被丢弃", auth.resolve_actor("x", "superuser").roles == frozenset())
-check("缺省为 anonymous", auth.resolve_actor(None, None).id == "anonymous")
+anon = auth.resolve_actor(None, None)
+check("缺省为匿名", anon.anonymous and anon.id == "")
+check("匿名没有任何角色", not anon.has("student", "teacher", "admin"))
 check("admin 拥有一切权限", auth.Actor("root", frozenset({"admin"})).has("teacher", "reviewer"))
 check("无权限者被拒", auth.Actor("s1", frozenset({"student"})).has("teacher") is False)
 
@@ -156,6 +161,14 @@ except auth.HTTPException as exc:
     denied = exc.status_code == 403
 check("require() 对学生返回 403", denied)
 check("require() 对教师放行", dep(auth.Actor("t1", frozenset({"teacher"}))).id == "t1")
+
+anonymous_status = None
+try:
+    dep(auth.ANONYMOUS)
+except auth.HTTPException as exc:
+    anonymous_status = exc.status_code
+check("require() 对未登录返回 401（前端据此跳登录）", anonymous_status == 401,
+      str(anonymous_status))
 
 print("\n认证未接入时必须拒绝，而不是放行：")
 auth.AUTH_MODE = "cas"
@@ -171,11 +184,12 @@ print("\n配置界面权限矩阵：")
 auth.AUTH_MODE = "dev"
 auth.DEV_ROLES = frozenset({"admin"})
 
-default_actor = auth.resolve_actor("信息化专员", None)
-check("开发期未传角色时默认 admin", default_actor.has("admin"))
+default_actor = auth.resolve_actor(None, None)
+check("DEV_ROLES 兜底时未传身份为 admin", default_actor.has("admin"))
 
 explicit = auth.resolve_actor("某学生", "student")
-check("显式传角色时不套用默认", explicit.has("admin") is False and explicit.has("student"))
+check("显式传角色时不套用兜底", explicit.has("admin") is False and explicit.has("student"))
+auth.DEV_ROLES = frozenset()
 
 write_dep = auth.require("admin")
 try:
