@@ -36,13 +36,18 @@
     </div>`;
   }
 
+  function sourceChip() {
+    if (A.dataSource !== 'offline') return '';
+    return `<span class="source-chip" title="后端连不上，这一页用的是打包在页面里的旧内容；审核与可见范围此时不生效">离线演示数据</span>`;
+  }
+
   function topbar() {
     // 选课页的面包屑：课程平台 > 知识图谱 > 选择课程。
     // 顺序别反——先把"要去哪个功能"说清楚，再说"还没选课程"。
     const trail = A.route.page === 'pick'
       ? `<a href="#/pick/${A.route.want || 'graph'}">${labels[A.route.want] || '课程功能'}</a>${A.icon('chevron')}<span>选择课程</span>`
       : `<span>${labels[A.route.page] || '页面'}</span>`;
-    return `<header class="topbar"><div class="breadcrumb"><button class="icon-btn mobile-menu" data-action="toggle-menu" aria-label="打开导航">${A.icon('menu')}</button><a href="#/catalog">课程平台</a>${A.icon('chevron')}${A.course ? `<a href="${A.url('overview', A.course.id)}">${e(A.course.title)}</a>${A.icon('chevron')}` : ''}${trail}</div><div class="topbar-right"><button class="top-search" data-action="global-search">${A.icon('search')}搜索知识<kbd>⌘ K</kbd></button>${authArea()}</div></header>`;
+    return `<header class="topbar"><div class="breadcrumb"><button class="icon-btn mobile-menu" data-action="toggle-menu" aria-label="打开导航">${A.icon('menu')}</button><a href="#/catalog">课程平台</a>${A.icon('chevron')}${A.course ? `<a href="${A.url('overview', A.course.id)}">${e(A.course.title)}</a>${A.icon('chevron')}` : ''}${trail}</div><div class="topbar-right">${sourceChip()}<button class="top-search" data-action="global-search">${A.icon('search')}搜索知识<kbd>⌘ K</kbd></button>${authArea()}</div></header>`;
   }
   function parseRoute() {
     const route = App.parseHash(location.hash);
@@ -133,14 +138,27 @@
     if (records.length) A.render();
   }).catch(error => { console.warn('[course/restore]', error); });
 
-  // 已发布的课程来自后端：库里有已发布内容的课覆盖静态包，其余继续用静态包。
-  // 只覆盖"有已发布习题"的课——否则刚发布一个空壳会把演示课程顶掉。
-  // 后端不可用时静默退回静态包，页面照常能看。
-  A.api.catalog().then(items => {
-    if (!items.length) return;
-    return Promise.all(items.map(item => A.api.catalogCourse(item.id).catch(() => null)))
-      .then(courses => {
-        if (A.mergePublishedCourses(courses)) A.render();
-      });
-  }).catch(error => { console.warn('[catalog/publish]', error); });
+  // 课程目录以数据库为准（见 core.js 的 App.applyDbCatalog）。
+  // 先问"库里有哪些课"（含未发布），再只取已发布课程的内容：未发布的课
+  // 对学生不该存在，教师端在目录里单列成"建设中"。
+  // 后端连不上时退回打包在页面里的静态包，并在顶栏标明是离线数据。
+  //
+  // 抽成 A.loadCatalog 是为了"发布完就地刷新"：发布课程后如果目录不跟着变，
+  // 人只会以为发布没成功，然后去点第二次。
+  async function loadCatalog() {
+    try {
+      const rows = await A.api.courses();
+      const published = rows.filter(row => row.review_status === 'published');
+      const courses = await Promise.all(
+        published.map(item => A.api.catalogCourse(item.id).catch(() => null))
+      );
+      A.applyDbCatalog(rows, courses);
+    } catch (error) {
+      console.warn('[catalog]', error);
+      A.dataSource = 'offline';
+    }
+    A.render();
+  }
+  A.loadCatalog = loadCatalog;
+  loadCatalog();
 })();

@@ -241,16 +241,24 @@
     return request('POST', `/api/v1/courses/${encodeURIComponent(courseId)}/exercises/${encodeURIComponent(exerciseId)}/retire`, {});
   }
 
+  // 库里有哪些课（含未发布）及其状态。目录页据此区分"学生能看的"和"建设中"。
+  // 注意：这两个接口都返回 {items: [...]}。以前目录合并直接拿返回值当数组用
+  // （.length / .map），永远是 undefined，于是"库里的已发布课程覆盖静态包"那段
+  // 从来没执行过——库改了学生端不认，根子在这儿。所以统一在这里拆包。
+  function courses() {
+    return request('GET', '/api/v1/courses').then(data => data.items || []);
+  }
+
+  function catalog() {
+    return request('GET', '/api/v1/catalog').then(data => data.items || []);
+  }
+
   // ---------------------------------------------------------------------
   // 学生端发布出口
   //
   // 目录接口不带鉴权（学生要能读），只返回已发布课程。前端启动时把它合并进
   // A.courses：库里有已发布内容的课程覆盖静态包，没有的继续用静态包。
   // ---------------------------------------------------------------------
-  function catalog() {
-    return request('GET', '/api/v1/catalog');
-  }
-
   function catalogCourse(courseId) {
     return request('GET', `/api/v1/catalog/${encodeURIComponent(courseId)}`);
   }
@@ -377,6 +385,7 @@
     createExercise,
     retireNode,
     retireExercise,
+    courses,
     catalog,
     catalogCourse,
     publishStatus,

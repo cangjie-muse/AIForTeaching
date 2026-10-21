@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-21T12:43:24.205Z",
+  "checkedAt": "2026-10-21T13:18:14.118Z",
   "scope": "Project source/provenance audit; no private competitor source or internet-wide similarity database comparison",
   "checks": {
     "runtimeFiles": 44,
@@ -18,7 +18,7 @@
   "projectSourceInventory": [
     {
       "path": "index.html",
-      "sha256": "c19e6c4357dfde17b4cb24f0a3b41f84aef1346e12b6cac3bc67a4d6b2fa4931"
+      "sha256": "4d357369eda8a6407c6dba9b9fd1bce870a80943956c11d1e4109845c19adc44"
     },
     {
       "path": "js/accounts.js",
@@ -26,7 +26,7 @@
     },
     {
       "path": "js/api-client.js",
-      "sha256": "91c49ac24ce5bf60d334e26acba961e012183f841ef1f24f54b275ea3a6200ba"
+      "sha256": "231d45107425fc8bb3601e050c44674521b49dc54719cee007e330d254e96818"
     },
     {
       "path": "js/api-config.js",
@@ -34,7 +34,7 @@
     },
     {
       "path": "js/app.js",
-      "sha256": "fdf2bb1560674fac59f5f724b09c4b8af6b7068e67e9cd862de30d333c35c936"
+      "sha256": "671617b460a7948cfe99bf4ecd9a4a05a15a940fd6f6eabaa02504d59685b5fe"
     },
     {
       "path": "js/auth.js",
@@ -42,7 +42,7 @@
     },
     {
       "path": "js/catalog-view.js",
-      "sha256": "4cb454342ec1452253dde52a2d33b05442963b8971851eb2993117d82388bc00"
+      "sha256": "6cd1bf9313c74e8fecd7acf8d324472b36e43c0c049337485611b6d2dbde3cb7"
     },
     {
       "path": "js/construction-model.js",
@@ -54,11 +54,11 @@
     },
     {
       "path": "js/content.js",
-      "sha256": "3982823df0e1730462d94558a5afe6dbf84c3ed182452ce1e1b64d78c5f0a7ad"
+      "sha256": "4a53007d8a6273bb3686f50de905d2faacd3fceca513fcb9dc2985d7dec69780"
     },
     {
       "path": "js/core.js",
-      "sha256": "fba82df373e832d95a0b46932d74f10408ffa222c64531702d691cdc01ce6933"
+      "sha256": "61d342f4b18fbdc2c80f086b7a1adb698fccfc26478a31fbc6806ef5b0441f87"
     },
     {
       "path": "js/course-catalog.js",
@@ -154,7 +154,7 @@
     },
     {
       "path": "styles/catalog.css",
-      "sha256": "ae0837024656317db480b2858ec371ec534482e93e74f31fd9231b7d20ccb50c"
+      "sha256": "e8f994193197baea7e2f99cdd152f67362c79f50d07c861453c30def5ae49447"
     },
     {
       "path": "styles/construction.css",
@@ -202,7 +202,7 @@
     },
     {
       "path": "scripts/dev-api.cjs",
-      "sha256": "cf006d0f9160040f4cccf49e8311f0bbd44cfc86bcebad63054456b0df57fd52"
+      "sha256": "a1fca7f37ed37c6fff8ee906b56be56c96c5e867717ca40799eef93606d95c47"
     },
     {
       "path": "scripts/dev_seed.py",
@@ -237,6 +237,10 @@
       "sha256": "f0aad516827af2caea4d1e68cb4fadd7becd065c1ca185f7a8efcd732ac2fa29"
     },
     {
+      "path": "scripts/mark_imported_courses.py",
+      "sha256": "21b3ddb0c91ac6594ec24a89aa9c39e1e5185bcba8444404fb12050b19c3443a"
+    },
+    {
       "path": "scripts/package.py",
       "sha256": "313257a228f3fbad2daf5e8fe9347e0c5b0c3769084fbf3f8e8fe9b0c19ccd53"
     },
@@ -259,6 +263,10 @@
     {
       "path": "scripts/serve.py",
       "sha256": "1d710ff017f8f3c84bf676abb59c9c139ae042cd536cd90f589249ce1bc13e58"
+    },
+    {
+      "path": "scripts/smoke-boot.cjs",
+      "sha256": "e25a2aec311f2cf08c7d63ccbfc41d2907ac70aab62e59c6f55a504e7ed56d75"
     },
     {
       "path": "scripts/test-diff.cjs",
@@ -287,6 +295,10 @@
     {
       "path": "scripts/test-view-auth.cjs",
       "sha256": "a4e92fa8c260d7ecb63245504ced1edb15bd3b015cbb1bd69949ba88f35f7dd9"
+    },
+    {
+      "path": "scripts/test-view-catalog.cjs",
+      "sha256": "eb9bf85d9249b31376f0d7d92fed16e4ef49786db363a6c74fe956fc826e3f2e"
     },
     {
       "path": "scripts/test-view-content.cjs",
@@ -1308,7 +1320,7 @@
     },
     {
       "path": "course-packs/e2e-course/generated/job-1/生成说明.json",
-      "sha256": "dcac89059dc22b48a95e531139fd7a729b7c065fe8c1a67fe2ecf2c064328d60"
+      "sha256": "a5bff81541597fd99ae17c05804ae6584e2871c5dce22e56136c31c0a2ad2120"
     },
     {
       "path": "course-packs/e2e-course/generated/job-1/知识点.md",
@@ -1324,7 +1336,7 @@
     },
     {
       "path": "course-packs/e2e-course/generated/job-3/生成说明.json",
-      "sha256": "8f43b28a69919cffc5b656f15e9c0591d4398d151182c97c17a7206658ee8359"
+      "sha256": "bbcaf544b87f38ff21bad9b417f2b0a0cdd87df042d662b43a3b86e2929482a4"
     },
     {
       "path": "course-packs/e2e-course/generated/job-3/知识点.md",
@@ -1340,7 +1352,7 @@
     },
     {
       "path": "course-packs/e2e-course/generated/job-4/生成说明.json",
-      "sha256": "3daad8005ad33ef61eb270cf95864d8adc1cb653f121f5a2e2da26110cac5f6a"
+      "sha256": "261c89d91105defda87879982f8d211b8f970f14b53809593d9a0b92953f7d58"
     },
     {
       "path": "course-packs/e2e-course/generated/job-4/知识点.md",

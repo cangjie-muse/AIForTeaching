@@ -150,9 +150,19 @@ async function main() {
   // psycopg 会一直等到连接超时。
   await run('应用迁移', ['db/migrate.py', '--apply', '--pglite-compat']);
   console.log('[2/4] 迁移已应用');
-  await run('写入示例数据', ['scripts/dev_seed.py']);
+
+  // IMPORT_COURSES=1：把 data/course-*.json 那 14 门课真正搬进数据库。
+  // 平时只灌 3 门演示课——那会让"审核看不到我的课"永远复现不出来。
+  // 导入后按约定标为已审已发布（scripts/mark_imported_courses.py，留审计痕迹）。
+  if (process.env.IMPORT_COURSES === '1') {
+    console.log('  · 导入 db/seed.sql（会先清空业务表）…');
+    await run('导入课程包', ['scripts/import_seed.py', 'db/seed.sql', '--truncate']);
+    await run('标记迁移课程', ['scripts/mark_imported_courses.py']);
+  } else {
+    await run('写入示例数据', ['scripts/dev_seed.py']);
+  }
   await run('写入演示账号', ['scripts/dev_seed_accounts.py']);
-  console.log('[3/4] 示例数据已就绪');
+  console.log('[3/4] 数据已就绪');
 
   const api = spawn(
     PYTHON,

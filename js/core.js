@@ -17,6 +17,13 @@ App.save = function () {
 App.log = (action, data) => { if (App.local.debug) console.info(new Date().toISOString(), action, data); };
 App.allCourses = () => CourseCatalog.merge(App.courses);
 
+// 数据从哪来。'static' = 还没连后端（页面自带的离线包）；'db' = 已按数据库对齐；
+// 'offline' = 连过但失败了。界面要能说清楚"你现在看到的是旧包还是库里的内容"，
+// 否则老师改完库发现学生端没变，只能靠猜。
+App.dataSource = 'static';
+App.staticCourseIds = (window.COURSE_DATA || []).map(course => course.id);
+App.draftCourses = [];
+
 // 已发布的课程覆盖静态包。抽成函数是为了能单独测：合并规则错一处，
 // 学生端看到的就是另一门课的内容，而这种错在页面上不容易发现。
 // resourceBase / textbook / attachments 只在静态包里有（数据库不存这些），
@@ -42,6 +49,32 @@ App.mergePublishedCourses = function (courses) {
     changed += 1;
   });
   return changed;
+};
+// 数据库说了算。
+//
+// 以前静态包是底稿、库只覆盖"已发布"的课：没进库的课学生照样看得到，库里没发布的课
+// 也会被静态包顶出来——审核和可见范围对它们完全无效。现在反过来：
+//   · 库里的已发布课程覆盖静态包的内容（用库的正文）；
+//   · 静态包里但库里没有的课，直接不显示（它们是历史残留或打包时带的旧数据）；
+//   · 库里存在但未发布的课，学生看不到，教师端单列为"建设中"。
+// 静态包只在后端连不上时兜底（App.dataSource === 'offline'）。
+App.applyDbCatalog = function (dbCourses, publishedCourses) {
+  const rows = dbCourses || [];
+  const publishedIds = new Set(rows.filter(row => row.review_status === 'published').map(row => row.id));
+  App.mergePublishedCourses((publishedCourses || []).filter(Boolean));
+  const staticIds = new Set(App.staticCourseIds);
+  const before = App.courses.length;
+  App.courses = App.courses.filter(course => !staticIds.has(course.id) || publishedIds.has(course.id));
+  App.draftCourses = rows
+    .filter(row => row.review_status !== 'published')
+    .map(row => ({
+      id: row.id,
+      title: row.title,
+      exercises: row.exercise_count || 0,
+      nodes: row.knowledge_count || 0
+    }));
+  App.dataSource = 'db';
+  return before - App.courses.length;
 };
 App.featuredCourse = () => App.courses.find(course => course.id === 'course-symplectic-math-physics') || App.courses[0];
 // 需要"先选课程"的页面。以前这些链接带着 A.featuredCourse() 的默认课程id，

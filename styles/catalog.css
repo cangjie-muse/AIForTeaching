@@ -16,3 +16,18 @@
   .catalog-group-heading{gap:10px}
   .catalog-group+.catalog-group{margin-top:30px;padding-top:22px}
 }
+
+/* 库里已有、但还没发布给学生的课。学生端不出现，教师端必须看得见——
+   藏起来的话，新导入的课会像凭空消失。 */
+.draft-group{margin-top:34px;padding-top:24px;border-top:1px dashed var(--line)}
+.draft-cover{height:96px;display:flex;align-items:center;justify-content:center;gap:6px;
+  background:repeating-linear-gradient(45deg,#f4f7fc,#f4f7fc 10px,#eef3fa 10px,#eef3fa 20px);
+  color:#6d87a8;font-size:12px;letter-spacing:.08em}
+.draft-cover svg{width:16px;height:16px}
+.draft-card{border-style:dashed}
+.draft-card:hover{border-color:#b9cde8}
+
+/* 后端连不上时顶栏的"离线"标记：让"看到的是旧包"这件事不必靠猜。 */
+.source-chip{display:inline-flex;align-items:center;height:26px;padding:0 9px;border-radius:999px;
+  background:#fff5e8;color:#9a6516;border:1px solid #f2d9b3;font-size:11px;letter-spacing:.02em;
+  white-space:nowrap;margin-right:8px}

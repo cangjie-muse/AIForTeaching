@@ -499,6 +499,7 @@
       S().notice = `已发布：学生端可见 ${result.exercises} 道题、${result.nodes} 个知识点；` +
         `${result.drafts_hidden} 道未审核发布的题仍然隐藏。`;
       S().publish = await A.api.publishStatus(S().courseId);
+      if (A.loadCatalog) A.loadCatalog();   // 目录里的"建设中"要跟着消失
     } catch (error) {
       S().error = error.message;
     } finally {
