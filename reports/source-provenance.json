@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-21T13:29:20.872Z",
+  "checkedAt": "2026-10-21T13:32:16.437Z",
   "scope": "Project source/provenance audit; no private competitor source or internet-wide similarity database comparison",
   "checks": {
     "runtimeFiles": 44,
@@ -18,7 +18,7 @@
   "projectSourceInventory": [
     {
       "path": "index.html",
-      "sha256": "4d357369eda8a6407c6dba9b9fd1bce870a80943956c11d1e4109845c19adc44"
+      "sha256": "1de80c0838248154baa5fffeb3ab0c478fd99761ee8431d83fbdbcf03b7262d9"
     },
     {
       "path": "js/accounts.js",
@@ -34,7 +34,7 @@
     },
     {
       "path": "js/app.js",
-      "sha256": "671617b460a7948cfe99bf4ecd9a4a05a15a940fd6f6eabaa02504d59685b5fe"
+      "sha256": "980c9e15bd90945010629fc50fc1246c4fb8cccae76f29f8c93131df04e8fc21"
     },
     {
       "path": "js/auth.js",
@@ -275,6 +275,10 @@
     {
       "path": "scripts/test-diff.cjs",
       "sha256": "f97ff244a72e1f31619b273c655d22a1f03b0843f91af41af6c3a9d5c767d3a1"
+    },
+    {
+      "path": "scripts/test-nav-scroll.cjs",
+      "sha256": "2dac4cd092fdaa695e85ae8991c6d790e18b1edc51c1f6f32ee9d4cc8640fb8f"
     },
     {
       "path": "scripts/test-nav-shell.cjs",

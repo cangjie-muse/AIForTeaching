@@ -59,8 +59,22 @@
   A.parseRoute = parseRoute;
   // 旧入口重定向：老师收藏过 #/import 或 #/generate 的话，不能给他一个空白页。
   const LEGACY_TABS = { import: 'import', generate: 'generate' };
+  // 侧栏菜单是整块重建的（每次导航都换一遍 innerHTML），浏览器会把新节点的
+  // scrollTop 归零。菜单比一屏长的时候，滚到底点一项就被弹回顶部，人得重新
+  // 找刚才点的位置。这里把滚动位置接住再放回去。
+  const NAV_SCROLLER = '.sidebar nav';
+  function navScroll() {
+    const nav = document.querySelector(NAV_SCROLLER);
+    return nav ? nav.scrollTop : 0;
+  }
+  function restoreNavScroll(top) {
+    const nav = document.querySelector(NAV_SCROLLER);
+    if (nav && top) nav.scrollTop = top;
+  }
+
   A.render = function () {
     const exists = parseRoute();
+    const navTop = navScroll();
     const legacyTab = LEGACY_TABS[A.route.page];
     if (legacyTab) {
       A.state.content = A.state.content || {};
@@ -92,6 +106,7 @@
       catch (error) { console.error('[page/render]', error); body = A.empty('info', '页面暂时无法显示', e(error.message), A.link('返回课程中心', 'catalog', null)); }
     }
     document.getElementById('app').innerHTML = `${sidebar()}<div class="main-shell">${topbar()}<main id="main" tabindex="-1">${A.mustChangeBanner ? A.mustChangeBanner() : ''}${A.courseBar()}${body}</main></div>`;
+    restoreNavScroll(navTop);
     document.title = `${A.course?.title || labels[A.route.page] || '智慧武大'} · 数学课程平台`;
     if (exists && view) A.after[A.route.page]?.();
     A.log('navigate', { page: A.route.page, courseId: A.course?.id });
