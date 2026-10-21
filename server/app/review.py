@@ -387,6 +387,99 @@ def patch_exercise(
     return {"course_id": course_id, "exercise_id": exercise_id, "updated": True}
 
 
+@router.get("/ledger")
+def ledger(
+    course_id: str | None = None,
+    tier: str | None = None,
+    question: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+    actor: Actor = Depends(current_actor),
+) -> dict:
+    """一门课全部题目的审核总表（不只待审的）。
+
+    和队列的分工：队列回答"接下来审哪几道"，总表回答"这门课 400 道题各自什么状态"。
+    没有总表，老师只能一行行翻，或者相信四个汇总数字——这也正是"哪些题还没人审"
+    这种问题最容易糊过去的地方。
+    """
+    if not actor.has("teacher", "reviewer", "admin"):
+        raise HTTPException(403, "审核总表只对教师/审核员开放")
+    if tier and tier not in {"none", "lean", "human", "strongest"}:
+        raise HTTPException(400, f"未知的可信等级：{tier}")
+    limit = max(1, min(limit, 500))
+    offset = max(0, offset)
+    pattern = f"%{question.strip()}%" if question and question.strip() else None
+
+    where = """
+       WHERE e.review_status <> 'retired'
+         AND (%s::text IS NULL OR e.course_id = %s)
+         AND (%s::text IS NULL OR coalesce(v.tier, 'none') = %s)
+         AND (%s::text IS NULL OR e.id ILIKE %s OR e.prompt_md ILIKE %s)
+    """
+    params = (course_id, course_id, tier, tier, pattern, pattern, pattern)
+
+    rows = db.query(
+        f"""
+        WITH latest_task AS (
+          SELECT DISTINCT ON (course_id, target_id)
+                 course_id, target_id, state, assignee, decided_at
+            FROM review_task
+           WHERE target = 'exercise'
+           ORDER BY course_id, target_id, id DESC
+        )
+        SELECT e.id, e.course_id, e.review_status, e.difficulty, e.provenance,
+               e.human_verified_at, e.human_verified_by, e.updated_at,
+               coalesce(v.tier, 'none') AS tier,
+               coalesce(v.lean_confirmed, false) AS lean_confirmed,
+               t.state AS task_state,
+               (e.human_verified_at IS NOT NULL
+                AND e.updated_at > e.human_verified_at) AS edited_after_review,
+               left(e.prompt_md, 90) AS prompt
+          FROM exercise e
+          LEFT JOIN v_exercise_verification v
+                 ON v.course_id = e.course_id AND v.id = e.id
+          LEFT JOIN latest_task t
+                 ON t.course_id = e.course_id AND t.target_id = e.id
+        {where}
+         ORDER BY CASE coalesce(v.tier, 'none')
+                    WHEN 'none' THEN 0 WHEN 'lean' THEN 1
+                    WHEN 'human' THEN 2 ELSE 3 END,
+                  e.id
+         LIMIT %s OFFSET %s
+        """,
+        (*params, limit, offset),
+    )
+
+    total = db.query_one(
+        f"""SELECT count(*)::int AS n
+              FROM exercise e
+              LEFT JOIN v_exercise_verification v
+                     ON v.course_id = e.course_id AND v.id = e.id
+            {where}""",
+        params,
+    )
+    counts = db.query(
+        """SELECT coalesce(v.tier, 'none') AS tier, count(*)::int AS n
+             FROM exercise e
+             LEFT JOIN v_exercise_verification v
+                    ON v.course_id = e.course_id AND v.id = e.id
+            WHERE e.review_status <> 'retired'
+              AND (%s::text IS NULL OR e.course_id = %s)
+            GROUP BY 1""",
+        (course_id, course_id),
+    )
+    order = {"none": 0, "lean": 1, "human": 2, "strongest": 3}
+    return {
+        "course_id": course_id,
+        "items": rows,
+        "total": int(total["n"]) if total else 0,
+        "counts": sorted(counts, key=lambda row: order.get(row["tier"], 9)),
+        "limit": limit,
+        "offset": offset,
+        "filter": {"tier": tier, "question": question},
+    }
+
+
 @router.get("/exercises/{course_id}/{exercise_id}/verification")
 def exercise_verification(
     course_id: str,

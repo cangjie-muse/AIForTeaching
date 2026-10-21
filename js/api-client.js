@@ -286,6 +286,15 @@
     return request('POST', '/api/v1/review/graph/verify', { body: payload });
   }
 
+  // 一门课全部题目的审核总表（不是队列：含已发布、含没人审过的）。
+  function reviewLedger(params) {
+    const query = new URLSearchParams();
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') query.set(key, value);
+    });
+    return request('GET', `/api/v1/review/ledger?${query.toString()}`);
+  }
+
   // 单道题的审核记录：等级、谁在什么时候审的、Lean 状态、审核后有没有被改。
   function exerciseVerification(courseId, exerciseId) {
     return request('GET', `/api/v1/review/exercises/${encodeURIComponent(courseId)}`
@@ -325,6 +334,7 @@
     resetVisibility,
     reviewGraph,
     verifyGraph,
+    reviewLedger,
     exerciseVerification,
     get: (path, options) => request('GET', path, options),
     post: (path, body, options) => request('POST', path, { ...options, body }),

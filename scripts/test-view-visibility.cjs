@@ -31,7 +31,8 @@ sandbox.window = sandbox;
 sandbox.window.confirm = () => true;
 vm.createContext(sandbox);
 
-const bundle = ['js/core.js', 'js/visual-identity.js', 'js/api-client.js', 'js/review.js']
+const bundle = ['js/core.js', 'js/visual-identity.js', 'js/api-client.js',
+    'js/review-scope.js', 'js/review.js']
   .map(file => fs.readFileSync(path.join(root, file), 'utf8')).join('\n;\n');
 vm.runInContext(bundle, sandbox, { filename: 'bundle.js' });
 const App = sandbox.window.App;
@@ -346,6 +347,72 @@ async function verificationTests() {
 (async () => {
   await visibilityTests();
   await verificationTests();
+
+  console.log('\n课程审核总表：');
+  const ledgerRows = [
+    {
+      id: 'ex-1', course_id: 'analysis-i', tier: 'none', review_status: 'draft',
+      human_verified_at: null, human_verified_by: null, lean_confirmed: false,
+      edited_after_review: false, task_state: null, prompt: '求极限 $\\lim_{x\\to 0}$'
+    },
+    {
+      id: 'ex-2', course_id: 'analysis-i', tier: 'human', review_status: 'published',
+      human_verified_at: '2026-10-20T10:00:00Z', human_verified_by: '张老师',
+      lean_confirmed: false, edited_after_review: true, task_state: 'published',
+      prompt: '证明单调有界定理'
+    }
+  ];
+  const ledgerBody = {
+    course_id: 'analysis-i', items: ledgerRows, total: 2, limit: 100, offset: 0,
+    counts: [{ tier: 'none', n: 1 }, { tier: 'human', n: 1 }],
+    filter: { tier: '', question: '' }
+  };
+
+  reset();
+  App.state.review.filters.course_id = 'analysis-i';
+  App.state.review.ledger = ledgerBody;
+  html = App.views.review();
+  check('总表列出全部题目', html.includes('ex-1') && html.includes('ex-2'));
+  check('总表显示可信等级徽标', html.includes('未核') && html.includes('人工通过'));
+  check('总表显示人工审核时间与审核人', html.includes('2026-10-20 10:00') && html.includes('张老师'));
+  check('总表标出审核后被改过', html.includes('审核后改过'));
+  check('总表显示工作流与审核任务状态', html.includes('已发布'));
+  check('总表显示各档数量芯片', html.includes('全部') && html.includes('未核 1'));
+  check('总表提示共多少道', html.includes('共 2 道'));
+
+  reset();
+  App.state.review.filters.course_id = '';
+  html = App.views.review();
+  check('没选课程时总表提示先选课', html.includes('先在上面的课程筛选里选一门课'));
+  check('没选课程时不渲染表格', !html.includes('rv-table-wrap'));
+
+  reset();
+  App.state.review.filters.course_id = 'analysis-i';
+  App.state.review.ledger = ledgerBody;
+  App.state.review.ledgerTier = 'human';
+  html = App.views.review();
+  const chipsHtml = html.replace(/\s+/g, ' ');
+  check('选中等级芯片高亮',
+    chipsHtml.includes('class="chip active" data-action="ledger-tier" data-tier="human"')
+    && !chipsHtml.includes('class="chip active" data-action="ledger-tier" data-tier="none"'),
+    '只有选中的那一档该高亮');
+  const ledgerCalls = [];
+  App.api.reviewLedger = async params => {
+    ledgerCalls.push(params);
+    return ledgerBody;
+  };
+  App.state.review.status = 'loading';
+  await App.actions['ledger-tier']({ dataset: { tier: 'none' } });
+  check('点等级芯片按等级重查', ledgerCalls.length === 1 && App.state.review.ledgerTier === 'none',
+    JSON.stringify(ledgerCalls[0] || null));
+  App.state.review.status = 'loading';
+  await App.actions['ledger-search']();
+  check('搜索也重新拉总表', ledgerCalls.length === 2, String(ledgerCalls.length));
+
+  App.state.review.status = 'loading';
+  App.state.review.lookupId = '';
+  await App.actions['ledger-open']({ dataset: { id: 'ex-2' } });
+  check('点题号打开这道题的审核记录', App.state.review.lookupId === 'ex-2');
 
   console.log('');
   if (failures.length) {

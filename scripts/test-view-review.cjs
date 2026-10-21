@@ -32,7 +32,8 @@ sandbox.window = sandbox;
 sandbox.window.confirm = () => true;
 vm.createContext(sandbox);
 
-const bundle = ['js/core.js', 'js/visual-identity.js', 'js/api-client.js', 'js/diff.js', 'js/review.js']
+const bundle = ['js/core.js', 'js/visual-identity.js', 'js/api-client.js', 'js/diff.js',
+    'js/review-scope.js', 'js/review.js']
   .map(file => fs.readFileSync(path.join(root, file), 'utf8'))
   .join('\n;\n');
 vm.runInContext(bundle, sandbox, { filename: 'bundle.js' });

@@ -165,3 +165,14 @@
 .rv-lookup input{min-width:200px;padding:7px 10px;border:1px solid var(--line,#d8dde6);border-radius:8px;font:inherit}
 .rv-lookup .rv-verify{flex-basis:100%;margin:0}
 @media(max-width:720px){.rv-lookup input{min-width:0;width:100%}}
+/* 课程审核总表：筛选芯片 + 可横向滚动的宽表。 */
+.rv-ledger{margin-bottom:18px}
+.rv-ledger .rv-chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px}
+.rv-ledger .rv-table-wrap{overflow:auto;margin-top:8px}
+.rv-ledger .rv-table{min-width:720px}
+.rv-ledger td.rv-main small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.rv-ledger .rv-warn{color:#b45309;font-size:12px}
+.rv-ledger .rv-title{background:none;border:0;padding:0;font:inherit;font-weight:600;color:var(--ink,#1d2430);cursor:pointer}
+.rv-ledger .rv-title:hover{text-decoration:underline}
+.rv-ledger .rv-policy-head .rv-select{display:flex;align-items:center;gap:8px}
+.rv-ledger .rv-policy-head input{min-width:180px;padding:7px 10px;border:1px solid var(--line,#d8dde6);border-radius:8px;font:inherit}

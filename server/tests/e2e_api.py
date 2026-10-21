@@ -1157,6 +1157,52 @@ def run() -> None:
               all("human_verified_at" in row for row in content_view.json()["nodes"]),
               "节点缺少 human_verified_at")
 
+        # ---- 课程审核总表（一门课全部题目，不只待审的） ----
+        print("\n课程审核总表：")
+        board = client.get("/api/v1/review/ledger?course_id=e2e-publish", headers=REVIEWER)
+        check("能列出这门课全部题目", board.status_code == 200, board.text[:140])
+        table = board.json()
+        check("总表包含已发布与未审核的题", table["total"] >= 2, str(table["total"]))
+        ids = {row["id"] for row in table["items"]}
+        check("总表里有已发布的题（不在队列里也要出现）", "pub-a" in ids, str(sorted(ids)))
+        check("总表里仍有人工确认的题", "pub-b" in ids, str(sorted(ids)))
+        check("未审核的题排在人工确认之前",
+              [row["tier"] for row in table["items"]][:2] == ["none", "human"]
+              or [row["tier"] for row in table["items"]][0] == "none",
+              str([row["tier"] for row in table["items"]]))
+        check("总表带每档数量", {row["tier"] for row in table["counts"]} >= {"none", "human"},
+              str(table["counts"]))
+        check("总表带题干摘要", all("prompt" in row for row in table["items"]), "缺 prompt")
+
+        only_human = client.get("/api/v1/review/ledger?course_id=e2e-publish&tier=human",
+                                headers=REVIEWER).json()
+        check("按等级筛选只留人工确认的题",
+              only_human["items"] and all(row["tier"] == "human" for row in only_human["items"]),
+              str([row["tier"] for row in only_human["items"]]))
+        check("筛选后数量只算这一类", only_human["total"] == len(only_human["items"]),
+              f"{only_human['total']} vs {len(only_human['items'])}")
+        check("筛选不影响各档总计数", only_human["counts"] == table["counts"],
+              str(only_human["counts"]))
+
+        search = client.get("/api/v1/review/ledger?course_id=e2e-publish&question=pub-a",
+                            headers=REVIEWER).json()
+        check("按题号搜索命中一条", [row["id"] for row in search["items"]] == ["pub-a"],
+              str([row["id"] for row in search["items"]]))
+        check("搜索不到时返回空表", client.get(
+            "/api/v1/review/ledger?course_id=e2e-publish&question=zzz", headers=REVIEWER
+        ).json()["total"] == 0, "没搜到却还有条目")
+        check("课程不存在时总表为空", client.get(
+            "/api/v1/review/ledger?course_id=nope", headers=REVIEWER).json()["total"] == 0,
+            "不存在的课程还有题")
+        check("非法等级 400", client.get(
+            "/api/v1/review/ledger?tier=weird", headers=REVIEWER).status_code == 400, "没有拒绝")
+        check("学生不能看审核总表", client.get(
+            "/api/v1/review/ledger?course_id=e2e-publish", headers=STUDENT).status_code == 403,
+            "学生看到了总表")
+        check("分页限制生效", len(client.get(
+            "/api/v1/review/ledger?course_id=e2e-publish&limit=1", headers=REVIEWER
+        ).json()["items"]) == 1, "limit 没生效")
+
         # 收尾：把口径恢复成全放，后面的撤回发布测试按默认口径走
         client.put("/api/v1/visibility", headers=REVIEWER,
                    json={"exercise_tier": "all", "qa_tier": "all", "graph_tier": "all"})
