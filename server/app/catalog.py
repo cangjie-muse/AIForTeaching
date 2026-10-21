@@ -8,6 +8,10 @@
   1. 课程级 course.review_status='published' —— 没发布，公开目录里根本不出现；
   2. 条目级 exercise.review_status='published' —— 课程发布了，也只放出老师逐题点过的题。
 
+3. 验证等级闸（visibility_policy）：已发布的题还要满足当前允许的可信等级——
+   「仅人工审核通过」/「Lean 验证 + 人工审核」/「全部（含未验证）」。三道是 AND。
+   这一道单独存在的原因：发布是"能不能出现"，等级是"哪一档可信度才允许出现"。
+
 知识点不设条目级门禁：知识点的正文在「课程内容」页由老师直接改，改完即定稿；
 再要求逐条发布只会让树缺枝。retired 的节点与题目始终隐藏。
 
@@ -22,7 +26,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from . import db
+from . import db, visibility
 from .auth import Actor, require
 
 router = APIRouter(prefix="/api/v1", tags=["catalog"])
@@ -151,10 +155,12 @@ SELECT id, chapter_id, parent_id, title, level, kind, path, content_md,
 """
 
 PUBLISHED_EXERCISES_SQL = """
-SELECT id, prompt_md, answer_md, difficulty, source_raw
-  FROM exercise
- WHERE course_id = %s AND review_status = 'published'
- ORDER BY id
+SELECT e.id, e.prompt_md, e.answer_md, e.difficulty, e.source_raw, v.tier
+  FROM exercise e
+  JOIN v_exercise_verification v ON v.course_id = e.course_id AND v.id = e.id
+ WHERE e.course_id = %s AND e.review_status = 'published'
+   AND {tier_filter}
+ ORDER BY e.id
 """
 
 
@@ -168,7 +174,11 @@ def published_course(course_id: str) -> dict | None:
     if not course:
         return None
     nodes = db.query(PUBLISHED_NODES_SQL, (course_id,))
-    exercises = db.query(PUBLISHED_EXERCISES_SQL, (course_id,))
+    # 发布闸之后还有一道"验证等级"闸：学生端只拿到当前设置允许的那一档。
+    tier_filter, tier_params = visibility.exercise_filter()
+    exercises = db.query(
+        PUBLISHED_EXERCISES_SQL.format(tier_filter=tier_filter),
+        (course_id, *tier_params))
     links = db.query(
         "SELECT exercise_id, node_id FROM exercise_node WHERE course_id = %s",
         (course_id,))
@@ -180,10 +190,13 @@ def catalog() -> list[dict]:
     rows = db.query(PUBLISHED_COURSES_SQL)
     items = []
     for row in rows:
+        tier_filter, tier_params = visibility.exercise_filter()
         visible = db.query_one(
-            """SELECT count(*) AS n FROM exercise
-                WHERE course_id = %s AND review_status = 'published'""",
-            (row["id"],))
+            f"""SELECT count(*) AS n FROM exercise e
+                 JOIN v_exercise_verification v ON v.course_id = e.course_id AND v.id = e.id
+                WHERE e.course_id = %s AND e.review_status = 'published'
+                  AND {tier_filter}""",
+            (row["id"], *tier_params))
         items.append({
             "id": row["id"],
             "title": row["title"],

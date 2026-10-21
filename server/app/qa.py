@@ -31,7 +31,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from . import db, llm
+from . import db, llm, visibility
 from .auth import Actor, require
 
 router = APIRouter(prefix="/api/v1/qa", tags=["qa"])
@@ -242,6 +242,7 @@ def _record_call(*, succeeded: bool, provider: str, model: str, latency_ms: int,
 def ask(body: AskIn, actor: Actor = Depends(require("student"))) -> dict:
     if body.mode == "full":
         _require_attempt(actor, body)
+        _require_tier(body)
 
     endpoint = _chat_endpoint_or_400()
     # 只有地址真的在校园网内，才允许把「仅校内使用」的教材原文放进上下文。
@@ -319,6 +320,31 @@ def ask(body: AskIn, actor: Actor = Depends(require("student"))) -> dict:
         "answer_md": answer, "refused": False, "mode": body.mode,
         "citations": citations, "context_chars": used,
     }
+
+
+def _require_tier(body: AskIn) -> None:
+    """这道题得在"学生可见范围"允许的验证等级里，才谈得上完整解答。
+
+    和作答解锁是两件事：作答解锁回答"这个学生有没有做过"，
+    验证等级回答"这道题本身够不够可信"。后者是学校口径，前者是学生行为。
+    """
+    policy = visibility.get_policy()
+    tiers = visibility.allowed(policy["qa_tier"])
+    row = db.query_one(
+        "SELECT tier FROM v_exercise_verification WHERE course_id = %s AND id = %s",
+        (body.course_id, body.exercise_id),
+    )
+    if row is None:
+        return
+    if row["tier"] not in tiers:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"这道题目前的验证等级是「{row['tier']}」，不在学生可见范围"
+                f"（{visibility.TIER_LABELS.get(policy['qa_tier'], policy['qa_tier'])}）内，"
+                "所以不提供完整解答。可以先用引导模式问思路。"
+            ),
+        )
 
 
 def _require_attempt(actor: Actor, body: AskIn) -> None:

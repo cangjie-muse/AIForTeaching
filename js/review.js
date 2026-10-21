@@ -49,7 +49,9 @@
     filters: { course_id: '', category: '', priority: '' },
     checked: {},
     diffs: {},       // 按「课程/题目」缓存修订历史，避免每次重渲染都请求
-    busy: false
+    busy: false,
+    visibility: null, // 学生可见范围（验证等级闸）
+    policyDraft: null // 未保存的草案：先让人看到"这一档会放出多少题"，再决定保存
   };
 
   const S = () => A.state.review;
@@ -96,14 +98,16 @@
     state.error = '';
     A.render();
     try {
-      const [summary, queue, courses] = await Promise.all([
+      const [summary, queue, courses, policy] = await Promise.all([
         A.api.get('/api/v1/review/summary'),
         A.api.get(`/api/v1/review/queue?${query()}`),
-        A.api.get('/api/v1/courses')
+        A.api.get('/api/v1/courses'),
+        A.api.visibility(S().filters.course_id || undefined)
       ]);
       state.summary = summary;
       state.items = queue.items || [];
       state.courses = courses.items || [];
+      state.visibility = policy;
       state.checked = {};
       state.status = 'ready';
     } catch (error) {
@@ -121,6 +125,36 @@
   // ---------------------------------------------------------------------------
   // 渲染
   // ---------------------------------------------------------------------------
+
+  // 学生可见范围：把"审核到什么程度才给学生看"变成一句可执行的口径。
+  // 关键设计：选中某一档时先把"这一档会放出多少题"算出来给人看，
+  // 而不是等保存之后发现学生端空了再回头查。
+  function policyPanel() {
+    const policy = S().visibility;
+    if (!policy) return '';
+    const draft = S().policyDraft || { exercise_tier: policy.exercise_tier, qa_tier: policy.qa_tier };
+    const options = current => (policy.options || ['human', 'verified', 'all']).map(key =>
+      `<option value="${key}"${key === current ? ' selected' : ''}>${e(policy.labels[key] || key)} · 学生可见 ${policy.impact[key] ?? 0} 题</option>`).join('');
+    const chips = (policy.tiers || []).map(row =>
+      `<span class="rv-tier">${tierBadge(row.tier)}<b>${row.total}</b> 题，已发布 ${row.published}</span>`).join('');
+    const visible = policy.impact[draft.exercise_tier] ?? 0;
+    const warning = visible === 0
+      ? `<div class="notice amber">${A.icon('info')}<span>这一档现在放不出任何已发布习题——还没有题达到这个验证等级。要么先去审核，要么换回更宽的档。</span></div>`
+      : `<p class="muted small">当前设置下，学生端可见 <b>${visible}</b> 道已发布习题；全平台共 ${policy.total} 道，其中已发布 ${policy.published_total} 道。</p>`;
+    return `<div class="panel rv-policy">
+      <div class="rv-policy-head">
+        <div><h2>学生可见范围</h2><p class="muted">审核不是二元的。这里决定学生端的习题与 AI 问答从哪一档可信等级取内容；它与发布闸是「与」的关系：先发布，再按等级过滤。</p></div>
+        <div class="button-row">${A.button('保存设置', 'visibility-save', 'check', '', 'primary small')}</div>
+      </div>
+      <div class="rv-policy-row">
+        <label class="rv-select"><span>习题与测验</span><select data-input="visibility-tier" data-kind="exercise">${options(draft.exercise_tier)}</select></label>
+        <label class="rv-select"><span>AI 问答（完整解答）</span><select data-input="visibility-tier" data-kind="qa">${options(draft.qa_tier)}</select></label>
+      </div>
+      <div class="rv-policy-tiers">${chips}</div>
+      ${warning}
+      <p class="muted small">${policy.updated_at ? `上次修改：${e(String(policy.updated_at).slice(0, 19).replace('T', ' '))}${policy.updated_by ? ` · ${e(policy.updated_by)}` : ''}` : '还没有改过，当前是默认设置（全部）。'}</p>
+    </div>`;
+  }
 
   function statsPanel() {
     const summary = S().summary;
@@ -353,7 +387,7 @@
     const openId = state.open;
     const detail = openId ? state.items.find(item => String(item.task_id) === String(openId)) : null;
 
-    return heading + statsPanel() + `<div class="rv-filters">${courseFilter()}${issueSummary()}</div>` + `
+    return heading + policyPanel() + statsPanel() + `<div class="rv-filters">${courseFilter()}${issueSummary()}</div>` + `
       <div class="rv-layout ${detail ? 'has-detail' : ''}">
         ${listPanel()}
         ${detail ? detailPanel(detail) : ''}
@@ -369,6 +403,34 @@
   // ---------------------------------------------------------------------------
 
   A.actions['review-refresh'] = function () { reload(); };
+
+  A.inputs['visibility-tier'] = function (select) {
+    const policy = S().visibility;
+    if (!policy) return;
+    const draft = S().policyDraft || { exercise_tier: policy.exercise_tier, qa_tier: policy.qa_tier };
+    draft[select.dataset.kind === 'qa' ? 'qa_tier' : 'exercise_tier'] = select.value;
+    S().policyDraft = draft;
+    // 立刻重渲染，把"这一档会放出多少题"算给操作者看——保存前就知道后果
+    A.render();
+  };
+
+  A.actions['visibility-save'] = async function (button) {
+    const policy = S().visibility;
+    if (!policy) return;
+    const draft = S().policyDraft || { exercise_tier: policy.exercise_tier, qa_tier: policy.qa_tier };
+    button.disabled = true;
+    try {
+      S().visibility = await A.api.saveVisibility({
+        exercise_tier: draft.exercise_tier, qa_tier: draft.qa_tier
+      });
+      S().policyDraft = null;
+      A.toast('已保存：学生端与 AI 问答按新的可见范围取内容。');
+    } catch (error) {
+      A.toast(`保存失败：${error.message}`);
+    }
+    button.disabled = false;
+    A.render();
+  };
 
   A.inputs['review-course'] = function (select) {
     S().filters.course_id = select.value;

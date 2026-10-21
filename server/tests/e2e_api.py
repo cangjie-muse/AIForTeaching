@@ -933,6 +933,60 @@ def run() -> None:
         check("锚点可用", anchor_node["exerciseAnchor"] == "kp-pub", anchor_node["exerciseAnchor"])
         check("章节归属传下来了", anchor_node["chapterId"] == "ch-pub", str(anchor_node["chapterId"]))
 
+        # ---- 学生可见范围（验证等级闸）----
+        # pub-a 走过人工审核并发布（tier=human）；pub-b 模拟历史数据：
+        # 已发布、但没人逐题确认过（tier=none）。这正是这个开关要处理的现实——
+        # 库里总会有"逃过人工"的已发布内容（旧数据、批量导入、自动发布）。
+        print("\n学生可见范围：")
+        client.post("/api/v1/courses/e2e-publish/publish", headers=ADMIN, json={})
+        db.query(
+            """UPDATE exercise
+                  SET review_status = 'published',
+                      human_verified_at = NULL, human_verified_by = NULL
+                WHERE course_id = 'e2e-publish' AND id = 'pub-b'"""
+        )
+        policy = client.get("/api/v1/visibility", headers=REVIEWER)
+        check("可见范围接口可读", policy.status_code == 200, policy.text[:120])
+        check("默认是全部（升级不改变行为）",
+              policy.json()["exercise_tier"] == "all" and policy.json()["qa_tier"] == "all",
+              str(policy.json().get("exercise_tier")))
+
+        bad = client.put("/api/v1/visibility", headers=REVIEWER,
+                         json={"exercise_tier": "strict", "qa_tier": "all"})
+        check("非法档位被 400 拒绝", bad.status_code == 400, str(bad.status_code))
+
+        human_only = client.put("/api/v1/visibility", headers=REVIEWER,
+                                json={"exercise_tier": "human", "qa_tier": "human"})
+        check("切到仅人工审核成功", human_only.status_code == 200, human_only.text[:120])
+        check("这一档只放出人工确认过的 1 道",
+              human_only.json()["impact"]["human"] == 1,
+              str(human_only.json().get("impact")))
+
+        hidden = client.get("/api/v1/catalog/e2e-publish", headers=STUDENT)
+        hidden_ids = {item["id"] for item in hidden.json()["exercises"]}
+        check("仅人工审核时学生只看到 pub-a", hidden_ids == {"pub-a"}, str(sorted(hidden_ids)))
+        check("未人工确认的 pub-b 被挡掉", "pub-b" not in hidden_ids)
+        check("课程统计按可见范围重新计数",
+              hidden.json()["stats"]["exercises"] == 1, str(hidden.json()["stats"]))
+        entry = next(item for item in client.get("/api/v1/catalog").json()["items"]
+                     if item["id"] == "e2e-publish")
+        check("公开目录计数也跟着变", entry["exercises"] == 1, str(entry["exercises"]))
+        check("知识点不因等级闸被隐藏",
+              {"kp-pub"} <= {node["id"] for node in hidden.json()["nodes"]},
+              str([node["id"] for node in hidden.json()["nodes"]]))
+        check("学生不能改可见范围",
+              client.put("/api/v1/visibility", headers=STUDENT,
+                         json={"exercise_tier": "all", "qa_tier": "all"}).status_code == 403,
+              "学生身份改动了全局策略")
+
+        restored = client.put("/api/v1/visibility", headers=REVIEWER,
+                              json={"exercise_tier": "all", "qa_tier": "all"})
+        check("切回全部成功", restored.status_code == 200, restored.text[:80])
+        wide = client.get("/api/v1/catalog/e2e-publish", headers=STUDENT)
+        check("切回全部后两道都能看到",
+              {item["id"] for item in wide.json()["exercises"]} == {"pub-a", "pub-b"},
+              str(sorted(item["id"] for item in wide.json()["exercises"])))
+
         unpub = client.post("/api/v1/courses/e2e-publish/unpublish", headers=ADMIN, json={})
         check("撤回发布成功", unpub.status_code == 200, unpub.text[:120])
         check("撤回后学生读不到",

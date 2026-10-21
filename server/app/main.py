@@ -29,6 +29,7 @@ from .content import router as content_router
 from .generation import router as generation_router
 from .qa import router as qa_router
 from .review import router as review_router
+from .visibility import router as visibility_router
 
 APP_ENV = os.environ.get("APP_ENV", "dev").lower()
 
@@ -80,6 +81,7 @@ app.include_router(attempts_router)
 app.include_router(generation_router)
 app.include_router(content_router)
 app.include_router(catalog_router)
+app.include_router(visibility_router)
 
 
 _ROOT = Path(__file__).resolve().parents[2]

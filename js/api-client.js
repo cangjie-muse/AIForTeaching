@@ -260,6 +260,16 @@
     return request('POST', `/api/v1/courses/${encodeURIComponent(courseId)}/unpublish`, { body: note ? { note } : {} });
   }
 
+  // 学生可见范围：验证等级闸。传 courseId 只统计这门课，不传是全平台。
+  function visibility(courseId) {
+    const suffix = courseId ? `?course_id=${encodeURIComponent(courseId)}` : '';
+    return request('GET', `/api/v1/visibility${suffix}`);
+  }
+
+  function saveVisibility(policy) {
+    return request('PUT', '/api/v1/visibility', { body: policy });
+  }
+
   A.api = {
     ApiError,
     base,
@@ -288,6 +298,8 @@
     publishStatus,
     publishCourse,
     unpublishCourse,
+    visibility,
+    saveVisibility,
     get: (path, options) => request('GET', path, options),
     post: (path, body, options) => request('POST', path, { ...options, body }),
     patch: (path, body, options) => request('PATCH', path, { ...options, body }),
