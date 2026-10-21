@@ -483,15 +483,28 @@ def patch_node(course_id: str, node_id: str, body: NodePatchIn, actor: str) -> d
         f"UPDATE knowledge_node SET {', '.join(sets)} WHERE course_id = %s AND id = %s",
         tuple(params),
     )
+    # 改的是"这道题挂在哪、这一章叫什么"——挂在这棵子树上的题，人工审核的前提没了。
+    # 只改 review_status（停用/启用）不算内容变化，不重置。
+    content_fields = sorted(
+        field for field in body.model_dump(exclude_none=True) if field != "review_status"
+    )
+    reset = {"exercises": 0, "cleared": 0}
+    if content_fields:
+        from . import mounting  # 延迟导入：content 与 mounting 都不该在模块级互相纠缠
+        reset = mounting.reset_mounted_nodes(
+            course_id, [node_id], actor=actor, reason=f"知识点改动：{'、'.join(content_fields)}"
+        )
     db.execute(
         """INSERT INTO audit_log (actor, action, entity, entity_key, detail)
            VALUES (%s, 'node.patch', 'knowledge_node', %s, %s::jsonb)""",
         (actor, f"{course_id}/{node_id}",
-         json.dumps({"fields": sorted(body.model_dump(exclude_none=True))}, ensure_ascii=False)),
+         json.dumps({"fields": sorted(body.model_dump(exclude_none=True)), "reset": reset},
+                    ensure_ascii=False)),
     )
-    return db.query_one(
+    row = db.query_one(
         "SELECT id, title, content_md, tags, review_status FROM knowledge_node "
         "WHERE course_id = %s AND id = %s", (course_id, node_id))
+    return {**row, "exercises_reset": reset["cleared"]}
 
 
 def create_node(course_id: str, body: NodeIn, actor: str) -> dict:

@@ -68,7 +68,16 @@
       try { data = JSON.parse(text); } catch { data = { detail: text.slice(0, 300) }; }
     }
     if (!response.ok) {
-      const error = new ApiError(data.detail || `请求失败（HTTP ${response.status}）`, response.status, data.detail);
+      // detail 可能是一段话，也可能是一个对象（例如 409 删除确认要带计数）。
+      // 对象直接拼进 message 会变成 "[object Object]"，所以取它的 detail 字段或整体序列化，
+      // 同时把原始 detail 留在 error.detail 上给页面读。
+      const raw = data.detail;
+      const message = typeof raw === 'string'
+        ? raw
+        : (raw && typeof raw === 'object'
+          ? (typeof raw.detail === 'string' ? raw.detail : JSON.stringify(raw))
+          : `请求失败（HTTP ${response.status}）`);
+      const error = new ApiError(message || `请求失败（HTTP ${response.status}）`, response.status, raw);
       // 401 只有一个意思：没登录或会话过期。统一在这里广播，页面不必各自判断。
       if (response.status === 401 && A.auth && !options.noAuthRedirect) A.auth.needed();
       throw error;
@@ -297,6 +306,39 @@
     return request('GET', `/api/v1/review/graph${suffix}`);
   }
 
+  // ---------------- 知识图谱的节点管理 ----------------
+
+  function nodeDetail(courseId, nodeId) {
+    return request('GET', `/api/v1/review/nodes/${encodeURIComponent(courseId)}`
+      + `/${encodeURIComponent(nodeId)}`);
+  }
+
+  function mountExercises(courseId, nodeId, exerciseIds) {
+    return request('POST', `/api/v1/review/nodes/${encodeURIComponent(courseId)}`
+      + `/${encodeURIComponent(nodeId)}/exercises`, { body: { exercise_ids: exerciseIds } });
+  }
+
+  function unmountExercise(courseId, nodeId, exerciseId) {
+    return request('DELETE', `/api/v1/review/nodes/${encodeURIComponent(courseId)}`
+      + `/${encodeURIComponent(nodeId)}/exercises/${encodeURIComponent(exerciseId)}`);
+  }
+
+  function deleteNode(courseId, nodeId, cascade) {
+    const suffix = cascade ? '?cascade=true' : '';
+    return request('DELETE', `/api/v1/review/nodes/${encodeURIComponent(courseId)}`
+      + `/${encodeURIComponent(nodeId)}${suffix}`);
+  }
+
+  function nodeOptions(courseId, query) {
+    const suffix = query ? `&q=${encodeURIComponent(query)}` : '';
+    return request('GET', `/api/v1/review/node-options?course_id=${encodeURIComponent(courseId)}${suffix}`);
+  }
+
+  function exerciseOptions(courseId, query) {
+    const suffix = query ? `&q=${encodeURIComponent(query)}` : '';
+    return request('GET', `/api/v1/review/exercise-options?course_id=${encodeURIComponent(courseId)}&limit=10${suffix}`);
+  }
+
   function verifyGraph(payload) {
     return request('POST', '/api/v1/review/graph/verify', { body: payload });
   }
@@ -431,6 +473,12 @@
     saveVisibility,
     resetVisibility,
     reviewGraph,
+    nodeDetail,
+    mountExercises,
+    unmountExercise,
+    deleteNode,
+    nodeOptions,
+    exerciseOptions,
     verifyGraph,
     reviewLedger,
     exerciseVerification,

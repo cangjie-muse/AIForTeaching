@@ -29,7 +29,7 @@ sandbox.window.confirm = () => true;
 vm.createContext(sandbox);
 
 const bundle = ['js/core.js', 'js/visual-identity.js', 'js/api-client.js',
-  'js/review-scope.js', 'js/review.js']
+  'js/review-scope.js', 'js/review-node.js', 'js/review.js']
   .map(file => fs.readFileSync(path.join(root, file), 'utf8')).join('\n;\n');
 vm.runInContext(bundle, sandbox, { filename: 'bundle.js' });
 
@@ -54,7 +54,7 @@ function reset(overrides = {}) {
     items: [], courses: [], checked: {}, diffs: {}, busy: false,
     tab: 'exercises',
     filters: { course_id: '', category: '', priority: '' },
-    graph: null, graphOpen: {}, editingNode: '', editingTitle: '',
+    graph: null, graphOpen: {}, nodePanel: '', nodeDetail: null, nodeDetailError: '',
     ledger: null, ledgerTier: '', ledgerQuery: '',
     verification: null, lookupId: '', open: null,
     ...overrides

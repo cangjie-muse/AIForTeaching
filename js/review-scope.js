@@ -84,41 +84,36 @@
     return byParent;
   }
 
+  // 一行 = 一个知识点。列固定：名称（带缩进与导引线）· 类型 · 挂题数 · 状态 · 动作。
+  // 状态和挂题数直接摆在行上，是为了"扫一遍就知道哪几行不对"，不用逐个点开。
   function nodeRow(node, byParent, depth, courseId) {
-    const editing = S().editingNode === node.id;
     const children = byParent.get(node.id) || [];
     const hasChildren = children.length > 0;
     const fold = S().graphOpen[`node:${node.id}`] !== false;   // 子节点默认展开
     const verified = node.verified
       ? A.badge('已通过', 'green')
       : '<span class="rv-node-state">未审</span>';
-    if (editing) {
-      return `<li class="rv-tree-node" style="--depth:${depth}" data-node="${e(node.id)}">
-        <div class="rv-node-row rv-node-editing">
-          <input data-input="graph-node-title" value="${e(S().editingTitle)}"
-                 aria-label="修改知识点标题" autocomplete="off">
-          <button class="btn small primary" data-action="graph-node-save"
-                  data-node="${e(node.id)}" data-course="${e(courseId)}">保存</button>
-          <button class="btn small text-btn" data-action="graph-node-cancel">取消</button>
-        </div>
-      </li>`;
-    }
-    return `<li class="rv-tree-node" style="--depth:${depth}" data-node="${e(node.id)}">
-      <div class="rv-node-row">
+    const kind = node.kind === 'container' ? (node.level <= 2 ? '章' : '节') : '知识点';
+    const mounted = Number(node.exercise_count || 0);
+    return `<li class="rv-node" data-node="${e(node.id)}" data-depth="${depth}">
+      <div class="rv-node-row${S().nodePanel === node.id ? ' open' : ''}">
         ${hasChildren ? `<button class="rv-fold" data-action="graph-fold" data-node="${e(node.id)}"
           aria-label="${fold ? '收起子节点' : '展开子节点'}">${fold ? '▾' : '▸'}</button>` : '<span class="rv-fold-space"></span>'}
         <span class="rv-node-title">${e(node.title)}</span>
-        ${node.kind === 'container' ? '<span class="rv-node-kind">节</span>' : ''}
+        <span class="rv-node-kind">${kind}</span>
+        <span class="rv-node-count${mounted ? '' : ' empty'}" title="直接挂在这个知识点上的题">${mounted ? `${mounted} 题` : '未挂题'}</span>
         ${verified}
         <span class="rv-node-actions">
           <button class="btn small${node.verified ? ' text-btn' : ''}" data-action="graph-node-verify"
                   data-node="${e(node.id)}" data-course="${e(courseId)}" data-verb="${node.verified ? 'unverify' : 'verify'}">
             ${node.verified ? '撤销' : '通过'}
           </button>
-          <button class="btn small text-btn" data-action="graph-node-edit"
-                  data-node="${e(node.id)}" data-title="${e(node.title)}">修改</button>
+          <button class="btn small text-btn" data-action="node-manage" data-node="${e(node.id)}">
+            ${S().nodePanel === node.id ? '收起' : '管理'}
+          </button>
         </span>
       </div>
+      ${A.reviewNodeOf().panelFor(node.id)}
       ${hasChildren && fold ? `<ul class="rv-tree">${children
         .map(child => nodeRow(child, byParent, depth + 1, courseId)).join('')}</ul>` : ''}
     </li>`;
@@ -146,6 +141,8 @@
         </button>
         <span class="rv-chapter-actions">
           ${done ? A.badge('本章已通过', 'green') : ''}
+          ${open ? `<button class="btn small text-btn" data-action="graph-chapter-expand"
+                    data-chapter="${e(chapter.chapter_id)}">展开全部</button>` : ''}
           <button class="btn small${done ? ' text-btn' : ' primary'}"
                   data-action="graph-verify" data-chapter="${e(chapter.chapter_id)}"
                   data-course="${e(courseId)}" data-verb="${done ? 'unverify' : 'verify'}">
@@ -163,7 +160,8 @@
     const heading = `<div class="rv-policy-head">
       <div><h2>知识图谱审核</h2>
         <p class="muted">教材切片正文不审（原文转载，审的是作者不是我们）。这里审「树挂得对不对」：
-          每章展开就是它的知识点，确认无误就通过；挂错或标题不对，就地改，改完再通过。</p></div>
+          每章展开就是它的知识点，行上直接写着挂了几道题；点「管理」能改标题、挂题/解绑、删节点。
+          改挂载或改标题都会让受影响的题退回未核——位置变了，"审过了"的前提就没了。</p></div>
     </div>`;
     if (!course) {
       return `<div class="panel rv-graph">${heading}
@@ -273,6 +271,9 @@
     </div>${S().verification ? verificationBlock(S().verification) : ''}`;
   }
 
+  // 节点管理面板在 js/review-node.js；延后取，避免脚本顺序耦合。
+  A.reviewNodeOf = () => A.reviewNode || { panelFor: () => '' };
+
   A.reviewScope = {
     verificationBlock,
     graphPanel,
@@ -345,40 +346,13 @@
     A.render();
   };
 
-  A.actions['graph-node-edit'] = function (button) {
-    S().editingNode = button.dataset.node;
-    S().editingTitle = button.dataset.title || '';
+  // 「展开全部」：一章十几个节点时逐个点开太慢，一次铺开更好扫。
+  A.actions['graph-chapter-expand'] = function (button) {
+    const chapter = button.dataset.chapter;
+    const chapterNodes = (S().graph?.nodes || []).filter(node => node.chapter_id === chapter);
+    S().graphOpen[chapter] = true;
+    chapterNodes.forEach(node => { S().graphOpen[`node:${node.id}`] = true; });
     A.render();
-  };
-
-  A.inputs['graph-node-title'] = function (input) {
-    S().editingTitle = input.value;
-  };
-
-  A.actions['graph-node-cancel'] = function () {
-    S().editingNode = '';
-    S().editingTitle = '';
-    A.render();
-  };
-
-  A.actions['graph-node-save'] = async function (button) {
-    const title = (S().editingTitle || '').trim();
-    if (!title) {
-      A.toast('标题不能为空');
-      return;
-    }
-    button.disabled = true;
-    try {
-      await A.api.patchNode(button.dataset.course, button.dataset.node, { title });
-      A.toast('标题已改。改完记得看一遍再通过。');
-      S().editingNode = '';
-      S().editingTitle = '';
-      S().status = 'idle';
-      shared().reload();
-    } catch (error) {
-      button.disabled = false;
-      A.toast(`改不了：${error.message}`);
-    }
   };
 
   async function verifyNodes(payload, message) {

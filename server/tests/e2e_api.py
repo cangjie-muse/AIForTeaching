@@ -1181,6 +1181,107 @@ def run() -> None:
                                 "action": "verify"}).status_code == 403,
               "学生身份做了图谱审核")
 
+        # ---- 知识点管理：挂题、解绑、删节点 ----
+        # 这一页要能改树，而不是只看树。四个动作都会让挂着的题退回未核。
+        print("\n知识点挂载与删除：")
+        detail = client.get("/api/v1/review/nodes/e2e-publish/ch-pub", headers=REVIEWER)
+        check("节点详情可读", detail.status_code == 200, detail.text[:120])
+        detail_body = detail.json()
+        check("详情给出子节点与挂题数",
+              detail_body["counts"]["children"] == 1
+              and isinstance(detail_body["counts"]["exercises"], int),
+              str(detail_body.get("counts")))
+        check("详情带父级与章", detail_body.get("chapter", {}).get("id") == "ch-pub",
+              str(detail_body.get("chapter")))
+
+        options = client.get("/api/v1/review/node-options?course_id=e2e-publish&q=知识",
+                             headers=REVIEWER).json()
+        check("可联想的知识点清单能按标题过滤", len(options.get("items", [])) >= 1,
+              str(options.get("count")))
+        ex_options = client.get("/api/v1/review/exercise-options?course_id=e2e-publish",
+                                headers=REVIEWER).json()
+        check("可挂的题目清单带挂载信息",
+              {row["id"] for row in ex_options["items"]} == {"pub-a", "pub-b"},
+              str([row["id"] for row in ex_options["items"]]))
+
+        # 先把 pub-a 标成人工已审，才能看出"挂载一变就撤销"这条
+        client.patch("/api/v1/review/exercises/e2e-publish/pub-a", headers=REVIEWER,
+                     json={"human_verified": True})
+        before_mount = client.get("/api/v1/review/exercises/e2e-publish/pub-a/verification",
+                                  headers=REVIEWER).json()
+        check("挂载前 pub-a 是人工已审", before_mount["tier"] == "human", str(before_mount["tier"]))
+
+        temp = client.post("/api/v1/courses/e2e-publish/nodes", headers=ADMIN,
+                           json={"id": "tmp-kp", "title": "临时知识点", "parent_id": "ch-pub"})
+        check("建一个临时知识点", temp.status_code in (200, 201), temp.text[:120])
+        mounted = client.post("/api/v1/review/nodes/e2e-publish/tmp-kp/exercises",
+                              headers=REVIEWER, json={"exercise_ids": ["pub-a"]})
+        check("可以按知识点挂题", mounted.status_code == 200
+              and mounted.json()["attached"] == ["pub-a"], mounted.text[:140])
+        check("挂题顺带撤销这道题的人工审核",
+              mounted.json()["reset"]["cleared"] == 1, str(mounted.json().get("reset")))
+        after_mount = client.get("/api/v1/review/nodes/e2e-publish/tmp-kp", headers=REVIEWER).json()
+        row = after_mount["exercises"][0]
+        check("挂上后等级回到未核", row["tier"] == "none", str(row["tier"]))
+        check("已发布的题仍保持发布（学生不断供）", row["review_status"] == "published",
+              str(row["review_status"]))
+
+        detached = client.delete("/api/v1/review/nodes/e2e-publish/tmp-kp/exercises/pub-a",
+                                 headers=REVIEWER)
+        check("可以解绑", detached.status_code == 200 and detached.json()["detached"],
+              detached.text[:120])
+        check("解绑后这个节点上没有题",
+              client.get("/api/v1/review/nodes/e2e-publish/tmp-kp", headers=REVIEWER)
+              .json()["counts"]["exercises"] == 0)
+
+        blocked = client.delete("/api/v1/review/nodes/e2e-publish/ch-pub", headers=REVIEWER)
+        check("有子节点时先 409 报连带范围", blocked.status_code == 409, blocked.text[:120])
+        check("409 里带节点数与题数",
+              isinstance(blocked.json().get("detail"), dict)
+              and blocked.json()["detail"].get("nodes", 0) >= 2,
+              blocked.text[:160])
+        check("没确认就没删（节点还在）",
+              "ch-pub" in {row["id"] for row in client.get(
+                  "/api/v1/review/graph?course_id=e2e-publish", headers=REVIEWER)
+                  .json()["nodes"]})
+
+        gone = client.delete("/api/v1/review/nodes/e2e-publish/tmp-kp?cascade=true",
+                             headers=REVIEWER)
+        check("确认后能真删", gone.status_code == 200 and gone.json()["deleted"] == 1,
+              gone.text[:120])
+        check("删掉的节点不再出现",
+              "tmp-kp" not in {row["id"] for row in client.get(
+                  "/api/v1/review/graph?course_id=e2e-publish", headers=REVIEWER)
+                  .json()["nodes"]})
+
+        check("学生不能看节点详情",
+              client.get("/api/v1/review/nodes/e2e-publish/ch-pub",
+                         headers=STUDENT).status_code == 403)
+        check("学生不能删节点",
+              client.delete("/api/v1/review/nodes/e2e-publish/kp-pub",
+                            headers=STUDENT).status_code == 403)
+        check("学生不能挂题",
+              client.post("/api/v1/review/nodes/e2e-publish/kp-pub/exercises",
+                          headers=STUDENT, json={"exercise_ids": ["pub-a"]}).status_code == 403)
+
+        # 习题侧换挂载：整份 node_ids 覆盖，同样触发重置
+        client.patch("/api/v1/review/exercises/e2e-publish/pub-a", headers=REVIEWER,
+                     json={"node_ids": ["kp-pub"], "human_verified": True})
+        switched = client.patch("/api/v1/review/exercises/e2e-publish/pub-a",
+                                headers=REVIEWER, json={"node_ids": ["ch-pub"]})
+        check("习题侧可以换挂载", switched.status_code == 200, switched.text[:120])
+        check("换挂载也撤销人工审核", switched.json().get("reset", {}).get("cleared") == 1,
+              str(switched.json().get("reset")))
+        chapter_after = client.get("/api/v1/review/nodes/e2e-publish/ch-pub",
+                                   headers=REVIEWER).json()
+        check("换挂载后关系真的落在新节点上",
+              [row["id"] for row in chapter_after["exercises"]] == ["pub-a"],
+              str([row["id"] for row in chapter_after["exercises"]]))
+
+        # 收尾：把 pub-a 挂回知识点并重新标人工已审，后面的用例按这个状态断言
+        client.patch("/api/v1/review/exercises/e2e-publish/pub-a", headers=REVIEWER,
+                     json={"node_ids": ["kp-pub"], "human_verified": True})
+
         # ---- 单道题"标注过什么" ----
         # 已发布的题不在审核队列里，所以要能按题号直接查：等级、谁审的、审的哪版、之后改没改。
         print("\n单题审核记录：")

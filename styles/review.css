@@ -196,24 +196,57 @@
 .rv-chapter-caret{color:var(--muted,#6b7686);font-size:12px;flex:none}
 .rv-chapter-toggle b{font-size:13px}
 .rv-chapter-actions{display:flex;align-items:center;gap:8px;flex:none}
-.rv-tree{list-style:none;margin:0;padding:0 10px 10px}
-.rv-tree .rv-tree{padding:0 0 0 16px}
-.rv-tree-node{border-top:1px solid #f1f3f7}
-.rv-node-row{display:flex;align-items:center;gap:8px;padding:7px 2px;font-size:13px}
-.rv-node-row::before{content:'';width:2px;height:14px;border-radius:2px;background:#dfe4ec;flex:none}
-.rv-node-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 树：缩进 + 导引线。竖线画在每层 <ul> 的左侧，横线画在每个 <li> 上，
+   这样"这个节点属于谁"不用靠数空格猜。 */
+.rv-tree{list-style:none;margin:0;padding:0 10px 10px;position:relative}
+.rv-chapter > .rv-tree{padding-top:2px}
+.rv-tree .rv-tree{padding:0 0 0 18px}
+.rv-tree .rv-tree::before{content:'';position:absolute;left:8px;top:4px;bottom:14px;
+  border-left:1px solid #dfe4ec}
+.rv-node{position:relative}
+.rv-node::before{content:'';position:absolute;left:-10px;top:18px;width:10px;border-top:1px solid #dfe4ec}
+.rv-tree > .rv-node:first-child::before{left:-10px}
+.rv-node-row{display:grid;grid-template-columns:18px minmax(90px,1fr) auto auto auto auto;
+  align-items:center;gap:8px;padding:5px 8px;font-size:13px;border-radius:8px}
+.rv-node-row:hover{background:#f6f8fb}
+.rv-node-row.open{background:#eef4fd;box-shadow:inset 2px 0 0 #2f6fd0}
+.rv-node-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rv-node-kind{font-size:11px;color:var(--muted,#6b7686);border:1px solid var(--line,#e3e6ec);
-  border-radius:4px;padding:0 5px}
-.rv-node-state{font-size:11px;color:var(--muted,#6b7686)}
-.rv-node-actions{display:flex;gap:6px;flex:none;opacity:.25;transition:opacity .12s}
+  border-radius:4px;padding:0 5px;white-space:nowrap}
+.rv-node-count{font-size:12px;color:var(--muted,#6b7686);font-variant-numeric:tabular-nums;white-space:nowrap}
+.rv-node-count.empty{color:#b9bfc9}
+.rv-node-state{font-size:11px;color:var(--muted,#6b7686);white-space:nowrap}
+.rv-node-actions{display:flex;gap:6px;flex:none;opacity:.35;transition:opacity .12s}
 .rv-node-row:hover .rv-node-actions,.rv-node-row:focus-within .rv-node-actions{opacity:1}
-.rv-fold,.rv-fold-space{width:16px;flex:none;background:none;border:0;color:var(--muted,#6b7686);
+.rv-fold,.rv-fold-space{width:18px;flex:none;background:none;border:0;color:var(--muted,#6b7686);
   font-size:11px;cursor:pointer;padding:0}
-.rv-node-editing{gap:8px}
-.rv-node-editing input{flex:1;min-width:0;padding:6px 9px;border:1px solid #2f6fd0;border-radius:7px;font:inherit;font-size:13px}
 .rv-dirty{margin:10px 0 0;font-size:12px;color:#b45309}
+
+/* 节点管理：标题 / 挂题 / 删除，全在这一块里，因为三件事都会让题退回未核 */
+.rv-node-panel{margin:4px 0 10px 26px;padding:10px 12px;border:1px solid var(--line,#e3e6ec);
+  border-radius:10px;background:#fbfcfe}
+.rv-node-panel-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px}
+.rv-node-panel-head b{font-size:13px}
+.rv-node-panel h4{margin:12px 0 6px;font-size:12px;color:var(--muted,#6b7686);font-weight:600}
+.rv-node-title-edit{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.rv-node-title-edit input{min-width:220px;padding:6px 9px;border:1px solid var(--line,#d8dde6);
+  border-radius:7px;font:inherit;font-size:13px}
+.rv-mount-list{list-style:none;margin:0;padding:0}
+.rv-mount-list li{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:4px 0;
+  border-bottom:1px solid #f1f3f7;font-size:12px}
+.rv-mount-list li:last-child{border-bottom:0}
+.rv-mount-prompt{color:#3c4657;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rv-mount-picker{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0}
+.rv-mount-picker input{min-width:220px;padding:6px 9px;border:1px solid var(--line,#d8dde6);
+  border-radius:7px;font:inherit;font-size:12px}
+.rv-node-danger{display:flex;align-items:center;gap:10px;margin-top:12px;padding-top:10px;
+  border-top:1px dashed #e6c9c9}
+.btn.danger{color:#b42318;border-color:#f0c8c4}
+.btn.danger:hover{background:#fdf3f2}
 @media(max-width:720px){
   .rv-node-actions{opacity:1}
+  .rv-node-row{grid-template-columns:18px minmax(80px,1fr) auto auto}
+  .rv-node-kind{display:none}
   .rv-chapter-head{align-items:flex-start}
   .rv-chapter-actions{width:100%;justify-content:flex-end}
 }

@@ -31,6 +31,7 @@ from .content import router as content_router
 from .generation import router as generation_router
 from .qa import router as qa_router
 from .review import router as review_router
+from .review_nodes import router as review_nodes_router
 from .visibility import router as visibility_router
 
 APP_ENV = os.environ.get("APP_ENV", "dev").lower()
@@ -86,6 +87,7 @@ app.add_middleware(
 
 app.include_router(accounts_router)
 app.include_router(review_router)
+app.include_router(review_nodes_router)
 app.include_router(admin_router)
 app.include_router(qa_router)
 app.include_router(attempts_router)

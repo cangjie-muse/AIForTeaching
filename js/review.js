@@ -70,7 +70,8 @@
     ledgerQuery: '',  // 总表的题号/题干搜索
     verification: null,      // 按题号查到的审核记录
     lookupId: '',            // 查询框里填的题号
-    detailVerification: null // 当前打开那条任务的完整审核记录
+    detailVerification: null, // 当前打开那条任务的完整审核记录
+    nodeOptions: null        // 习题侧挂载用的候选知识点（datalist）
   };
 
   const S = () => A.state.review;
@@ -352,10 +353,49 @@
     </details>`;
   }
 
+  function currentItem() {
+    return S().items.find(row => String(row.task_id) === String(S().open)) || null;
+  }
+
+  function nodeOptionList() {
+    return (S().nodeOptions && S().nodeOptions.items) || [];
+  }
+
+  // 挂载是可编辑的：题与知识点的关系两头都能改（知识点那边在 js/review-node.js）。
+  // 用 chip + 联想输入，不搞多选框——这门课有几十个知识点，多选框里找不着东西。
+  function mountEditor(item) {
+    const mounted = item.node_ids || [];
+    const titles = new Map(nodeOptionList().map(row => [row.id, row.title]));
+    const chips = mounted.length
+      ? mounted.map(id => `<span class="rv-mount-chip">
+          <code>${e(id)}</code>
+          ${titles.get(id) ? `<span>${e(titles.get(id))}</span>` : ''}
+          <button class="rv-chip-x" data-action="detail-unmount" data-id="${e(id)}"
+                  data-exercise="${e(item.exercise_id)}" data-course="${e(item.course_id)}"
+                  aria-label="解除与 ${e(id)} 的挂载">×</button>
+        </span>`).join('')
+      : '<span class="rv-warn">未挂任何知识点（学生按知识点刷题时不会出现这道题）</span>';
+    const options = nodeOptionList()
+      .map(row => `<option value="${e(row.id)}">${e(row.title)}${row.chapter_title ? ` · ${e(row.chapter_title)}` : ''}</option>`)
+      .join('');
+    const loading = S().nodeOptions ? '' : '<p class="muted small">正在读取本课知识点…</p>';
+    return `<div class="rv-mount-edit">
+      <div class="rv-mount-chips">${chips}</div>
+      <div class="rv-mount-add">
+        <label class="rv-select"><span>挂到知识点</span>
+          <input list="rv-node-option-list" data-input="detail-node-add"
+                 placeholder="输入知识点 id 或标题" autocomplete="off">
+        </label>
+        <datalist id="rv-node-option-list">${options}</datalist>
+        <button class="btn small" data-action="detail-mount"
+                data-exercise="${e(item.exercise_id)}" data-course="${e(item.course_id)}">加挂</button>
+      </div>
+      ${loading}
+      <p class="muted small">挂载一变，这道题的人工审核就撤销（已发布的仍对学生可见）——位置变了，"审过了"的前提就没了。</p>
+    </div>`;
+  }
+
   function detailPanel(item) {
-    const nodes = (item.node_ids || []).length
-      ? item.node_ids.map(id => `<code>${e(id)}</code>`).join(' ')
-      : '<span class="rv-warn">未挂任何知识点</span>';
     return `<section class="panel rv-detail">
       <div class="panel-heading">
         <h2>${e(item.exercise_id)}</h2>
@@ -376,7 +416,7 @@
       <h3>题干</h3>
       <div class="md">${A.markdown(item.prompt_md || '')}</div>
       <h3>挂载知识点</h3>
-      <p>${nodes}</p>
+      ${mountEditor(item)}
       <h3>修订差异</h3>
       ${revisionSection(item)}
       <h3>问题清单</h3>
@@ -497,6 +537,7 @@
     A.render();
     const item = S().items.find(row => String(row.task_id) === String(taskId));
     if (item) {
+      loadNodeOptions(item.course_id);
       loadDiff(item);  // 修订差异与审核记录互不依赖，并行取
       try {
         S().detailVerification = await A.api.exerciseVerification(item.course_id, item.exercise_id);
@@ -505,6 +546,83 @@
       }
       A.render();
     }
+  };
+
+  async function loadNodeOptions(courseId) {
+    S().nodeOptions = null;
+    try {
+      S().nodeOptions = await A.api.nodeOptions(courseId);
+    } catch (error) {
+      S().nodeOptions = { items: [], error: error.message };
+    }
+    A.render();
+  }
+
+  // 挂载改完：这道题的 node_ids 变了，队列与审核记录都要重取。
+  async function afterMount(item) {
+    A.render();
+    S().status = 'idle';
+    await load();
+    const fresh = S().items.find(row => String(row.task_id) === String(S().open)) || item;
+    try {
+      S().detailVerification = await A.api.exerciseVerification(fresh.course_id, fresh.exercise_id);
+    } catch (error) {
+      S().detailVerification = { error: error.message };
+    }
+    A.render();
+  }
+
+  async function patchMount(item, nodeIds, note) {
+    const result = await A.api.patchExercise(item.course_id, item.exercise_id, {
+      node_ids: nodeIds,
+      change_note: note
+    });
+    const cleared = (result.reset || {}).cleared || 0;
+    A.toast(cleared
+      ? `挂载已改，这道题退回未核（已发布的仍对学生可见）`
+      : '挂载已改');
+    await afterMount(item);
+  }
+
+  A.actions['detail-mount'] = async function (button) {
+    const item = currentItem();
+    if (!item) return;
+    const input = document.querySelector('[data-input="detail-node-add"]');
+    const nodeId = (input ? input.value : '').trim();
+    if (!nodeId) {
+      A.toast('先选一个知识点再点加挂');
+      return;
+    }
+    if ((item.node_ids || []).includes(nodeId)) {
+      A.toast('这道题已经挂在这个知识点上了');
+      return;
+    }
+    button.disabled = true;
+    try {
+      await patchMount(item, (item.node_ids || []).concat(nodeId), '审核页加挂知识点');
+      if (input) input.value = '';
+    } catch (error) {
+      button.disabled = false;
+      A.toast(`加挂失败：${error.message}`);
+    }
+  };
+
+  A.actions['detail-unmount'] = async function (button) {
+    const item = currentItem();
+    if (!item) return;
+    const nodeId = button.dataset.id;
+    if (!window.confirm(`解除与 ${nodeId} 的挂载？这道题的人工审核会一并撤销。`)) return;
+    button.disabled = true;
+    try {
+      await patchMount(item, (item.node_ids || []).filter(id => id !== nodeId), '审核页解除挂载');
+    } catch (error) {
+      button.disabled = false;
+      A.toast(`解绑失败：${error.message}`);
+    }
+  };
+
+  A.inputs['detail-node-add'] = function (input) {
+    S().detailNodeAdd = input.value;
   };
 
   A.actions['review-close'] = function () {

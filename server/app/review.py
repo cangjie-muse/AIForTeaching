@@ -379,6 +379,14 @@ def graph(
     root_row = next((row for row in rows if row["level"] == 1), None)
     rows = [row for row in rows if row["level"] >= 2]
     by_id = {row["id"]: row for row in rows}
+    mounted = {
+        row["node_id"]: row["n"]
+        for row in db.query(
+            """SELECT node_id, count(*)::int AS n
+                 FROM exercise_node WHERE course_id = %s GROUP BY node_id""",
+            (course_id,),
+        )
+    }
 
     def chapter_of(node: dict) -> str:
         # 往上走到 level=2；走不到（数据里没有章这一层）就拿自己当章，至少不丢节点。
@@ -409,6 +417,7 @@ def graph(
             "verified": verified,
             "verified_at": row["human_verified_at"],
             "verified_by": row["human_verified_by"],
+            "exercise_count": mounted.get(row["id"], 0),
         })
         if row["id"] == chapter:
             continue  # 章节点本身不算"章里的知识点"
@@ -514,6 +523,17 @@ def patch_exercise(
         sets.append("human_verified_by = %s")
         params.append(x_actor)
 
+    # 换挂载 = 换了这道题在知识树上的位置，原来的"人工已审"不再成立。
+    # 只改题干/答案不重置：那是"改题"，题还是挂在同一个知识点下。
+    # 顺序很重要：先重置，再写 UPDATE。反过来会把同一次请求里刚写回的
+    # human_verified 再清掉，调用方看到"我明明点了确认，等级还是未核"。
+    reset = {"exercises": 0, "cleared": 0}
+    if body.node_ids is not None:
+        from . import mounting
+        reset = mounting.reset_exercises(
+            course_id, [exercise_id], actor=x_actor, reason="改挂载，需重新确认"
+        )
+
     with db.cursor() as cur:
         cur.execute("SELECT set_config('app.actor', %s, true)", (x_actor,))
         cur.execute(
@@ -533,7 +553,8 @@ def patch_exercise(
                     "INSERT INTO exercise_node (course_id, exercise_id, node_id) VALUES (%s, %s, %s)",
                     (course_id, exercise_id, node_id),
                 )
-    return {"course_id": course_id, "exercise_id": exercise_id, "updated": True}
+    return {"course_id": course_id, "exercise_id": exercise_id, "updated": True,
+            "reset": reset}
 
 
 @router.get("/ledger")

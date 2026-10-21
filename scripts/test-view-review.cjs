@@ -33,7 +33,7 @@ sandbox.window.confirm = () => true;
 vm.createContext(sandbox);
 
 const bundle = ['js/core.js', 'js/visual-identity.js', 'js/api-client.js', 'js/diff.js',
-    'js/review-scope.js', 'js/review.js']
+    'js/review-scope.js', 'js/review-node.js', 'js/review.js']
   .map(file => fs.readFileSync(path.join(root, file), 'utf8'))
   .join('\n;\n');
 vm.runInContext(bundle, sandbox, { filename: 'bundle.js' });
@@ -209,9 +209,9 @@ reset({
       { id: 'ch-1', chapter_id: 'ch-1', parent_id: null, title: '第一章 极限',
         kind: 'container', level: 2, verified: false },
       { id: 'k-1', chapter_id: 'ch-1', parent_id: 'ch-1', title: '数列极限',
-        kind: 'knowledge', level: 3, verified: true },
+        kind: 'knowledge', level: 3, verified: true, exercise_count: 3 },
       { id: 'k-2', chapter_id: 'ch-1', parent_id: 'ch-1', title: '函数极限',
-        kind: 'knowledge', level: 3, verified: false }
+        kind: 'knowledge', level: 3, verified: false, exercise_count: 0 }
     ]
   }
 });
@@ -222,8 +222,10 @@ check('展开后列出这一章的子节点',
   html.includes('数列极限') && html.includes('函数极限'), '子节点没渲染出来');
 check('已审节点显示"已通过"', html.includes('已通过'));
 check('未审节点显示"未审"', html.includes('未审'));
-check('每个节点都有通过/撤销与修改',
-  html.includes('data-action="graph-node-verify"') && html.includes('data-action="graph-node-edit"'));
+check('每个节点都有通过/撤销与管理',
+  html.includes('data-action="graph-node-verify"') && html.includes('data-action="node-manage"'));
+check('行上直接显示挂题数', html.includes('3 题'));
+check('没挂题的节点明说未挂题', html.includes('未挂题'), '空着会让人以为是加载失败');
 check('章一级仍可整章通过',
   html.includes('data-action="graph-verify" data-chapter="ch-1"'));
 check('没有重复渲染章节容器节点',
@@ -253,25 +255,35 @@ reset({
   tab: 'graph',
   courses: [{ id: 'analysis-ii', title: '数学分析 II' }],
   filters: { course_id: 'analysis-ii', category: '', priority: '' },
-  graphOpen: { 'ch-1': true, 'node:k-1': true },
-  editingNode: 'k-2',
-  editingTitle: '函数极限（改）',
+  graphOpen: { 'ch-1': true },
+  nodePanel: 'k-2',
+  nodeDetail: {
+    node: { id: 'k-2', title: '函数极限', kind: 'knowledge', level: 3, verified: false },
+    parent: { id: 'k-1', title: '数列极限' },
+    chapter: { id: 'ch-1', title: '第一章 极限' },
+    children: [],
+    exercises: [{ id: 'ex-9', prompt_md: '求函数极限', tier: 'none', review_status: 'draft', node_ids: ['k-2'] }],
+    counts: { children: 0, descendants: 0, exercises: 1 }
+  },
   graph: {
     totals: { nodes: 3, verified: 0 },
     chapters: [{ chapter_id: 'ch-1', title: '第一章 极限', nodes: 2, verified: 0 }],
     nodes: [
       { id: 'k-1', chapter_id: 'ch-1', parent_id: 'ch-1', title: '数列极限',
-        kind: 'knowledge', level: 3, verified: false },
+        kind: 'knowledge', level: 3, verified: false, exercise_count: 0 },
       { id: 'k-2', chapter_id: 'ch-1', parent_id: 'ch-1', title: '函数极限',
-        kind: 'knowledge', level: 3, verified: false }
+        kind: 'knowledge', level: 3, verified: false, exercise_count: 1 }
     ]
   }
 });
 html = App.views.review();
-check('点"修改"就地变成输入框',
-  html.includes('data-input="graph-node-title"') && html.includes('函数极限（改）'));
-check('就地改的时候给保存与取消',
-  html.includes('data-action="graph-node-save"') && html.includes('data-action="graph-node-cancel"'));
+check('点「管理」展开的节点面板带标题输入框',
+  html.includes('data-input="node-title"') && html.includes('保存标题'));
+check('面板列出挂在这儿的题并可解绑',
+  html.includes('data-action="node-unmount"') && html.includes('ex-9'));
+check('面板给「删除这个节点」并说明连带范围',
+  html.includes('data-action="node-delete"') && html.includes('删除这个节点'));
+check('面板说清改标题会让题退回未核', html.includes('退回未核'));
 
 (async () => {
   // 逐节点通过：只传这一个节点的 id，不要顺手把整章标掉
@@ -301,18 +313,6 @@ check('就地改的时候给保存与取消',
     && !nodeCall.chapter_id, JSON.stringify(nodeCall));
   check('单节点通过后提示了结果',
     graphCalls.some(call => String(call.toast || '').includes('已通过这个节点')));
-
-  reset({ filters: { course_id: 'analysis-ii', category: '', priority: '' } });
-  const patchCalls = [];
-  App.api.patchNode = async (course, node, body) => { patchCalls.push([course, node, body]); return {}; };
-  App.state.review.editingNode = 'k-2';
-  App.state.review.editingTitle = '  函数极限（新） ';
-  await App.actions['graph-node-save']({
-    dataset: { course: 'analysis-ii', node: 'k-2' }, disabled: false
-  });
-  check('改标题提交的是去掉空白的标题',
-    patchCalls.length === 1 && patchCalls[0][2].title === '函数极限（新）', JSON.stringify(patchCalls));
-  check('改完退出编辑态', App.state.review.editingNode === '');
 
   // ---------------------------------------------------------------------------
   // 决定之后的反馈：通过到底改了什么，得让人一眼看见
