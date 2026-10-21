@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-21T03:03:17.004Z",
+  "checkedAt": "2026-10-21T03:08:53.817Z",
   "scope": "Project source/provenance audit; no private competitor source or internet-wide similarity database comparison",
   "checks": {
     "runtimeFiles": 37,
@@ -86,7 +86,7 @@
     },
     {
       "path": "js/learning.js",
-      "sha256": "562df04a1d8fefa33878d85f6301d0970a61cc430001ac05ca2627fddc0ede28"
+      "sha256": "a234634c216fb75797f99a3fc736b1a5062144e3c5c17a0947ae8adfa19eca68"
     },
     {
       "path": "js/pages.js",
@@ -94,7 +94,7 @@
     },
     {
       "path": "js/qa-chat.js",
-      "sha256": "219241ed72d4c4883977dc03b235d67e3093036912ee68eadf34bfe540e43a83"
+      "sha256": "63336c041aa35626d36380f883f94333c79d4a4a2d7d9407b8063b073675dfeb"
     },
     {
       "path": "js/review.js",
@@ -210,7 +210,7 @@
     },
     {
       "path": "scripts/test-view-qa.cjs",
-      "sha256": "a59971e2fbc620fd3512607d2f8526d98f077c9672c14907d5728486ab7a9165"
+      "sha256": "ada6ad6d99edcd8fe7ee30e44c31810d47fca1fef6a54d132b6702776908c09a"
     },
     {
       "path": "scripts/test-view-review.cjs",

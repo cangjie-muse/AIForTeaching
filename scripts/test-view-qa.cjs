@@ -155,6 +155,24 @@ reset({
 html = App.views.qa();
 check('引用里的 HTML 被转义', html.includes('&lt;img src=x') && !html.includes('<img src=x'));
 
+// 10. 前端课程 id 与后端课程 id 对不上：要么对上，要么明说
+const backend = [{ id: 'demo-analysis-2', title: '数学分析（II）' }];
+const matched = App.qaResolveCourse('数学分析II', backend);
+check('标题归一化后能对上后端课程', matched.id === 'demo-analysis-2', JSON.stringify(matched));
+
+const unmatched = App.qaResolveCourse('高等代数', backend);
+check('对不上时不乱猜课程', unmatched.id === null);
+check('对不上时说明检索范围', unmatched.note.includes('高等代数') && unmatched.note.includes('全部课程'));
+
+reset({ courseNote: unmatched.note });
+html = App.views.qa();
+check('课程对不上时页面有提示', html.includes('后端没有与「高等代数」对应的课程'));
+
+// 11. 习题页的入口指向真正的问答页
+const learning = fs.readFileSync(path.join(root, 'js/learning.js'), 'utf8');
+check('习题页有「问这道题」入口', /A\.link\('问这道题', 'qa'/.test(learning));
+check('入口带上习题 id', /问这道题', 'qa'[^)]*\{ exercise: ex\.id \}/.test(learning));
+
 console.log();
 if (failures.length) {
   console.log(`失败 ${failures.length} 项：${failures.join(', ')}`);

@@ -24,6 +24,8 @@
     courseId: null,
     exerciseId: null,
     courses: [],
+    courseNote: '',      // 前端课程 id 与后端课程对不上的时候要说清楚
+    resolved: false,
     health: null
   };
 
@@ -49,6 +51,37 @@
     const current = courses.find(course => course.id === S().courseId);
     return current && (current.chunk_count ?? 0) === 0;
   }
+
+  // 前端课程包用的是 analysis-ii，后端导入时可能另起 id（demo-analysis-2）。
+  // 靠标题归一化对上，对不上就明说，而不是拿一个后端不认识的 id 去检索——
+  // 那样只会得到"没有依据"，而人看到的是"模型不会答"。
+  function normalizeTitle(text) {
+    return String(text || '')
+      .toLowerCase()
+      .replace(/[\s（）()《》·—\-_.]/g, '');
+  }
+
+  function courseTitle(courseId) {
+    // 课程包没加载时（比如测试环境、导入前）不能因此让整页报错
+    try {
+      return A.courseData?.(courseId)?.title || courseId;
+    } catch {
+      return courseId;
+    }
+  }
+
+  function resolveCourse(routeCourseId, courses) {
+    if (!routeCourseId) return { id: null, note: '' };
+    const title = courseTitle(routeCourseId);
+    const matched = courses.find(course => normalizeTitle(course.title) === normalizeTitle(title));
+    if (matched) return { id: matched.id, note: '' };
+    return {
+      id: null,
+      note: `后端没有与「${title}」对应的课程，检索范围暂为全部课程`
+    };
+  }
+
+  A.qaResolveCourse = resolveCourse;
 
   function citationChips(citations) {
     if (!citations || !citations.length) return '';
@@ -146,7 +179,7 @@
       </div>`
     );
     const courses = state.courses || [];
-    const contextLine = courses.length || state.exerciseId
+    const contextLine = courses.length || state.exerciseId || state.courseNote
       ? `<div class="qa-context">
           ${courses.length ? `<label class="qa-course">
             <span>检索范围</span>
@@ -157,6 +190,7 @@
           </label>` : ''}
           ${state.exerciseId ? `<span class="qa-exercise">${A.icon('link')}习题：${e(state.exerciseId)}</span>` : ''}
           ${courseWithoutTextbook(courses) ? `<span class="qa-warn">${A.icon('info')}这门课还没有教材片段，问答会拒答</span>` : ''}
+          ${state.courseNote ? `<span class="qa-warn">${A.icon('info')}${e(state.courseNote)}</span>` : ''}
         </div>`
       : '';
     const messages = state.messages.length
@@ -188,6 +222,9 @@
 
   A.after.qa = function () {
     if (S().status !== 'idle') return;
+    // 从习题页进来时带 ?exercise=...，顺手把题目上下文接上
+    S().exerciseId = A.route.params.get('exercise') || S().exerciseId;
+    S().routeCourseId = A.route.params.get('course') || A.course?.id || null;
     loadHealth();
   };
 
@@ -206,6 +243,12 @@
       S().courses = courses.items || [];
     } catch {
       S().courses = [];
+    }
+    if (!S().resolved) {
+      const resolved = resolveCourse(S().routeCourseId, S().courses);
+      S().courseId = resolved.id;
+      S().courseNote = resolved.note;
+      S().resolved = true;
     }
     S().status = 'ready';
     A.render();
