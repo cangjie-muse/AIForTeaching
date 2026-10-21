@@ -739,6 +739,116 @@ def run() -> None:
         healed = client.get(f"/api/v1/jobs/{book_job_id}", headers=REVIEWER).json()
         check("补跑后整本任务转为成功", healed["status"] == "succeeded", str(healed["status"]))
 
+        print("\\n课程内容：导入 / 导出 / 整体更新：")
+
+        def content_pack(exercise_ids):
+            """造一个最小的课程资源包：一章、两个知识点、若干题。"""
+            nodes = [
+                {"id": "course-e2e", "title": "端到端课程", "level": 1,
+                 "path": ["端到端课程"], "content_md": ""},
+                {"id": "ch-01", "title": "第一章 实数", "level": 2, "parent_id": "course-e2e",
+                 "path": ["端到端课程", "第一章 实数"], "content_md": ""},
+                {"id": "kp-01", "title": "确界原理", "level": 3, "parent_id": "ch-01",
+                 "path": ["端到端课程", "第一章 实数", "确界原理"],
+                 "content_md": "非空有上界的数集必有上确界。", "tags": ["定理", "确界"]},
+                {"id": "kp-02", "title": "阿基米德性", "level": 3, "parent_id": "ch-01",
+                 "path": ["端到端课程", "第一章 实数", "阿基米德性"],
+                 "content_md": "对任意正实数都有自然数大于它。", "tags": ["定理"]},
+            ]
+            exercises = [
+                {"id": ex_id, "prompt_md": f"{ex_id}：叙述并证明。",
+                 "answer_md": "证明略。", "difficulty": 3,
+                 "source_raw": "教材《数学分析》上册，书页12，教材习题1.1-1",
+                 "node_ids": ["kp-01"]}
+                for ex_id in exercise_ids
+            ]
+            return {"course": {"title": "端到端课程", "description": "导入测试", "subject": "数学"},
+                    "nodes": nodes, "exercises": exercises, "mode": "replace"}
+
+        first = client.post("/api/v1/courses/e2e-content/content/import", headers=ADMIN,
+                            json=content_pack(["ex-a", "ex-b", "ex-c"]))
+        check("导入资源包成功", first.status_code == 200, first.text[:160])
+        result = first.json()
+        check("导入报告知识点数", result.get("nodes_upserted") == 4, str(result.get("nodes_upserted")))
+        check("导入报告题目数", result.get("exercises_upserted") == 3, str(result.get("exercises_upserted")))
+        check("首次导入没有退休任何行",
+              result.get("nodes_retired") == 0 and result.get("exercises_retired") == 0,
+              f"{result.get('nodes_retired')}/{result.get('exercises_retired')}")
+        check("导入给了批次号", bool(result.get("batch")), str(result.get("batch")))
+
+        read_back = client.get("/api/v1/courses/e2e-content/content", headers=REVIEWER)
+        check("读回课程内容", read_back.status_code == 200, read_back.text[:120])
+        content = read_back.json()
+        check("读回知识点", len(content["nodes"]) == 4, str(len(content["nodes"])))
+        check("读回题目", len(content["exercises"]) == 3, str(len(content["exercises"])))
+        kept = {n["id"]: n for n in content["nodes"]}
+        check("标签存下来了", kept["kp-01"]["tags"] == ["定理", "确界"], str(kept["kp-01"]["tags"]))
+        check("章节推出来了", kept["kp-01"]["chapter_id"] == "ch-01", str(kept["kp-01"]["chapter_id"]))
+        body = {e["id"]: e for e in content["exercises"]}["ex-a"]
+        check("题目的知识点关联存下来了", body["node_ids"] == ["kp-01"], str(body["node_ids"]))
+        check("溯源按规则解析（书页）", body["source_page"] == 12, str(body["source_page"]))
+        check("溯源判为教材原题", body["provenance"] == "textbook", body["provenance"])
+
+        exported = client.get("/api/v1/courses/e2e-content/content/export", headers=ADMIN)
+        check("导出接口可用", exported.status_code == 200, exported.text[:120])
+        bundle = exported.json()
+        check("导出带知识点.md", '<a id="kp-01"></a>' in bundle["knowledge_md"], bundle["knowledge_md"][:40])
+        check("导出带习题.md", "<!-- source-exercise:ex-a -->" in bundle["exercise_md"],
+              bundle["exercise_md"][:40])
+        check("导出的题目可再导入（含难度出处行）",
+              "**难度：3/5；出处：**" in bundle["exercise_md"])
+        node_ids = [node["id"] for node in bundle["nodes"]]
+        check("导出的知识点.md 覆盖全部节点锚点",
+              all(f'<a id="{node_id}"></a>' in bundle["knowledge_md"] for node_id in node_ids),
+              str(node_ids))
+        check("导出的习题.md 覆盖全部节点锚点",
+              all(f'<a id="{node_id}"></a>' in bundle["exercise_md"] for node_id in node_ids))
+        ex_ids = [item["id"] for item in bundle["exercises"]]
+        check("导出的习题.md 覆盖全部题目 ID",
+              all(f"<!-- source-exercise:{ex_id} -->" in bundle["exercise_md"] for ex_id in ex_ids),
+              str(ex_ids))
+
+        # 老师导出 Excel 改完再导入：这次少了 ex-c，它必须被标记 retired 而不是删掉
+        second = client.post("/api/v1/courses/e2e-content/content/import", headers=ADMIN,
+                             json=content_pack(["ex-a", "ex-b"]))
+        check("第二次导入成功", second.status_code == 200, second.text[:160])
+        changed = second.json()
+        check("整体更新退休了文件里缺的题", changed.get("exercises_retired") == 1,
+              str(changed.get("exercises_retired")))
+        after = client.get("/api/v1/courses/e2e-content/content", headers=REVIEWER).json()
+        check("审核视图里看不到退休的题",
+              sorted(e["id"] for e in after["exercises"]) == ["ex-a", "ex-b"],
+              str(sorted(e["id"] for e in after["exercises"])))
+        with_retired = client.get("/api/v1/courses/e2e-content/content?include_retired=true",
+                                  headers=REVIEWER).json()
+        retired = {e["id"]: e for e in with_retired["exercises"]}
+        check("退休的题还在库里（不物理删除）", retired.get("ex-c", {}).get("review_status") == "retired",
+              str(retired.get("ex-c", {}).get("review_status")))
+
+        # 在线改知识点
+        patched = client.patch("/api/v1/courses/e2e-content/nodes/kp-02", headers=ADMIN,
+                               json={"content_md": "改写后的正文", "tags": ["引理"]})
+        check("在线改知识点成功", patched.status_code == 200, patched.text[:140])
+        check("改完正文生效", patched.json()["content_md"] == "改写后的正文", str(patched.json().get("content_md")))
+        check("改完标签生效", patched.json()["tags"] == ["引理"], str(patched.json().get("tags")))
+
+        created_ex = client.post("/api/v1/courses/e2e-content/exercises", headers=ADMIN,
+                                  json={"prompt_md": "新加的一道题", "answer_md": "略",
+                                        "difficulty": 2, "node_ids": ["kp-02"]})
+        check("在线加题成功", created_ex.status_code == 201, created_ex.text[:140])
+        new_id = created_ex.json()["id"]
+        check("新题自动编号", bool(new_id) and new_id.startswith("ex-"), str(new_id))
+
+        retired_node = client.post("/api/v1/courses/e2e-content/nodes/kp-02/retire", headers=ADMIN)
+        check("知识点可停用", retired_node.status_code == 200, retired_node.text[:120])
+        hide = client.get("/api/v1/courses/e2e-content/content", headers=REVIEWER).json()
+        check("停用后不在正常视图里", "kp-02" not in {n["id"] for n in hide["nodes"]},
+              str(sorted(n["id"] for n in hide["nodes"])))
+
+        student_import = client.post("/api/v1/courses/e2e-content/content/import",
+                                     headers=STUDENT, json=content_pack(["ex-a"]))
+        check("学生不能导入资源包", student_import.status_code == 403, str(student_import.status_code))
+
         # --- 以下会产生真正的数据库错误，必须最后跑（见文件头说明）---
         print("\n数据库约束（放在最后：会让 PGlite 协议错位）：")
         dup = client.post(

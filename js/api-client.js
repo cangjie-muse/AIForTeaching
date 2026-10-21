@@ -191,6 +191,49 @@
     return request('GET', `/api/v1/jobs${query}`);
   }
 
+  // ---------------------------------------------------------------------
+  // 课程内容（资源包导入 / 导出 / 在线修改）
+  //
+  // 资源包在浏览器里解析（CourseImport 已经有整套校验），只把解析结果发给后端。
+  // 服务端不重复实现 xlsx 与 Markdown 的解析规则，也不用装 openpyxl。
+  // ---------------------------------------------------------------------
+  function courseContent(courseId, includeRetired = false) {
+    const query = includeRetired ? '?include_retired=true' : '';
+    return request('GET', `/api/v1/courses/${encodeURIComponent(courseId)}/content${query}`);
+  }
+
+  function importContent(courseId, payload) {
+    return request('POST', `/api/v1/courses/${encodeURIComponent(courseId)}/content/import`, { body: payload });
+  }
+
+  function exportContent(courseId) {
+    return request('GET', `/api/v1/courses/${encodeURIComponent(courseId)}/content/export`);
+  }
+
+  function patchNode(courseId, nodeId, body) {
+    return request('PATCH', `/api/v1/courses/${encodeURIComponent(courseId)}/nodes/${encodeURIComponent(nodeId)}`, { body });
+  }
+
+  function patchExercise(courseId, exerciseId, body) {
+    return request('PATCH', `/api/v1/courses/${encodeURIComponent(courseId)}/exercises/${encodeURIComponent(exerciseId)}`, { body });
+  }
+
+  function createNode(courseId, body) {
+    return request('POST', `/api/v1/courses/${encodeURIComponent(courseId)}/nodes`, { body });
+  }
+
+  function createExercise(courseId, body) {
+    return request('POST', `/api/v1/courses/${encodeURIComponent(courseId)}/exercises`, { body });
+  }
+
+  function retireNode(courseId, nodeId) {
+    return request('POST', `/api/v1/courses/${encodeURIComponent(courseId)}/nodes/${encodeURIComponent(nodeId)}/retire`, {});
+  }
+
+  function retireExercise(courseId, exerciseId) {
+    return request('POST', `/api/v1/courses/${encodeURIComponent(courseId)}/exercises/${encodeURIComponent(exerciseId)}/retire`, {});
+  }
+
   A.api = {
     ApiError,
     base,
@@ -205,6 +248,15 @@
     retryJob,
     job,
     jobList,
+    courseContent,
+    importContent,
+    exportContent,
+    patchNode,
+    patchExercise,
+    createNode,
+    createExercise,
+    retireNode,
+    retireExercise,
     get: (path, options) => request('GET', path, options),
     post: (path, body, options) => request('POST', path, { ...options, body }),
     patch: (path, body, options) => request('PATCH', path, { ...options, body }),

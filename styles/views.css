@@ -355,3 +355,18 @@
 .chat-composer{flex-shrink:0}
 .context-select,.chat-context{flex-shrink:0}
 
+
+/* ---------------------------------------------------------------------------
+   课程内容工作台（合并后的「课程内容」页）
+   三个标签页在同一页里切换，所以标签用按钮不用链接。
+   --------------------------------------------------------------------------- */
+.content-tabs{margin-bottom:6px}
+.content-row{border-top:1px solid var(--line,#e6e8ee);padding:10px 0}
+.content-row:first-of-type{border-top:0}
+.content-row-main{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.content-row-main .btn.small{margin-left:auto}
+.content-row-main .btn.small+.btn.small{margin-left:0}
+.content-row>p{margin:6px 0 0}
+.data-table{width:100%;border-collapse:collapse}
+.data-table th,.data-table td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line,#e6e8ee);font-size:14px}
+.data-table th{font-weight:600;width:40%;color:var(--ink-soft,#5b6472)}

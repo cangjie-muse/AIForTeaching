@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-21T07:04:46.084Z",
+  "checkedAt": "2026-10-21T07:23:41.727Z",
   "scope": "Project source/provenance audit; no private competitor source or internet-wide similarity database comparison",
   "checks": {
     "runtimeFiles": 39,
@@ -18,11 +18,11 @@
   "projectSourceInventory": [
     {
       "path": "index.html",
-      "sha256": "f9d4934352c7d2f7fc46f8dc47bf8011ba4fc4aa0744469fe207be16f06d44b2"
+      "sha256": "ceb170e4c5e435ca470b73906dd65fc5a7375fbbd47f3d1f867d82910ee970b9"
     },
     {
       "path": "js/api-client.js",
-      "sha256": "9bfdcf7f7914ac7d772edbb989ccfadb2e2c55b01bd1e14d58291f711872e6b9"
+      "sha256": "2d523bfadde28c1bea843d984eb28d62373e3bd02dc73701c5894367aa8e1f8e"
     },
     {
       "path": "js/api-config.js",
@@ -30,7 +30,7 @@
     },
     {
       "path": "js/app.js",
-      "sha256": "33160695c60c7d421e31358e1d7777585556cfcc3c820fb1269b3e83bda2a2ab"
+      "sha256": "e7c27277388e6ece7a1dfbcc738d96cdd48badabd394c4c28fd4702047b591a4"
     },
     {
       "path": "js/catalog-view.js",
@@ -43,6 +43,10 @@
     {
       "path": "js/construction-view.js",
       "sha256": "e24691c00781f5d9fbc49c97fb10eb8898ab410f50c1d52333ca0d403b9e1122"
+    },
+    {
+      "path": "js/content.js",
+      "sha256": "692d829d61e02ca865ed2239028dd36be631f7b6d536730640cb5949a145e0d4"
     },
     {
       "path": "js/core.js",
@@ -66,7 +70,7 @@
     },
     {
       "path": "js/generate.js",
-      "sha256": "e6f489e7fbe75d057a99ee635218dd814ace49be5e3e83fb8a9520fd3dfa54f3"
+      "sha256": "1efb46b3e1a0780f9c2273c6a785dcf5bbcdd4d5ac3335b44709dc131b10b888"
     },
     {
       "path": "js/graph-atlas.js",
@@ -87,10 +91,6 @@
     {
       "path": "js/import-core.js",
       "sha256": "32feb4e666bf26ee3982400d41c23d3c5660b505051c1598106ccb45cd53f0fc"
-    },
-    {
-      "path": "js/import-ui.js",
-      "sha256": "c76b027999ae8397e5893b1e0ae5a5c87d6943dc702a6cbc59153598a566d384"
     },
     {
       "path": "js/learning.js",
@@ -166,7 +166,7 @@
     },
     {
       "path": "styles/views.css",
-      "sha256": "10eb6f7176701f7c69f97164427fa314e4d7eb908d09f4a83057207e335e92db"
+      "sha256": "04c413ed7a410ba2b570a09fb6d31638181d088c0cf8810ec968d6ed5adcb346"
     },
     {
       "path": "assets/mark.svg",
@@ -246,11 +246,15 @@
     },
     {
       "path": "scripts/test-python.cjs",
-      "sha256": "a7de7b5214c3a0e95ea0514997ddfe0277a21dc42d0113b937a20aec7e4a99ef"
+      "sha256": "3f9a7a8e00580744b85090b769bc16ca33623e3a1c49ebc96afe52aed2a7ab0e"
     },
     {
       "path": "scripts/test-view-api-config.cjs",
       "sha256": "bb7ac66613ff4fa356a423bbc32e7dd1deedfad2dddfe885fb4f37bd92f59a76"
+    },
+    {
+      "path": "scripts/test-view-content.cjs",
+      "sha256": "433a879f1e4decf5be6127c700d6a31e23365b3a8691a7c46648dd281d3c2ce5"
     },
     {
       "path": "scripts/test-view-generate.cjs",
@@ -282,7 +286,7 @@
     },
     {
       "path": "eslint.config.mjs",
-      "sha256": "8a76e6e4bb123689986d3d37b42181304caff749875e0f3d15c93a8e4bf0025c"
+      "sha256": "f329d246313e58cbe590ef0f3c6dfb92e1c3e91190c983bbaf858ca6006ce69d"
     }
   ],
   "openSource": [
@@ -1248,7 +1252,7 @@
     },
     {
       "path": "course-packs/e2e-course/generated/job-1/生成说明.json",
-      "sha256": "e93c665cd8874e1a3f65f1ce9f68b18e90a25a8671f9432af713bc6f3c6c0c30"
+      "sha256": "7300cea88246d058b6c0576d6d74ddaa3208a3d5ac291f21bd30a49239c838e5"
     },
     {
       "path": "course-packs/e2e-course/generated/job-1/知识点.md",
@@ -1264,7 +1268,7 @@
     },
     {
       "path": "course-packs/e2e-course/generated/job-3/生成说明.json",
-      "sha256": "199a9db7308a75a3ff2c35e44ee119ec1cdc5ca74f7e86930f1ee4bbfd59addc"
+      "sha256": "cee3e9d7366decf30c5c7d933a5b2544373fffa73da57e0da1b7ed62fe82c079"
     },
     {
       "path": "course-packs/e2e-course/generated/job-3/知识点.md",
@@ -1280,7 +1284,7 @@
     },
     {
       "path": "course-packs/e2e-course/generated/job-4/生成说明.json",
-      "sha256": "0876115055b92714d01b226fc308958123b44ab96ae95898ee913573d3616f83"
+      "sha256": "a086928a6db08fdf917cf7c2526432da79d5628b53c2c05781ff0e18cba9cde6"
     },
     {
       "path": "course-packs/e2e-course/generated/job-4/知识点.md",

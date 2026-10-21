@@ -199,13 +199,20 @@
     </div>`;
   }
 
+  // 正文单独暴露：合并后的「课程内容」页用它作为「AI 生成」标签的内容，
+  // 标题与标签栏由那一页统一给，免得同一块界面写两份。
+  A.panels = A.panels || {};
+  A.panels.generate = function () {
+    return S().job ? jobPanel() + childrenPanel() : formPanel() + planPanel();
+  };
+
   A.views.generate = function () {
     const heading = A.sectionTitle(
       'COURSE BUILDER',
       '教材生成',
       '上传教材 PDF，平台切章后逐章调用模型，生成知识点与习题。结果一律先入审核队列，审核通过才进学生端。'
     );
-    return heading + (S().job ? jobPanel() + childrenPanel() : formPanel() + planPanel());
+    return heading + A.panels.generate();
   };
 
   A.after.generate = function () {
@@ -282,7 +289,7 @@
   function poll(jobId, isBook) {
     stopPolling();
     const tick = async () => {
-      if (A.route.page !== 'generate') { stopPolling(); return; }
+      if (A.route.page !== 'generate' && A.route.page !== 'content') { stopPolling(); return; }
       try {
         S().job = await A.api.job(jobId);
         if (isBook) {

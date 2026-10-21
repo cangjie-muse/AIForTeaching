@@ -1,8 +1,8 @@
-export default [{
+﻿export default [{
   files: ['js/**/*.js', 'scripts/*.mjs', 'scripts/*.cjs'],
   languageOptions: {
     ecmaVersion: 'latest', sourceType: 'script',
-    globals: Object.fromEntries(['window', 'document', 'console', 'localStorage', 'location', 'URL', 'URLSearchParams', 'Blob', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'indexedDB', 'fetch', 'App', 'CourseCatalog', 'ConstructionModel', 'GraphModel', 'GraphAtlas', 'DOMPoint', 'CourseImport', 'CourseXlsx', 'CourseStore', 'katex', 'marked', 'DOMPurify', 'module', 'require', 'process', '__dirname', 'globalThis'].map(name => [name, 'readonly']))
+    globals: Object.fromEntries(['window', 'document', 'console', 'localStorage', 'location', 'URL', 'URLSearchParams', 'Blob', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'indexedDB', 'fetch', 'App', 'CourseCatalog', 'ConstructionModel', 'GraphModel', 'GraphAtlas', 'DOMPoint', 'CourseImport', 'CourseXlsx', 'ExcelJS', 'CourseStore', 'katex', 'marked', 'DOMPurify', 'module', 'require', 'process', '__dirname', 'globalThis'].map(name => [name, 'readonly']))
   },
   rules: {
     'no-unreachable': 'error', 'no-dupe-args': 'error', 'no-dupe-keys': 'error',
