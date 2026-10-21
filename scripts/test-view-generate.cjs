@@ -56,6 +56,7 @@ function reset(overrides) {
   App.state.generate = {
     courses: [{ id: 'analysis-ii', title: '数学分析 II' }],
     loaded: true,
+    mode: 'book',
     courseId: 'analysis-ii',
     title: '数学分析（第三版）下册',
     pageFrom: 1,
@@ -71,12 +72,39 @@ function reset(overrides) {
 
 console.log('教材生成页：');
 
+// 0. 默认是整本模式：老师只需要上传一个 PDF
+reset();
+var html = App.views.generate();
+check('默认是整本模式', html.includes('整本（自动切章）') && html.includes('上传并识别章节'));
+check('整本模式不要求填起止页', !html.includes('id="gen-from"'));
+check('有「单章」模式可切', html.includes('data-mode="chapter"'));
+
+// 0b. 切章预览：先给老师看一眼，再决定跑不跑
+reset({ plan: { source: 'heading', warning: '', items: [
+  { key: 'ch-1', title: '第1章 实数', page_from: 1, page_to: 12, chars: 8000 },
+  { key: 'ch-2', title: '第2章 极限', page_from: 13, page_to: 28, chars: 9000 }
+] } });
+html = App.views.generate();
+check('预览列出每一章', html.includes('第1章 实数') && html.includes('第2章 极限'));
+check('预览说明按标题还是按页窗切', html.includes('按章标题'));
+check('预览后要确认才开跑', html.includes('generate-confirm-book'));
+
+// 0c. 页窗兜底要提示出来
+reset({ plan: { source: 'window', warning: '没有识别到两个以上的章标题，已按每 15 页自动切分',
+  items: [{ key: 'part-1', title: '第 1–15 页（自动切分）', page_from: 1, page_to: 15, chars: 500 }] } });
+html = App.views.generate();
+check('页窗切分会显示警告', html.includes('没有识别到两个以上的章标题'));
+
 // 1. 初始表单
 reset();
-let html = App.views.generate();
+html = App.views.generate();
 check('页面说明生成结果先进审核', html.includes('审核通过才进学生端') || html.includes('审核通过'));
 check('课程下拉来自后端课程列表', html.includes('analysis-ii'));
-check('起止页有默认值', html.includes('id="gen-from"') && html.includes('id="gen-to"'));
+reset({ mode: 'chapter' });
+html = App.views.generate();
+check('单章模式有起止页默认值', html.includes('id="gen-from"') && html.includes('id="gen-to"'));
+reset();
+html = App.views.generate();
 check('有文件选择框', html.includes('type="file"') && html.includes('accept="application/pdf"'));
 
 // 2. 上传后展示探测结果
@@ -119,6 +147,23 @@ check('成功时点明进入待审', html.includes('draft') || html.includes('�
 check('成功时能跳到审核队列', html.includes('data-action') && html.includes('review'));
 check('警告可展开查看', html.includes('<details') && html.includes('极限'));
 
+// 5b. 整本任务：显示每章进度，失败的章能单独重试
+reset({
+  job: { id: 12, kind: 'generate-book', status: 'failed', progress: 10, attempts: 1,
+         result: { chapters: 2, succeeded: 1, failed: [{ key: 'ch-2', title: '第2章 极限', error: '这一章没有抽到文字' }] } },
+  children: [
+    { id: 13, chapter_key: 'ch-1', chapter_title: '第1章 实数', status: 'succeeded', result: {} },
+    { id: 14, chapter_key: 'ch-2', chapter_title: '第2章 极限', status: 'failed', error: '这一章没有抽到文字', result: {} }
+  ]
+});
+html = App.views.generate();
+check('整本任务标题标出「整本」', html.includes('整本'));
+check('列出每章状态', html.includes('第1章 实数') && html.includes('第2章 极限'));
+check('失败章给出原因', html.includes('这一章没有抽到文字'));
+check('失败章能单独重试', html.includes('generate-retry') && html.includes('data-job="14"'));
+check('整本也能重试失败的章', html.includes('重试失败的章'));
+check('显示完成章数', html.includes('1/2 章完成'));
+
 // 6. 表单校验：没选文件时给具体原因
 (async () => {
   reset();
@@ -129,7 +174,7 @@ check('警告可展开查看', html.includes('<details') && html.includes('极�
   check('没选文件时给出明确提示', message.includes('先选一个 PDF'), message);
 
   // 7. 页码填反
-  reset({ pageFrom: 30, pageTo: 10 });
+  reset({ mode: 'chapter', pageFrom: 30, pageTo: 10 });
   sandbox.document.getElementById = id => (id === 'gen-file'
     ? { files: [{ name: 'book.pdf', type: 'application/pdf' }] }
     : null);

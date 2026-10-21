@@ -20,7 +20,7 @@ if (!fs.existsSync(python)) {
   process.exit(1);
 }
 
-const suites = ['server/tests/test_policy.py', 'server/tests/test_source_parse.py', 'server/tests/test_generation.py'];
+const suites = ['server/tests/test_policy.py', 'server/tests/test_source_parse.py', 'server/tests/test_generation.py', 'server/tests/test_chapters.py'];
 let failed = 0;
 
 for (const suite of suites) {

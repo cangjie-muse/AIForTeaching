@@ -20,8 +20,8 @@ sys.path.insert(0, str(ROOT / "server"))
 sys.path.insert(0, str(ROOT / "db"))
 
 from app.generation import (  # noqa: E402
-    Pack, apply_pack, exercise_source_text, fake_payload, node_id,
-    render_exercise_md, render_knowledge_md, validate_payload,
+    Pack, apply_pack, assign_ids, exercise_source_text, fake_payload, node_id,
+    pack_ids, render_exercise_md, render_knowledge_md, validate_payload,
 )
 from build_seed import parse_source  # noqa: E402
 
@@ -125,6 +125,37 @@ print("\n演示模式：")
 fake = fake_payload("<!-- page 1 -->\n第一章 实数\n<!-- page 2 -->\n内容")
 check("演示输出能过校验", validate_payload(fake, 1, 2).nodes[0]["title"] == "演示知识点")
 check("演示输出自报家门", "演示" in fake["chapter_title"])
+
+print("\n两章同名时 id 不能撞（撞了会互相覆盖）：")
+
+same_title_a = validate_payload(GOOD, 10, 20)
+same_title_b = validate_payload(GOOD, 30, 40)      # 标题一模一样，只是页码不同
+chapter_a, prefix_a = pack_ids(same_title_a, {"page_from": 10, "page_to": 20}, "ch-1")
+chapter_b, prefix_b = pack_ids(same_title_b, {"page_from": 30, "page_to": 40}, "ch-2")
+check("同名两章拿到不同章 id", chapter_a != chapter_b, f"{chapter_a} / {chapter_b}")
+check("同名两章拿到不同题目前缀", prefix_a != prefix_b, f"{prefix_a} / {prefix_b}")
+
+assign_ids(same_title_a, {"page_from": 10, "page_to": 20}, "ch-1")
+assign_ids(same_title_b, {"page_from": 30, "page_to": 40}, "ch-2")
+check("同名两章的题号不冲突", same_title_a.exercises[0]["id"] != same_title_b.exercises[0]["id"],
+      f"{same_title_a.exercises[0]['id']} / {same_title_b.exercises[0]['id']}")
+
+# 同一个 chapter_key 重跑要拿到同样的 id，否则重跑会重复出题
+assign_ids(same_title_a, {"page_from": 10, "page_to": 20}, "ch-1")
+check("同一章重跑 id 稳定", same_title_a.exercises[0]["id"] == f"{prefix_a}001",
+      same_title_a.exercises[0]["id"])
+
+single = validate_payload(GOOD, 10, 20)
+single_chapter, single_prefix = pack_ids(single, {"page_from": 10, "page_to": 20}, None)
+check("单章模式用页码范围做前缀", single_prefix.startswith("gen-p10-20-"), single_prefix)
+
+print("\n演示模式的标题要来自章节正文，不是来自提示语：")
+
+prompt = ("下面是教材第 2 页的文字。页标记里的数字是 PDF 页；书页码 = PDF 页 - 0。\n"
+          "---- 教材文字开始 ----\n<!-- page 3 -->\n第2章 极限\n内容\n---- 教材文字结束 ----")
+demo = fake_payload(prompt)
+check("演示标题取章节首行", "第2章 极限" in demo["chapter_title"], demo["chapter_title"])
+check("不会把提示语当标题", "下面是教材" not in demo["chapter_title"], demo["chapter_title"])
 
 print()
 if failures:

@@ -49,15 +49,17 @@ async function main() {
   // pgcrypto 在 PGlite 里是 contrib 扩展，必须显式加载注册后 CREATE EXTENSION 才有效。
   // pgvector 没有，所以 schema 用 --pglite-compat 降级（见 db/migrate.py）。
   const { pgcrypto } = await import('@electric-sql/pglite/contrib/pgcrypto');
-  const db = await PGlite.create({ extensions: { pgcrypto } });
-  const server = new PGLiteSocketServer({ db, port: PORT, host: '127.0.0.1' });
+  const db = await PGlite.create({ extensions: { pgcrypto } });  const server = new PGLiteSocketServer({ db, port: PORT, host: '127.0.0.1' });
   await server.start();
   console.log(`PGlite 已监听 127.0.0.1:${PORT}`);
 
   // 放在仓库内的 .tmp/ 下：系统临时目录在 Windows 上会因 ACL/受控文件夹访问
   // 导致子进程写文件被拒（EACCES），换到工作区就稳定了。
-  const secretsDir = path.join(root, '.tmp', 'e2e-secrets');
-  fs.rmSync(secretsDir, { recursive: true, force: true });
+  // 只清自己的子目录，绝不清整个 .tmp —— 开发库 .tmp/dev-db 也在那里，
+  // 之前"顺手删 .tmp"直接把开发数据删了。
+  const workDir = path.join(root, '.tmp', 'e2e-run');
+  const secretsDir = path.join(workDir, 'secrets');
+  fs.rmSync(workDir, { recursive: true, force: true });
   fs.mkdirSync(secretsDir, { recursive: true });
   const env = {
     ...process.env,
@@ -94,7 +96,12 @@ async function main() {
   } finally {
     await server.stop();
     await db.close();
-    fs.rmSync(path.join(root, '.tmp'), { recursive: true, force: true });
+    // 只删本轮产物。Windows 上偶尔删不掉（文件仍被占用），那是清理问题，不该让测试判失败。
+    try {
+      fs.rmSync(workDir, { recursive: true, force: true });
+    } catch (error) {
+      console.warn(`[清理] ${workDir} 未删干净（不影响测试结果）：${error.code || error.message}`);
+    }
   }
   process.exit(code);
 }

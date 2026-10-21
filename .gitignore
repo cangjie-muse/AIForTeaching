@@ -30,3 +30,9 @@ secrets/
 /secrets
 .tmp/
 e2e.log
+
+# 生成流水线的产出：每次跑都会重写，不进仓库（样例包 course-packs/<课程>/ 仍保留）
+course-packs/*/generated/
+# 本机调试用的临时脚本与日志
+.scratch/
+e2e-gen-*/

@@ -164,6 +164,24 @@
     return request('POST', `/api/v1/textbooks/${encodeURIComponent(textbookId)}/generate`, { body });
   }
 
+  // 整本：平台自己切章，逐章生成。切章结果先给老师看一眼，再决定跑不跑。
+  function textbookChapters(textbookId, window) {
+    const query = window ? `?window=${encodeURIComponent(window)}` : '';
+    return request('GET', `/api/v1/textbooks/${encodeURIComponent(textbookId)}/chapters${query}`);
+  }
+
+  function startBookGeneration(textbookId, body) {
+    return request('POST', `/api/v1/textbooks/${encodeURIComponent(textbookId)}/generate-book`, { body });
+  }
+
+  function jobChildren(jobId) {
+    return request('GET', `/api/v1/jobs/${encodeURIComponent(jobId)}/children`);
+  }
+
+  function retryJob(jobId) {
+    return request('POST', `/api/v1/jobs/${encodeURIComponent(jobId)}/retry`, {});
+  }
+
   function job(jobId) {
     return request('GET', `/api/v1/jobs/${encodeURIComponent(jobId)}`);
   }
@@ -181,6 +199,10 @@
     submitAttempt,
     uploadTextbook,
     startGeneration,
+    textbookChapters,
+    startBookGeneration,
+    jobChildren,
+    retryJob,
     job,
     jobList,
     get: (path, options) => request('GET', path, options),

@@ -93,6 +93,14 @@ class GenerateIn(BaseModel):
     new_course_title: str | None = Field(default=None, max_length=120)
 
 
+class BookIn(BaseModel):
+    """整本生成：不用填页码范围，平台自己切章。"""
+    window: int | None = Field(default=None, ge=5, le=60)
+    chapter_hint: str | None = Field(default=None, max_length=80)
+    new_course_id: str | None = Field(default=None, max_length=80)
+    new_course_title: str | None = Field(default=None, max_length=120)
+
+
 @dataclass
 class Pack:
     chapter_title: str
@@ -317,9 +325,19 @@ def build_messages(chapter_text: str, chapter_hint: str | None, page_offset: int
 
 
 def fake_payload(chapter_text: str) -> dict:
-    """演示模式：结构真实、内容占位。APP_ENV=prod 时 main.py 拒绝启动。"""
-    first_line = next((line.strip() for line in chapter_text.splitlines()
-                       if line.strip() and not line.startswith("<!--")), "本章内容")
+    """演示模式：结构真实、内容占位。APP_ENV=prod 时 main.py 拒绝启动。
+
+    只在"教材文字开始"标记之后取标题：整段 prompt 的第一行是"下面是教材第 N 页"，
+    用它当标题会让所有同页数的章取到同一个标题，进而撞上同一个章 id——
+    演示模式下看起来只是标题难看，真模型一旦给出重名标题就是数据互相覆盖。
+    """
+    body = chapter_text
+    marker = "---- 教材文字开始 ----"
+    if marker in body:
+        body = body.split(marker, 1)[1]
+    first_line = next((line.strip() for line in body.splitlines()
+                       if line.strip() and not line.startswith("<!--")
+                       and not line.startswith("----")), "本章内容")
     title = first_line[:30] or "第一章"
     return {
         "chapter_title": f"【演示】{title}",
@@ -366,10 +384,30 @@ def call_model(messages: list[dict]) -> tuple[dict, dict]:
 # ---------------------------------------------------------------------------
 # 落库
 # ---------------------------------------------------------------------------
-def apply_pack(course_id: str, pack: Pack, source: dict, book: dict) -> dict:
+def pack_ids(pack: Pack, source: dict, chapter_key: str | None) -> tuple[str, str]:
+    """这一章的章 id 与题目 id 前缀。
+
+    必须带上"哪一章"（chapter_key），不能只用章标题的哈希：教材里两章同名（比如
+    两个「习题课」）是正常情况，只用标题哈希会让后一章的题覆盖前一章的题——
+    数据上看不出错，只是第一章的题凭空消失。单章模式没有 chapter_key，退回用页码范围。
+    """
+    suffix = _short_hash(pack.chapter_title, 3)
+    base = chapter_key or f"p{source.get('page_from')}-{source.get('page_to')}"
+    return f"{base}-{suffix}", f"gen-{base}-{suffix}-"
+
+
+def assign_ids(pack: Pack, source: dict, chapter_key: str | None = None) -> str:
+    """给题目编号。资源包里的 <!-- source-exercise:ID --> 要用它，落库也要用它。"""
+    _, prefix = pack_ids(pack, source, chapter_key)
+    for index, ex in enumerate(pack.exercises, start=1):
+        ex["id"] = f"{prefix}{index:03d}"
+    return prefix
+
+
+def apply_pack(course_id: str, pack: Pack, source: dict, book: dict,
+               *, chapter_key: str | None = None) -> dict:
     """把校验过的资源包写进库。重复跑同一个任务不会产生重复题目。"""
-    chapter = chapter_id(pack.chapter_title)
-    prefix = f"gen-{_short_hash(pack.chapter_title, 4)}-"
+    chapter, prefix = pack_ids(pack, source, chapter_key)
 
     ord_row = db.query_one(
         "SELECT coalesce(max(ord), 0) + 1 AS next FROM chapter WHERE course_id = %s", (course_id,))
@@ -409,7 +447,7 @@ def apply_pack(course_id: str, pack: Pack, source: dict, book: dict) -> dict:
     db.execute("DELETE FROM exercise WHERE course_id = %s AND id LIKE %s", (course_id, prefix + "%"))
 
     for index, ex in enumerate(pack.exercises, start=1):
-        ex["id"] = f"{prefix}{index:03d}"
+        ex.setdefault("id", f"{prefix}{index:03d}")
         raw_source = exercise_source_text(ex, source)
         provenance = "textbook" if (ex["from_textbook"] and ex["page"]) else "ai-generated"
         db.execute(
@@ -462,24 +500,30 @@ def _job_view(row: dict) -> dict:
         "progress": row["progress"], "attempts": row["attempts"],
         "course_id": row.get("course_id"), "textbook_id": row.get("textbook_id"),
         "error": row.get("error"), "result": row.get("result"),
+        "parent_id": row.get("parent_id"), "chapter_key": row.get("chapter_key"),
+        "chapter_title": row.get("chapter_title"),
         "created_at": row["created_at"], "started_at": row.get("started_at"),
         "finished_at": row.get("finished_at"),
     }
 
 
-def enqueue(payload: dict, actor: str) -> dict:
+def enqueue(payload: dict, actor: str, *, kind: str = "generate",
+            parent_id: int | None = None, chapter_key: str | None = None,
+            chapter_title: str | None = None) -> dict:
     row = db.query_one(
-        """INSERT INTO pipeline_job (kind, payload, course_id, textbook_id, requested_by)
-           VALUES ('generate', %s::jsonb, %s, %s, %s)
+        """INSERT INTO pipeline_job
+             (kind, payload, course_id, textbook_id, requested_by, parent_id,
+              chapter_key, chapter_title)
+           VALUES (%s, %s::jsonb, %s, %s, %s, %s, %s, %s)
            RETURNING *""",
-        (json.dumps(payload, ensure_ascii=False), payload.get("course_id"),
-         payload.get("textbook_id"), actor),
+        (kind, json.dumps(payload, ensure_ascii=False), payload.get("course_id"),
+         payload.get("textbook_id"), actor, parent_id, chapter_key, chapter_title),
     )
     return _job_view(row)
 
 
 def claim_next() -> dict | None:
-    """领取一个待处理任务。
+    """领取一个待处理任务（单章或整本）。
 
     分两步写，而不是 `UPDATE ... WHERE id = (SELECT ... FOR UPDATE SKIP LOCKED)`：
     PGlite（测试用的 WASM PostgreSQL）对这种"子查询里加锁 + 外层 UPDATE"会返回错位的结果集，
@@ -488,7 +532,7 @@ def claim_next() -> dict | None:
     """
     candidate = db.query_one(
         """SELECT id FROM pipeline_job
-            WHERE status = 'queued' AND kind = 'generate'
+            WHERE status = 'queued' AND kind IN ('generate', 'generate-book')
             ORDER BY created_at
             LIMIT 1"""
     )
@@ -563,12 +607,189 @@ def _finish(job_id: int, status: str, *, result: dict | None = None, error: str 
     )
 
 
+def plan_chapters(textbook: dict, payload: dict) -> dict:
+    """按标题切章；切不出来就按页窗切，并带上 warning。"""
+    from . import chapters as chapters_mod
+
+    pages = _load_pages(textbook)
+    plan = chapters_mod.split_chapters(pages, window=int(payload.get("window") or 15))
+    return {**plan, "pages_available": len(pages)}
+
+
+def expand_book(job: dict) -> tuple[dict, list[dict], int]:
+    """把整本任务拆成每章一个子任务。
+
+    已存在的子任务（同一父任务、同一 chapter_key）不会重建——
+    唯一索引会挡住，这里用 ON CONFLICT DO NOTHING 静默跳过，返回跳过的条数。
+    """
+    payload = job["payload"] or {}
+    textbook = db.query_one("SELECT * FROM textbook WHERE id = %s", (payload.get("textbook_id"),))
+    if not textbook:
+        raise ValueError(f"教材不存在：{payload.get('textbook_id')}")
+    plan = plan_chapters(textbook, payload)
+    if not plan["items"]:
+        raise ValueError("这本书没有可切分的文字：可能是扫描件，需要先 OCR")
+
+    created: list[dict] = []
+    skipped = 0
+    for item in plan["items"]:
+        chapter_payload = {
+            **payload,
+            "page_from": item["page_from"],
+            "page_to": item["page_to"],
+            "chapter_hint": item["title"],
+        }
+        row = db.query_one(
+            """INSERT INTO pipeline_job
+                 (kind, payload, course_id, textbook_id, requested_by,
+                  parent_id, chapter_key, chapter_title)
+               VALUES ('generate', %s::jsonb, %s, %s, %s, %s, %s, %s)
+               ON CONFLICT DO NOTHING
+               RETURNING *""",
+            (json.dumps(chapter_payload, ensure_ascii=False), payload.get("course_id"),
+             payload.get("textbook_id"), job.get("requested_by"), job["id"],
+             item["key"], item["title"]),
+        )
+        if row:
+            created.append(_job_view(row))
+        else:
+            skipped += 1
+    return plan, created, skipped
+
+
+def refresh_parent(parent_id: int) -> dict | None:
+    """子任务状态变化后重算父任务进度。
+
+    父任务只在"所有章都有结论"时给出终态：全成功算成功，有任何一章失败算失败
+    （并列出失败章），还有排队/在跑的就继续 running。这样老师看到红点就知道要点重试。
+    """
+    children = db.query(
+        """SELECT id, status, chapter_key, chapter_title, error
+             FROM pipeline_job WHERE parent_id = %s ORDER BY id""",
+        (parent_id,),
+    )
+    if not children:
+        return None
+    total = len(children)
+    done = sum(1 for row in children if row["status"] in ("succeeded", "failed"))
+    failed = [row for row in children if row["status"] == "failed"]
+    progress = 10 + int(85 * done / total)
+    if done < total:
+        db.execute(
+            "UPDATE pipeline_job SET status = 'running', progress = %s WHERE id = %s",
+            (progress, parent_id),
+        )
+        return None
+
+    result = {
+        "chapters": total,
+        "succeeded": total - len(failed),
+        "failed": [{"key": row["chapter_key"], "title": row["chapter_title"],
+                    "error": row["error"]} for row in failed],
+    }
+    status = "succeeded" if not failed else "failed"
+    db.execute(
+        """UPDATE pipeline_job
+              SET status = %s, progress = 100, finished_at = now(),
+                  result = %s::jsonb,
+                  error = %s
+            WHERE id = %s""",
+        (status, json.dumps(result, ensure_ascii=False, default=str),
+         f"{len(failed)} 章失败，可在任务列表里单独重试" if failed else None, parent_id),
+    )
+    return None
+
+
+def _run_book_job(job_id: int, job: dict) -> None:
+    plan, created, skipped = expand_book(job)
+    summary = {"chapters": len(plan["items"]), "queued": len(created),
+               "existing": skipped, "source": plan["source"],
+               "warning": plan["warning"]}
+    if created:
+        db.execute(
+            """UPDATE pipeline_job
+                  SET status = 'running', progress = 10, result = %s::jsonb,
+                      started_at = coalesce(started_at, now())
+                WHERE id = %s""",
+            (json.dumps(summary, ensure_ascii=False), job_id),
+        )
+        return
+    # 重跑：子任务都在，直接按现有状态收口（可能上一轮已经全跑完了）
+    refresh_parent(job_id)
+    row = db.query_one("SELECT status FROM pipeline_job WHERE id = %s", (job_id,))
+    if row and row["status"] == "running":
+        db.execute(
+            """UPDATE pipeline_job
+                  SET status = 'succeeded', progress = 100, finished_at = now(),
+                      result = %s::jsonb, error = NULL
+                WHERE id = %s""",
+            (json.dumps(summary, ensure_ascii=False), job_id),
+        )
+
+
+def retry_job(job_id: int) -> dict:
+    """重排队：失败的单章任务，或整本任务里失败的章。"""
+    job = db.query_one("SELECT * FROM pipeline_job WHERE id = %s", (job_id,))
+    if not job:
+        raise ValueError(f"任务不存在：{job_id}")
+
+    if job["kind"] == "generate-book":
+        db.execute(
+            """UPDATE pipeline_job
+                  SET status = 'queued', progress = 0, error = NULL, finished_at = NULL
+                WHERE parent_id = %s AND status = 'failed'""",
+            (job_id,),
+        )
+        db.execute(
+            """UPDATE pipeline_job
+                  SET status = 'queued', progress = 0, error = NULL, finished_at = NULL
+                WHERE id = %s""",
+            (job_id,),
+        )
+        return _job_view(db.query_one("SELECT * FROM pipeline_job WHERE id = %s", (job_id,)))
+
+    if job["status"] not in ("failed", "cancelled"):
+        raise ValueError("只有失败或取消的任务能重试")
+    db.execute(
+        """UPDATE pipeline_job
+              SET status = 'queued', progress = 0, error = NULL, finished_at = NULL
+            WHERE id = %s""",
+        (job_id,),
+    )
+    if job.get("parent_id"):
+        db.execute(
+            """UPDATE pipeline_job
+                  SET status = 'running', progress = 10, finished_at = NULL, error = NULL
+                WHERE id = %s""",
+            (job["parent_id"],),
+        )
+    return _job_view(db.query_one("SELECT * FROM pipeline_job WHERE id = %s", (job_id,)))
+
+
+def children_of(job_id: int) -> list[dict]:
+    rows = db.query(
+        "SELECT * FROM pipeline_job WHERE parent_id = %s ORDER BY id", (job_id,))
+    return [_job_view(row) for row in rows]
+
+
 def run_job(job_id: int) -> dict:
     """执行一个生成任务。失败不抛异常，写进 job.error —— worker 要继续跑下一个。"""
     job = db.query_one("SELECT * FROM pipeline_job WHERE id = %s", (job_id,))
     if not job:
         raise ValueError(f"任务不存在：{job_id}")
     payload = job["payload"] or {}
+
+    if job["kind"] == "generate-book":
+        try:
+            _run_book_job(job_id, job)
+        except Exception as error:  # noqa: BLE001
+            print(f"[任务 {job_id}] 整本任务失败：{type(error).__name__}: {error}",
+                  file=sys.stderr, flush=True)
+            _finish(job_id, "failed", error=f"{type(error).__name__}: {error}")
+        row = db.query_one("SELECT * FROM pipeline_job WHERE id = %s", (job_id,))
+        return _job_view(row) if row else {"id": job_id, "status": "failed",
+                                           "error": "任务记录读不出来（数据库可能已回滚）"}
+
     try:
         textbook = db.query_one("SELECT * FROM textbook WHERE id = %s", (payload.get("textbook_id"),))
         if not textbook:
@@ -606,8 +827,11 @@ def run_job(job_id: int) -> dict:
         }
 
         _step(job_id, 80)
+        # 先编号再写资源包：习题.md 里的 <!-- source-exercise:ID --> 要与库里一致，
+        # 否则导入器读回来是 None，题目就对不上号了。
+        assign_ids(pack, source, job.get("chapter_key"))
         pack_dir = write_pack_files(course_id, job_id, pack, source, book, course_title)
-        counts = apply_pack(course_id, pack, source, book)
+        counts = apply_pack(course_id, pack, source, book, chapter_key=job.get("chapter_key"))
 
         _finish(job_id, "succeeded", result={
             "course_id": course_id, "chapter_id": counts["chapter_id"],
@@ -616,11 +840,16 @@ def run_job(job_id: int) -> dict:
             "prompt_version": PROMPT_VERSION, "model": meta.get("model"),
             "data_scope": meta.get("data_scope"), "truncated": source["truncated"],
         })
+        # 整本任务靠这个把每一章的结果汇总成总进度
+        if job.get("parent_id"):
+            refresh_parent(job["parent_id"])
     except Exception as error:  # noqa: BLE001 - 任何失败都要落进任务记录
         # 除了写进任务，还要打到 stderr：PGlite 在一次 SQL 报错后协议会错位，
         # 那时再去读任务表可能读不到东西，日志是唯一还能看到原始错误的地方。
         print(f"[任务 {job_id}] 失败：{type(error).__name__}: {error}", file=sys.stderr, flush=True)
         _finish(job_id, "failed", error=f"{type(error).__name__}: {error}")
+        if job.get("parent_id"):
+            refresh_parent(job["parent_id"])
     row = db.query_one("SELECT * FROM pipeline_job WHERE id = %s", (job_id,))
     return _job_view(row) if row else {"id": job_id, "status": "failed",
                                        "error": "任务记录读不出来（数据库可能已回滚）"}
@@ -717,12 +946,64 @@ def start_generation(textbook_id: str, body: GenerateIn,
     return {"job": job, "hint": "worker 会领取这个任务；用 GET /api/v1/jobs/{id} 看进度。"}
 
 
+@router.get("/textbooks/{textbook_id}/chapters")
+def preview_chapters(textbook_id: str, window: int | None = None,
+                     actor: Actor = Depends(require("admin"))) -> dict:
+    """先看看平台会怎么切章，再决定要不要跑整本。
+
+    切章要读全文，所以这本书必须已经抽过文本；没有就明确说差哪一步，
+    而不是让老师提交之后等一个失败的任务。
+    """
+    textbook = db.query_one("SELECT * FROM textbook WHERE id = %s", (textbook_id,))
+    if not textbook:
+        raise HTTPException(404, f"教材不存在：{textbook_id}")
+    if not textbook.get("text_path"):
+        raise HTTPException(
+            409, "这本教材还没抽取文本：先跑 python scripts/extract_pdf.py，"
+                 "或在「单章」模式下提交一次生成（会自动抽取并保存）。")
+    plan = plan_chapters(textbook, {"window": window})
+    return {**plan, "textbook_id": textbook_id, "title": textbook["title"]}
+
+
+@router.post("/textbooks/{textbook_id}/generate-book", status_code=202)
+def start_book_generation(textbook_id: str, body: BookIn,
+                          actor: Actor = Depends(require("admin"))) -> dict:
+    textbook = db.query_one("SELECT * FROM textbook WHERE id = %s", (textbook_id,))
+    if not textbook:
+        raise HTTPException(404, f"教材不存在：{textbook_id}")
+
+    payload = {
+        "textbook_id": textbook_id,
+        "course_id": body.new_course_id or textbook["course_id"],
+        "new_course_title": body.new_course_title,
+        "chapter_hint": body.chapter_hint,
+        "window": body.window,
+    }
+    job = enqueue(payload, actor.id, kind="generate-book")
+    return {"job": job,
+            "hint": "worker 会先切章，再逐章生成；用 GET /api/v1/jobs/{id} 看总进度，"
+                    "GET /api/v1/jobs/{id}/children 看每章状态。"}
+
+
 @router.get("/jobs/{job_id}")
 def get_job(job_id: int, actor: Actor = Depends(require("reviewer"))) -> dict:
     row = db.query_one("SELECT * FROM pipeline_job WHERE id = %s", (job_id,))
     if not row:
         raise HTTPException(404, f"任务不存在：{job_id}")
     return _job_view(row)
+
+
+@router.get("/jobs/{job_id}/children")
+def list_children(job_id: int, actor: Actor = Depends(require("reviewer"))) -> dict:
+    return {"items": children_of(job_id)}
+
+
+@router.post("/jobs/{job_id}/retry", status_code=202)
+def retry(job_id: int, actor: Actor = Depends(require("admin"))) -> dict:
+    try:
+        return {"job": retry_job(job_id)}
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from error
 
 
 @router.get("/jobs")

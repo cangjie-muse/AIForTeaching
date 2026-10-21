@@ -15,6 +15,7 @@ PGlite 的 socket 实现在一次 SQL 报错后协议会错位（后续 SELECT �
 from __future__ import annotations
 
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -623,6 +624,121 @@ def run() -> None:
         items = client.get("/api/v1/review/queue?limit=100", headers=REVIEWER).json()["items"]
         after = len([item for item in items if item["exercise_id"].startswith("gen-")])
         check("重跑任务不重复出题", after == before, f"{before} → {after}")
+        print("\n整本生成（自动切章 + 断点续跑）：")
+
+        # 换一份字节不同的 PDF，才能拿到另一个 textbook_id（id 由 course+sha 决定）
+        book_pdf = pdf_bytes.replace(b"Chapter 1", b"Chapter 2", 1) + b"% book\n"
+        book_up = client.post(
+            "/api/v1/textbooks", headers=ADMIN,
+            params={"title": "整本测试教材", "course_id": "e2e-course", "authors": "测试作者"},
+            content=book_pdf,
+        )
+        check("上传整本教材", book_up.status_code == 201, book_up.text[:120])
+        book_id = book_up.json()["textbook_id"] if book_up.status_code == 201 else ""
+
+        book_text = text_dir / "book.md"
+        book_text.write_text(
+            "<!-- page 1 -->\n第1章 实数\n实数系有上确界性质。\n\n"
+            "<!-- page 2 -->\n第1章 实数\n1.1 上确界定义。\n\n"
+            "<!-- page 3 -->\n第2章 极限\n2.1 数列极限。\n\n"
+            "<!-- page 4 -->\n第2章 极限\n2.2 收敛数列性质。\n",
+            encoding="utf-8",
+        )
+        db.query("UPDATE textbook SET text_path = %s WHERE id = %s", (str(book_text), book_id))
+
+        preview = client.get(f"/api/v1/textbooks/{book_id}/chapters", headers=ADMIN)
+        check("能预览切章结果", preview.status_code == 200, preview.text[:120])
+        plan = preview.json() if preview.status_code == 200 else {}
+        check("识别出两章", len(plan.get("items") or []) == 2,
+              str([i["key"] for i in (plan.get("items") or [])]))
+        check("切章依据是标题而不是页窗", plan.get("source") == "heading", str(plan.get("source")))
+        check("章页码范围对得上",
+              [i["page_from"] for i in (plan.get("items") or [])] == [1, 3],
+              str([(i["page_from"], i["page_to"]) for i in (plan.get("items") or [])]))
+
+        book_started = client.post(f"/api/v1/textbooks/{book_id}/generate-book",
+                                   headers=ADMIN, json={})
+        check("整本任务入队", book_started.status_code == 202, book_started.text[:140])
+        book_job = (book_started.json() or {}).get("job", {}) if book_started.status_code == 202 else {}
+        book_job_id = book_job.get("id")
+        check("整本任务的类型是 generate-book", book_job.get("kind") == "generate-book",
+              str(book_job.get("kind")))
+
+        # 一次 process_once 展开成子任务，之后每跑一次处理一章
+        generation.DEV_FAKE_MODEL = True
+        steps = 0
+        while steps < 12:
+            done = generation.process_once()
+            steps += 1
+            if done is None:
+                break
+
+        parent = client.get(f"/api/v1/jobs/{book_job_id}", headers=REVIEWER).json()
+        check("整本任务最终成功", parent["status"] == "succeeded", str(parent["status"]))
+        check("整本任务进度到 100", parent["progress"] == 100, str(parent["progress"]))
+        check("整本任务记录了章数", (parent.get("result") or {}).get("chapters") == 2,
+              str((parent.get("result") or {}).get("chapters")))
+
+        children = client.get(f"/api/v1/jobs/{book_job_id}/children", headers=REVIEWER).json()["items"]
+        check("两章各一个子任务", len(children) == 2, str(len(children)))
+        check("子任务都成功了", all(c["status"] == "succeeded" for c in children),
+              str([c["status"] for c in children]))
+        check("子任务挂着父任务", all(c["parent_id"] == book_job_id for c in children),
+              str([c.get("parent_id") for c in children]))
+        check("子任务带章号与标题",
+              all(c["chapter_key"] and c["chapter_title"] for c in children),
+              str([(c.get("chapter_key"), c.get("chapter_title")) for c in children]))
+        check("每章都产出了题", all((c.get("result") or {}).get("exercises", 0) >= 1 for c in children),
+              str([(c.get("result") or {}).get("exercises") for c in children]))
+
+        # 同名两章不能互相覆盖：每章的资源包里都得是自己的题，且题号不为空
+        pack_ids_seen = set()
+        empty_ids = []
+        for child in children:
+            pack_path = Path((child.get("result") or {}).get("pack_dir") or "") / "习题.md"
+            if not pack_path.exists():
+                continue
+            content = pack_path.read_text(encoding="utf-8")
+            if "source-exercise:None" in content:
+                empty_ids.append(child["chapter_key"])
+            found = re.findall(r"source-exercise:([^\s-]+(?:-[^\s-]+)*) -->", content)
+            pack_ids_seen.update(found)
+        check("资源包里的题号已填好", not empty_ids, str(empty_ids))
+        check("两章的题号不重复", len(pack_ids_seen) >= 2, str(sorted(pack_ids_seen)))
+        generation.DEV_FAKE_MODEL = False
+
+        # 重跑整本：不新建子任务，也不重复出题
+        before_gen = len(client.get("/api/v1/review/queue?limit=200", headers=REVIEWER)
+                         .json()["items"])
+        generation.DEV_FAKE_MODEL = True
+        generation.run_job(book_job_id)
+        generation.DEV_FAKE_MODEL = False
+        children_again = client.get(f"/api/v1/jobs/{book_job_id}/children",
+                                    headers=REVIEWER).json()["items"]
+        after_gen = len(client.get("/api/v1/review/queue?limit=200", headers=REVIEWER)
+                        .json()["items"])
+        check("重跑整本不新建子任务", len(children_again) == 2, str(len(children_again)))
+        check("重跑整本不重复出题", after_gen == before_gen, f"{before_gen} → {after_gen}")
+
+        # 断点续跑：把一章标成失败，重试后只补那一章
+        first_child = children[0]["id"]
+        db.query("UPDATE pipeline_job SET status = 'failed', error = '模拟失败' WHERE id = %s",
+                 (first_child,))
+        db.query("UPDATE pipeline_job SET status = 'failed' WHERE id = %s", (book_job_id,))
+        retried = client.post(f"/api/v1/jobs/{book_job_id}/retry", headers=ADMIN)
+        check("整本任务可以重试", retried.status_code == 202, retried.text[:120])
+        requeued = client.get(f"/api/v1/jobs/{first_child}", headers=REVIEWER).json()
+        check("失败的章重新排队", requeued["status"] == "queued", str(requeued["status"]))
+        other = client.get(f"/api/v1/jobs/{children[1]['id']}", headers=REVIEWER).json()
+        check("成功的章不会被重跑", other["status"] == "succeeded", str(other["status"]))
+
+        generation.DEV_FAKE_MODEL = True
+        while generation.process_once() is not None:
+            pass
+        generation.DEV_FAKE_MODEL = False
+        healed = client.get(f"/api/v1/jobs/{book_job_id}", headers=REVIEWER).json()
+        check("补跑后整本任务转为成功", healed["status"] == "succeeded", str(healed["status"]))
+
         # --- 以下会产生真正的数据库错误，必须最后跑（见文件头说明）---
         print("\n数据库约束（放在最后：会让 PGlite 协议错位）：")
         dup = client.post(
