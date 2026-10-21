@@ -78,4 +78,11 @@
     put: (path, body, options) => request('PUT', path, { ...options, body }),
     del: (path, options) => request('DELETE', path, options)
   };
+
+  // 后端地址输入框在配置页与审核页都会出现，处理逻辑只写一份，
+  // 避免两处各存一份 A.local.apiBase 的写入口径。
+  A.inputs['api-base'] = function (input) {
+    A.local.apiBase = input.value.trim();
+    A.save();
+  };
 })();

@@ -13,7 +13,8 @@
     "test:view": "node scripts/test-view-api-config.cjs && node scripts/test-view-review.cjs",
     "seed:db": "python db/build_seed.py",
     "verify:db": "node db/verify_seed.mjs",
-    "test:api": "node scripts/e2e-api.cjs"
+    "test:api": "node scripts/e2e-api.cjs",
+    "dev:api": "node scripts/dev-api.cjs"
   },
   "dependencies": {
     "dompurify": "3.4.16",

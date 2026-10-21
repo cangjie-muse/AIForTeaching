@@ -381,8 +381,4 @@
     }
   };
 
-  A.inputs['api-base'] = function (input) {
-    A.local.apiBase = input.value.trim();
-    A.save();
-  };
 })();

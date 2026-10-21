@@ -296,8 +296,4 @@
     } catch (error) { A.toast(error.message); }
   };
 
-  A.inputs['api-base'] = function (input) {
-    A.local.apiBase = input.value.trim();
-    A.save();
-  };
 })();

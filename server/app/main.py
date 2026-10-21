@@ -16,6 +16,7 @@ from __future__ import annotations
 import os
 import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -64,6 +65,38 @@ app.add_middleware(
 
 app.include_router(review_router)
 app.include_router(admin_router)
+
+
+_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _mount_dev_static(target: FastAPI) -> None:
+    """开发期由后端直接托管前端静态站，让页面与 API 同源。
+
+    为什么同源：审核页要带 X-Actor / X-Roles，浏览器会先发 OPTIONS 预检；
+    前端在 8765、后端在 8000 时，只要有一处 CORS 配置漏了就整页报错，
+    而错误信息是浏览器的 "Failed to fetch"，看不出原因。
+    同一个端口就没有这层问题。
+
+    只挂白名单目录：仓库里还有 secrets/、.env、db/、server/，
+    整站挂载等于把它们全部暴露在 HTTP 上。
+    """
+    from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
+
+    for name in ("js", "styles", "assets", "data", "config", "vendor",
+                 "course-packs", "reports"):
+        folder = _ROOT / name
+        if folder.is_dir():
+            target.mount(f"/{name}", StaticFiles(directory=folder), name=f"dev-{name}")
+
+    @target.get("/", include_in_schema=False)
+    def _index() -> FileResponse:
+        return FileResponse(_ROOT / "index.html")
+
+
+if APP_ENV != "prod":
+    _mount_dev_static(app)
 
 
 @app.get("/api/v1/health")
