@@ -63,7 +63,7 @@ button, a{touch-action:manipulation}
 .sidebar-note p{font-size:10px;color:#8c97a8;line-height:1.8}
 .sidebar-foot{display:flex;align-items:center;gap:8px;margin:18px 8px 0;font-size:10px;color:#9aa4b4}
 .main-shell{margin-left:220px}
-.topbar{height:76px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 38px;gap:20px}
+.topbar{height:76px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 38px;gap:20px;position:sticky;top:0;z-index:30}
 .breadcrumb{font-size:12px;display:flex;align-items:center;gap:10px;color:var(--muted);min-width:0}
 .breadcrumb .icon{width:12px;height:12px}
 .breadcrumb span{color:#435471;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

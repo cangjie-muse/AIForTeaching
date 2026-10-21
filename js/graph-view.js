@@ -9,10 +9,18 @@
     const c = A.course;
     if (!c.nodes) return A.sectionTitle('KNOWLEDGE MAP', '知识图谱', e(c.title)) + A.empty('graph', '等待知识图谱', '导入标准资源包后，即可探索节点与它们之间的关系。', A.link('导入课程资源', 'import', null, 'upload', 'primary'));
     const root = c.nodes.find(node => node.level === 1);
-    const remembered = A.state.networkCourse === c.id && (A.state.networkFocus === ALL || c.nodes.some(node => node.id === A.state.networkFocus)) ? A.state.networkFocus : ALL;
-    A.state.networkCourse = c.id; A.state.networkFocus = A.route.params.get('chapter') || remembered;
-    if (A.state.networkFocus !== ALL && !c.nodes.some(node => node.id === A.state.networkFocus && node.children.length)) A.state.networkFocus = root.id;
-    return A.sectionTitle('KNOWLEDGE NETWORK', '知识图谱', '全课程先看图谱；需要逐条阅读时切换表格。打开任一层级，画布都会自动适配。', A.link('课程大纲', 'outline', c.id, 'book')) + `<div class="network-toolbar"><div class="field-inline"><label for="network-scope">浏览范围</label><select id="network-scope" data-input="network-scope">${options()}</select></div><div class="search-input">${A.icon('search')}<input id="network-query" data-input="network-query" placeholder="搜索知识点并定位…" aria-label="搜索知识点"></div><button class="btn small" data-action="network-home">${A.icon('graph')}全课程知识点</button></div><div class="network-layout"><section class="network-board" id="network-board"><div class="network-board-head"><div><b id="network-title"></b><span id="network-count"></span></div><div class="network-head-actions"><div class="network-view-switch" id="network-view-switch" role="group" aria-label="全课程显示方式"><button data-action="network-view" data-view="graph">图谱</button><button data-action="network-view" data-view="table">表格</button></div><button class="btn small" data-action="network-parent" id="network-parent">返回上级</button></div></div><div id="network-search-results" class="network-search-results" hidden></div><div class="network-canvas" id="network-canvas"></div><div class="network-controls"><button data-action="network-zoom" data-direction="-1" aria-label="缩小图谱">−</button><input id="network-zoom-range" data-input="network-zoom-range" type="range" min="100" max="1200" step="25" value="100" aria-label="图谱缩放比例"><span id="network-scale">100%</span><button data-action="network-zoom" data-direction="1" aria-label="放大图谱">＋</button><button data-action="network-reset">适应画布</button><button data-action="network-focus" id="network-focus" disabled>仅看关联</button></div><div class="network-key"><span><i class="edge-sample"></i>章节归属</span><label><input type="checkbox" id="network-shared" data-input="network-shared" checked><i class="edge-sample shared"></i>共用习题</label><small>共用习题不表示先修关系；节点位置仅为浏览排布</small></div></section><aside class="panel network-detail" id="network-detail" hidden></aside></div><section class="network-subtree" id="network-subtree"></section>`;
+    // 换课再换回来，接着上次的层级看：记忆按课程分开存（App.courseMemory），
+    // 所以从"第三章"换去另一门课、再换回来，不会掉回全课程视图。
+    const memory = A.courseMemory(c.id);
+    G.display = memory.graphDisplay === 'table' ? 'table' : 'graph';
+    G.showShared = memory.graphShowShared !== false;
+    const remembered = memory.graphFocus && (memory.graphFocus === ALL || c.nodes.some(node => node.id === memory.graphFocus)) ? memory.graphFocus : ALL;
+    const focus = A.route.params.get('chapter') || remembered;
+    memory.graphFocus = focus; A.state.networkCourse = c.id; A.state.networkFocus = focus;
+    if (focus !== ALL && !c.nodes.some(node => node.id === focus && node.children.length)) {
+      memory.graphFocus = A.state.networkFocus = root.id;
+    }
+    return A.sectionTitle('KNOWLEDGE NETWORK', '知识图谱', '全课程先看图谱；需要逐条阅读时切换表格。打开任一层级，画布都会自动适配。', A.link('课程大纲', 'outline', c.id, 'book')) + `<div class="network-toolbar"><div class="field-inline"><label for="network-scope">浏览范围</label><select id="network-scope" data-input="network-scope">${options()}</select></div><div class="search-input">${A.icon('search')}<input id="network-query" data-input="network-query" placeholder="搜索知识点并定位…" aria-label="搜索知识点"></div><button class="btn small" data-action="network-home">${A.icon('graph')}全课程知识点</button></div><div class="network-layout"><section class="network-board" id="network-board"><div class="network-board-head"><div><b id="network-title"></b><span id="network-count"></span></div><div class="network-head-actions"><div class="network-view-switch" id="network-view-switch" role="group" aria-label="全课程显示方式"><button data-action="network-view" data-view="graph">图谱</button><button data-action="network-view" data-view="table">表格</button></div><button class="btn small" data-action="network-parent" id="network-parent">返回上级</button></div></div><div id="network-search-results" class="network-search-results" hidden></div><div class="network-canvas" id="network-canvas"></div><div class="network-controls"><button data-action="network-zoom" data-direction="-1" aria-label="缩小图谱">−</button><input id="network-zoom-range" data-input="network-zoom-range" type="range" min="100" max="1200" step="25" value="100" aria-label="图谱缩放比例"><span id="network-scale">100%</span><button data-action="network-zoom" data-direction="1" aria-label="放大图谱">＋</button><button data-action="network-reset">适应画布</button><button data-action="network-focus" id="network-focus" disabled>仅看关联</button></div><div class="network-key"><span><i class="edge-sample"></i>章节归属</span><label><input type="checkbox" id="network-shared" data-input="network-shared" ${G.showShared ? 'checked' : ''}><i class="edge-sample shared"></i>共用习题</label><small>共用习题不表示先修关系；节点位置仅为浏览排布</small></div></section><aside class="panel network-detail" id="network-detail" hidden></aside></div><section class="network-subtree" id="network-subtree"></section>`;
   };
   function renderSubtree(focusId) {
     const summary = G.subtree = GraphModel.subtree(A.course, focusId);
@@ -55,7 +63,8 @@
     return `<g class="net-link ${edge.type === 'shared_exercise' ? 'net-shared' : 'net-contains'}" data-edge-index="${index}"><path class="net-edge" fill="none"/><path class="net-edge-hit" fill="none"/><title>${edge.type === 'shared_exercise' ? `共用 ${edge.exerciseIds.length} 道习题：${edge.exerciseIds.join('、')}` : '章节归属'}</title></g>`;
   }
   function openTable() {
-    A.state.networkFocus = ALL; G.current = null; G.selected = null; G.focusOnly = false;
+    A.state.networkFocus = ALL;
+    A.courseMemory().graphFocus = ALL; G.current = null; G.selected = null; G.focusOnly = false;
     document.getElementById('network-scope').value = ALL;
     document.getElementById('network-title').textContent = '全课程知识点 · 表格';
     document.getElementById('network-count').textContent = `${A.course.stats.knowledge} 个知识点 · ${A.course.stats.sections} 个章节与附录`;
@@ -82,6 +91,7 @@
   G.open = function (focusId) {
     if (focusId === ALL && G.display === 'table') { openTable(); return; }
     A.state.networkFocus = focusId;
+    A.courseMemory().graphFocus = focusId;
     G.current = GraphModel.layout(focusId === ALL ? GraphModel.buildAll(A.course) : GraphModel.build(A.course, focusId));
     G.selected = null; G.focusOnly = false;
     const focus = A.node(G.current.focusId);
@@ -171,9 +181,9 @@
   };
   A.after.graph = () => { if (A.course.nodes) G.open(A.state.networkFocus); };
   A.inputs['network-scope'] = input => G.open(input.value);
-  A.inputs['network-shared'] = input => { G.showShared = input.checked; G.highlight(null); };
+  A.inputs['network-shared'] = input => { G.showShared = input.checked; A.courseMemory().graphShowShared = input.checked; G.highlight(null); };
   A.inputs['network-zoom-range'] = input => G.zoom(Number(input.value) / 100 * G.fitScale / G.camera.scale, { x: G.current.width / 2, y: G.current.height / 2 });
-  A.actions['network-view'] = button => { G.display = button.dataset.view; G.open(ALL); };
+  A.actions['network-view'] = button => { G.display = button.dataset.view; A.courseMemory().graphDisplay = G.display; G.open(ALL); };
   A.actions['network-subtree-toggle'] = button => {
     const panel = document.getElementById('network-subtree-panel'), expanding = panel.hidden;
     if (expanding && !panel.dataset.rendered) { renderSubtreeLists(); panel.dataset.rendered = 'true'; }

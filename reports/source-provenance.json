@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-21T08:04:49.865Z",
+  "checkedAt": "2026-10-21T08:12:24.483Z",
   "scope": "Project source/provenance audit; no private competitor source or internet-wide similarity database comparison",
   "checks": {
     "runtimeFiles": 40,
@@ -18,7 +18,7 @@
   "projectSourceInventory": [
     {
       "path": "index.html",
-      "sha256": "c83e837d061ac6672396d4a846ebc44a7149d5a57b66d7671ba5682594022845"
+      "sha256": "76b0cca5380c12e4af4a7ed0474ea32f18cefe6f5c8ef626b5189191c5139785"
     },
     {
       "path": "js/api-client.js",
@@ -50,7 +50,7 @@
     },
     {
       "path": "js/core.js",
-      "sha256": "edbc50c0655321cab0f2ddc67280ecfa44895cf1f02103fcb16a6c7c3dfdf396"
+      "sha256": "fba82df373e832d95a0b46932d74f10408ffa222c64531702d691cdc01ce6933"
     },
     {
       "path": "js/course-catalog.js",
@@ -86,7 +86,7 @@
     },
     {
       "path": "js/graph-view.js",
-      "sha256": "1f112181ee411da2c1c92b323ae1054f470689cd9b01145b46e80d3174b4bba9"
+      "sha256": "ba32f3ade401ec6f3b0ccb5f40feb30b8de25ada9a7c8b0b61f356e359ce200a"
     },
     {
       "path": "js/import-core.js",
@@ -94,7 +94,7 @@
     },
     {
       "path": "js/learning.js",
-      "sha256": "2c7c23889bd1ca7e71d607e322a3bbc28ba46420a1d2b4e844a1a1e4a9d63671"
+      "sha256": "8e6e93a088002053838c6c88311ec0948043809fa0935cc2cfa4c47874443df0"
     },
     {
       "path": "js/pages.js",
@@ -134,7 +134,7 @@
     },
     {
       "path": "styles/base.css",
-      "sha256": "6fbdb553a2d6a776cdb4905717bc30e5a5bb64cc228a5133e765c4abbdb94c05"
+      "sha256": "7c3ff9405fcdcd0c55c199f33accb5c0b5982df9f0cc4e8d8959cda7e4bc18f3"
     },
     {
       "path": "styles/catalog.css",
@@ -170,7 +170,7 @@
     },
     {
       "path": "styles/views.css",
-      "sha256": "d70382a7cdab18ace3b4774a0d498193ea141c7c254d60dc48b70a927b5ba750"
+      "sha256": "6dcc7c543558e1d73c74c8384fceb7ce4594561092e8a0479b73067136c839b8"
     },
     {
       "path": "assets/mark.svg",
@@ -245,6 +245,10 @@
       "sha256": "f97ff244a72e1f31619b273c655d22a1f03b0843f91af41af6c3a9d5c767d3a1"
     },
     {
+      "path": "scripts/test-nav-shell.cjs",
+      "sha256": "3bfb5011097eda444cd7b4b4832c1074d41cb86cb46ba4819e9c26bdf27f3976"
+    },
+    {
       "path": "scripts/test-preflight.cjs",
       "sha256": "4cb38a5eff798e142abb0854f81a4b5c49146a7aecdd98673f6a03e7a8684a64"
     },
@@ -266,11 +270,15 @@
     },
     {
       "path": "scripts/test-view-exercises.cjs",
-      "sha256": "321c34fda6ad1ea14bfd13fbd9c469dfe0e218d8d55e5e3aba51d599af6be96f"
+      "sha256": "5a3f000c9754df168a39889bae423d1cd4094b2b52aefcb8c5c4e46d6af41cb5"
     },
     {
       "path": "scripts/test-view-generate.cjs",
       "sha256": "88b8a9d6563613e7bddb33e835fc4846c687afe40db7ab261bdf81d165b324c7"
+    },
+    {
+      "path": "scripts/test-view-graph.cjs",
+      "sha256": "30fd1036f1fb1a2b5e8ea93909d25caf0e9f69fdf8bc70a2dfeb15d4d0c49d37"
     },
     {
       "path": "scripts/test-view-pick.cjs",

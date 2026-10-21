@@ -10,7 +10,7 @@
     "start": "python3 scripts/serve.py",
     "check": "eslint js scripts/*.mjs scripts/*.cjs && node scripts/verify.cjs && node scripts/verify-catalog-graph.cjs && node scripts/courseware-index.cjs --check && node scripts/audit-source.cjs && node scripts/test-view-api-config.cjs && node scripts/test-view-review.cjs && node scripts/test-python.cjs",
     "audit:sources": "node scripts/audit-source.cjs",
-    "test:view": "node scripts/test-view-api-config.cjs && node scripts/test-view-review.cjs && node scripts/test-view-qa.cjs && node scripts/test-diff.cjs && node scripts/test-view-generate.cjs && node scripts/test-view-content.cjs && node scripts/test-view-publish.cjs && node scripts/test-view-pick.cjs && node scripts/test-render-shell.cjs && node scripts/test-view-exercises.cjs",
+    "test:view": "node scripts/test-view-api-config.cjs && node scripts/test-view-review.cjs && node scripts/test-view-qa.cjs && node scripts/test-diff.cjs && node scripts/test-view-generate.cjs && node scripts/test-view-content.cjs && node scripts/test-view-publish.cjs && node scripts/test-view-pick.cjs && node scripts/test-render-shell.cjs && node scripts/test-view-exercises.cjs && node scripts/test-view-graph.cjs && node scripts/test-nav-shell.cjs",
     "seed:db": "python db/build_seed.py",
     "verify:db": "node db/verify_seed.mjs",
     "test:api": "node scripts/e2e-api.cjs",

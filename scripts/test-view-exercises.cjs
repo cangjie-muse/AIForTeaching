@@ -176,6 +176,34 @@ console.log('\n提交成功的提示文案：');
   check('服务端记录也能解锁完整解答', html.includes('举例答案'), '');
   check('解锁不靠本地作答文本', !App.local[App.record('answer', 'ex-2')], '');
 
+  console.log('\n换课不丢筛选与页码：');
+  const wide = {
+    id: 'wide', title: '宽课', status: 'ready',
+    stats: { exercises: 20, associations: 20 },
+    nodes: [{ id: 'w-ch', title: '第一章', level: 2, chapterId: 'w-ch', path: ['宽课', '第一章'], children: [], exerciseIds: [] }],
+    exercises: Array.from({ length: 20 }, (_, index) => ({
+      id: `w-${index}`, prompt: `第 ${index} 题`, answer: `答案 ${index}`, difficulty: 1,
+      source: '自拟', nodeIds: ['w-ch']
+    }))
+  };
+  App.course = wide;
+  App.route = { page: 'exercises', params: new URLSearchParams() };
+  App.state = {};
+  App.views.exercises();
+  element('exercise-search').value = '第 1';
+  element('exercise-chapter').value = '';
+  element('exercise-difficulty').value = '1';
+  App.actions['exercise-page'] = App.actions['exercise-page'];
+  App.inputs['exercise-filter']();
+  check('筛选写进这门课的记忆', App.courseMemory('wide').exerciseDifficulty === '1', String(App.courseMemory('wide').exerciseDifficulty));
+  App.state.exercisePage = 2;
+  App.courseMemory().exercisePage = 2;
+  const wideHtml = App.views.exercises();
+  check('换回来时页码仍在', App.state.exercisePage === 2, String(App.state.exercisePage));
+  check('换回来时搜索词回填', wideHtml.includes('value="第 1"'), '');
+  check('换回来时难度回填', wideHtml.includes('value="1" selected'), '');
+  check('另一门课的记忆不受影响', App.courseMemory('demo').exerciseDifficulty === undefined, '');
+
   console.log('');
   if (failures.length) {
     console.log(`失败 ${failures.length} 项：${failures.join(', ')}`);

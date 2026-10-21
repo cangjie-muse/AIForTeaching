@@ -34,9 +34,11 @@
     if (!c.exercises) return A.sectionTitle('EXERCISE LIBRARY', '习题与测验', e(c.title)) + A.empty('pen', '题库等待接入', '导入后支持章节筛选、难度筛选、作答与解答查看。', A.link('导入课程资源', 'import', null, 'upload', 'primary'));
     const node = A.node(A.route.params.get('node'));
     const selected = c.exercises.find(exercise => exercise.id === A.route.params.get('exercise'));
-    A.state.exercisePage = 1;
+    // 筛选条件与页码按课程记忆：换课再换回来，还是上次的筛选和那一页。
+    const memory = A.courseMemory(c.id);
+    A.state.exercisePage = selected ? 1 : (memory.exercisePage || 1);
     const context = selected ? `<div class="notice exercise-context">${A.icon('pen')}<span>正在查看所选习题，可在这里作答并按需展开参考简解与来源。</span>${A.link('查看全部习题', 'exercises', c.id, '', 'text-btn')}</div>` : node ? `<div class="notice exercise-context">${A.icon('graph')}<span>正在查看：<b>${e(node.title)}</b> 的关联习题</span>${A.link('查看全部', 'exercises', c.id, '', 'text-btn')}</div>` : '';
-    const filters = `<div class="exercise-filters"><div class="search-input">${A.icon('search')}<input id="exercise-search" data-input="exercise-filter" placeholder="搜索题干、来源或关键词…" aria-label="搜索习题"></div><select id="exercise-chapter" data-input="exercise-filter" aria-label="按章节筛选"><option value="">全部章节与附录</option>${graphOptions(c.nodes.filter(n => n.level === 2), '')}</select><select id="exercise-difficulty" data-input="exercise-filter" aria-label="按难度筛选"><option value="">全部难度</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}">难度 ${n} / 5</option>`).join('')}</select></div>`;
+    const filters = `<div class="exercise-filters"><div class="search-input">${A.icon('search')}<input id="exercise-search" data-input="exercise-filter" value="${e(memory.exerciseQuery || '')}" placeholder="搜索题干、来源或关键词…" aria-label="搜索习题"></div><select id="exercise-chapter" data-input="exercise-filter" aria-label="按章节筛选"><option value="">全部章节与附录</option>${graphOptions(c.nodes.filter(n => n.level === 2), memory.exerciseChapter || '')}</select><select id="exercise-difficulty" data-input="exercise-filter" aria-label="按难度筛选"><option value="">全部难度</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}" ${memory.exerciseDifficulty === String(n) ? 'selected' : ''}>难度 ${n} / 5</option>`).join('')}</select></div>`;
     return A.sectionTitle('EXERCISE LIBRARY', '习题与测验', `${c.stats.exercises} 道不同习题 · ${c.stats.associations} 条知识点关联 · 简解与来源均予保留`, A.button('导出练习记录', 'export-records', 'download')) + context + (selected ? '' : filters) + '<div class="exercise-result-label" id="exercise-count"></div><div id="exercise-results"></div><div id="exercise-pagination"></div>';
   };
   function filteredExercises() {
@@ -100,7 +102,8 @@
   function renderExercises() {
     const found = filteredExercises(), size = 8, pages = Math.max(1, Math.ceil(found.length / size));
     const selected = found.length === 1 && found[0].id === A.route.params.get('exercise');
-    A.state.exercisePage = Math.min(A.state.exercisePage, pages);
+    A.state.exercisePage = Math.max(1, Math.min(A.state.exercisePage || 1, pages));
+    A.courseMemory().exercisePage = A.state.exercisePage;
     const start = (A.state.exercisePage - 1) * size;
     document.getElementById('exercise-count').textContent = selected ? '所选习题' : `找到 ${found.length} 道习题 · 每道题只计数一次`;
     document.getElementById('exercise-results').innerHTML = found.length ? found.slice(start, start + size).map((ex, i) => exerciseCard(ex, start + i)).join('') : A.empty('pen', '当前没有匹配的习题', '可以调整筛选条件；原资料未提供习题的知识点会保留此空状态。');
@@ -132,8 +135,21 @@
     renderExercises();
     syncServerAttempts();
   };
-  A.inputs['exercise-filter'] = () => { A.state.exercisePage = 1; renderExercises(); };
-  A.actions['exercise-page'] = button => { A.state.exercisePage += Number(button.dataset.step); renderExercises(); document.querySelector('.exercise-filters').scrollIntoView({ block: 'start' }); };
+  A.inputs['exercise-filter'] = () => {
+    const memory = A.courseMemory();
+    memory.exerciseQuery = document.getElementById('exercise-search').value;
+    memory.exerciseChapter = document.getElementById('exercise-chapter').value;
+    memory.exerciseDifficulty = document.getElementById('exercise-difficulty').value;
+    memory.exercisePage = 1;
+    A.state.exercisePage = 1;
+    renderExercises();
+  };
+  A.actions['exercise-page'] = button => {
+    A.state.exercisePage += Number(button.dataset.step);
+    A.courseMemory().exercisePage = A.state.exercisePage;
+    renderExercises();
+    document.querySelector('.exercise-filters')?.scrollIntoView({ block: 'start' });
+  };
   A.actions['save-answer'] = async button => {
     const exerciseId = button.dataset.id;
     const answer = document.getElementById(`answer-${exerciseId}`).value;

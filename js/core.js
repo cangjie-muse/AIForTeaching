@@ -78,6 +78,16 @@ App.normalizeRoute = function (route) {
   }
   return { page: route.page, params: route.params };
 };
+// 每门课在会话内的"上次看到哪儿"：换课再换回来，应该接着看，而不是重开。
+// 只放内存（App.state），不落 localStorage：刷新页面回到默认视图更符合预期，
+// 而"我刚在这门课里点过第三章"这种临时状态不该跨天留着。
+App.courseMemory = function (courseId = App.course?.id) {
+  if (!courseId) return {};
+  const state = App.state = App.state || {};
+  const all = state.courseMemory = state.courseMemory || {};
+  if (!all[courseId]) all[courseId] = {};
+  return all[courseId];
+};
 // 当前课程条：进了某门课以后，"我在哪门课里、还能去哪儿"必须有常驻答案。
 // 只靠面包屑不够——它太细，一滚就没了；只靠侧边栏高亮也不够——选课之后菜单
 // 本来就不该再变形状。这条把"当前课程"从路由状态变成看得见的东西。
@@ -95,9 +105,9 @@ App.courseBar = function () {
     .map(([target, label, icon]) => `<a class="course-bar-link${page === target ? ' active' : ''}" href="${App.url(target, course.id)}">${App.icon(icon)}${label}</a>`)
     .join('');
   return `<div class="course-bar" aria-label="当前课程">
-    <div class="course-bar-main">${App.icon('book')}<a class="course-bar-title" href="${App.url('overview', course.id)}">${App.escape(course.title)}</a><span class="muted small">${counts}</span></div>
+    <div class="course-bar-main"><a class="course-bar-back" href="#/catalog">${App.icon('grid')}课程中心</a><span class="course-bar-sep" aria-hidden="true">/</span><a class="course-bar-title" href="${App.url('overview', course.id)}">${App.escape(course.title)}</a><span class="muted small">${counts}</span></div>
     <nav class="course-bar-links" aria-label="本课程页面">${links}</nav>
-    <a class="course-bar-switch" href="${App.url(page === 'pick' ? 'graph' : page, null)}" title="换一门课程">${App.icon('grid')}换课程</a>
+    <a class="course-bar-switch" href="${App.url(page === 'pick' ? 'graph' : page, null)}" title="换一门课程（保留当前功能）">${App.icon('grid')}换课程</a>
   </div>`;
 };
 App.url = function (page, courseId, params = {}) {
