@@ -26,7 +26,7 @@ sys.path.insert(0, str(SERVER_DIR))
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from app import db  # noqa: E402
+from app import db, llm, qa  # noqa: E402
 from app.main import app  # noqa: E402
 
 failures: list[str] = []
@@ -268,6 +268,121 @@ def run() -> None:
         check("未批准供应商可登记（登记不等于放行）", blocked.status_code == 201, blocked.text[:80])
         tested = client.post("/api/v1/admin/model-endpoints/unapproved/test", headers=ADMIN)
         check("自检拒绝未批准供应商", tested.status_code == 400, tested.text[:100])
+
+        print("\n问答链路：")
+
+        # 教材与切片：一份已授权、一份仅校内。
+        # 这两份数据同时用来验证"版权未确认的原文不外传"。
+        db.query(
+            """INSERT INTO textbook (id, course_id, title, pdf_sha256, copyright_status)
+               VALUES (%s,%s,%s,%s,%s)""",
+            ("tb-ok", "e2e-course", "数学分析（已授权）", "a" * 64, "licensed"),
+        )
+        db.query(
+            """INSERT INTO textbook (id, course_id, title, pdf_sha256, copyright_status)
+               VALUES (%s,%s,%s,%s,%s)""",
+            ("tb-internal", "e2e-course", "数学分析（仅校内）", "b" * 64, "internal-only"),
+        )
+        db.query(
+            """INSERT INTO textbook_chunk (textbook_id, seq, section_path, page_from, page_to, content_md)
+               VALUES (%s,%s,%s,%s,%s,%s)""",
+            ("tb-ok", 1, ["第一章 极限", "数列极限"], 18, 18,
+             "定义：若对任意 ε>0，存在正整数 N，当 n>N 时 |a_n - a| < ε，"
+             "则称数列 {a_n} 收敛于 a。数列极限与函数极限的区别在于自变量取离散值。"),
+        )
+        db.query(
+            """INSERT INTO textbook_chunk (textbook_id, seq, section_path, page_from, page_to, content_md)
+               VALUES (%s,%s,%s,%s,%s,%s)""",
+            ("tb-internal", 1, ["内部讲义"], 3, 3,
+             "内部讲义：数列极限的十个习题答案汇总，仅供教师参考，不得外传。"),
+        )
+
+        captured = {"messages": [], "calls": 0}
+
+        def fake_chat(messages, temperature=0.2):
+            captured["messages"].append(messages)
+            captured["calls"] += 1
+            return {"provider": "fake", "model": "fake-chat", "data_scope": "approved",
+                    "content": "先想想 ε 的几何意义：它控制的是「多靠近」。",
+                    "usage": {"prompt_tokens": 100, "completion_tokens": 20}}
+
+        real_chat = llm.chat
+        llm.chat = fake_chat
+        try:
+            asked = client.post(
+                "/api/v1/qa/ask", headers=STUDENT,
+                json={"question": "数列极限怎么定义", "course_id": "e2e-course", "mode": "guide"},
+            )
+            check("引导模式可回答", asked.status_code == 200, asked.text[:120])
+            payload = asked.json() if asked.status_code == 200 else {}
+            check("回答带教材引用", len(payload.get("citations") or []) >= 1,
+                  f"{len(payload.get('citations') or [])} 条引用")
+            context_sent = captured["messages"][-1][1]["content"] if captured["messages"] else ""
+            check("引用了已授权教材", "已授权" in str(payload.get("citations")), str(payload.get("citations"))[:80])
+            check("仅校内教材的原文没有外传", "内部讲义" not in context_sent and "不得外传" not in context_sent)
+            check("外传字符数被记录并返回", payload.get("context_chars", 0) > 0, str(payload.get("context_chars")))
+
+            internal_only = client.post(
+                "/api/v1/qa/ask", headers=STUDENT,
+                json={"question": "十个习题答案汇总", "course_id": "e2e-course", "mode": "guide"},
+            )
+            check("只有仅校内教材命中时拒答", internal_only.json().get("refused") is True,
+                  internal_only.text[:100])
+
+            denied_full = client.post(
+                "/api/v1/qa/ask", headers=STUDENT,
+                json={"question": "数列极限怎么定义", "course_id": "e2e-course",
+                      "exercise_id": "ex-1", "mode": "full"},
+            )
+            check("未作答时不给完整解答（403）", denied_full.status_code == 403, denied_full.text[:100])
+
+            db.query(
+                """INSERT INTO exercise_attempt (student_id, course_id, exercise_id, answer_md)
+                   VALUES (%s,%s,%s,%s)""",
+                ("student-1", "e2e-course", "ex-1", "我的尝试：先取 N = [1/ε] + 1。"),
+            )
+            unlocked = client.post(
+                "/api/v1/qa/ask", headers=STUDENT,
+                json={"question": "数列极限怎么定义", "course_id": "e2e-course",
+                      "exercise_id": "ex-1", "mode": "full"},
+            )
+            check("作答后解锁完整解答", unlocked.status_code == 200, unlocked.text[:120])
+            full_system = captured["messages"][-1][0]["content"] if captured["messages"] else ""
+            check("完整模式换了提示词", "完整" in full_system or "逐步" in full_system)
+
+            missing_ids = client.post(
+                "/api/v1/qa/ask", headers=STUDENT,
+                json={"question": "数列极限", "mode": "full"},
+            )
+            check("完整模式缺题目信息被 400", missing_ids.status_code == 400, missing_ids.text[:80])
+
+            calls = db.query("SELECT succeeded, prompt_version, error FROM model_call ORDER BY id")
+            check("每次外传都留了账", len(calls) == 2, f"{len(calls)} 条")
+            # 拒答与 403 都在调模型之前就返回了：既不出校，也不花钱
+            check("拒答与未解锁不调用模型", captured["calls"] == 2, f"{captured['calls']} 次调用")
+            check("账本里记了字符数", all("chars" in (row["prompt_version"] or "") for row in calls))
+
+            def failing_chat(messages, temperature=0.2):
+                raise RuntimeError("模型返回 500: upstream error")
+
+            llm.chat = failing_chat
+            broken = client.post(
+                "/api/v1/qa/ask", headers=STUDENT,
+                json={"question": "数列极限怎么定义", "course_id": "e2e-course", "mode": "guide"},
+            )
+            check("模型失败映射为 502", broken.status_code == 502, broken.text[:100])
+            last = db.query_one("SELECT succeeded, error FROM model_call ORDER BY id DESC LIMIT 1")
+            check("失败的调用也记账", last["succeeded"] is False and "500" in (last["error"] or ""),
+                  str(last)[:100])
+        finally:
+            llm.chat = real_chat
+
+        rows = [{"section_path": ["a"], "page_from": 1, "page_to": 1, "content_md": "x" * 500,
+                 "chunk_id": 1, "textbook_title": "t"}]
+        text, used, citations = qa.compose_context(rows, budget=200)
+        check("上下文预算硬生效", used <= 200 and len(text) <= 200, f"{used} 字符")
+        _, zero_used, _ = qa.compose_context(rows, budget=50)
+        check("剩余预算太小时整段丢弃", zero_used == 0, f"{zero_used} 字符")
 
         # --- 以下会产生真正的数据库错误，必须最后跑（见文件头说明）---
         print("\n数据库约束（放在最后：会让 PGlite 协议错位）：")

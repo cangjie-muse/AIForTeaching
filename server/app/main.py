@@ -23,6 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from . import auth, db, llm
 from .admin import router as admin_router
+from .qa import router as qa_router
 from .review import router as review_router
 
 APP_ENV = os.environ.get("APP_ENV", "dev").lower()
@@ -65,6 +66,7 @@ app.add_middleware(
 
 app.include_router(review_router)
 app.include_router(admin_router)
+app.include_router(qa_router)
 
 
 _ROOT = Path(__file__).resolve().parents[2]

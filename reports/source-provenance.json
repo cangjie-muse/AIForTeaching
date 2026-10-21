@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-21T02:26:37.823Z",
+  "checkedAt": "2026-10-21T02:50:37.860Z",
   "scope": "Project source/provenance audit; no private competitor source or internet-wide similarity database comparison",
   "checks": {
     "runtimeFiles": 35,
@@ -174,7 +174,7 @@
     },
     {
       "path": "scripts/e2e-api.cjs",
-      "sha256": "a4bdb735e474722b54acf5f0d615258f3605e813b3e2ad578069445d4182e372"
+      "sha256": "e0aed163e0e0b9d3ba246b50bd0a37c0cfa666856f64dadfba96bb5918e4a8b9"
     },
     {
       "path": "scripts/import-course.cjs",

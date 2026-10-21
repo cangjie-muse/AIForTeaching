@@ -30,6 +30,19 @@ if (!fs.existsSync(PYTHON)) {
 }
 
 async function main() {
+  // 端口被占时给一句人话，而不是让 PGlite 抛 EADDRINUSE 堆栈。
+  // 最常见的原因是 npm run dev:api 还开着。
+  const busy = await new Promise((resolve) => {
+    const socket = require('node:net').connect({ port: PORT, host: '127.0.0.1' });
+    socket.on('connect', () => { socket.destroy(); resolve(true); });
+    socket.on('error', () => resolve(false));
+  });
+  if (busy) {
+    console.error(`端口 ${PORT} 被占用，端到端测试无法启动数据库。\n`
+      + '多半是 npm run dev:api 还开着：先停掉它，或设置 E2E_PG_PORT 换一个端口。');
+    process.exit(1);
+  }
+
   const { PGlite } = await import('@electric-sql/pglite');
   const { PGLiteSocketServer } = await import('@electric-sql/pglite-socket');
 
