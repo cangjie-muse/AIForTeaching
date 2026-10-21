@@ -128,7 +128,11 @@ def list_courses() -> dict:
         SELECT c.id, c.title, c.audience, c.subject, c.status, c.review_status,
                (SELECT count(*) FROM knowledge_node k
                  WHERE k.course_id = c.id AND k.kind = 'knowledge') AS knowledge_count,
-               (SELECT count(*) FROM exercise e WHERE e.course_id = c.id) AS exercise_count
+               (SELECT count(*) FROM exercise e WHERE e.course_id = c.id) AS exercise_count,
+               -- 有教材片段的课才可能被问答检索到：前端据此说明"哪门课能答"
+               (SELECT count(*) FROM textbook_chunk ch
+                  JOIN textbook t ON t.id = ch.textbook_id
+                 WHERE t.course_id = c.id) AS chunk_count
         FROM course c
         ORDER BY c.id
         """

@@ -1,8 +1,8 @@
 {
-  "checkedAt": "2026-10-21T02:55:05.487Z",
+  "checkedAt": "2026-10-21T03:03:17.004Z",
   "scope": "Project source/provenance audit; no private competitor source or internet-wide similarity database comparison",
   "checks": {
-    "runtimeFiles": 35,
+    "runtimeFiles": 37,
     "generatedCourseScriptIsDataOnly": true,
     "competitorMarkerHits": [],
     "remoteEntryAssets": [],
@@ -18,7 +18,7 @@
   "projectSourceInventory": [
     {
       "path": "index.html",
-      "sha256": "35204c8f5ca9b2351661772343bd608b4810d02c702b0292fcfa37e5dc06bdda"
+      "sha256": "9216a408dd21a0f9915756fd16e3c3fb5bcd35c4b022692b847e742eba8e4b31"
     },
     {
       "path": "js/api-client.js",
@@ -30,7 +30,7 @@
     },
     {
       "path": "js/app.js",
-      "sha256": "68392a26849644ddbfcddba5bf5a8f5b89a6ba7758662e8a6ea691fec647fd37"
+      "sha256": "65ca581db11ee517cc94e68e2bad1eb1a42550dbd1c9f7ce5f692747de272a06"
     },
     {
       "path": "js/catalog-view.js",
@@ -93,6 +93,10 @@
       "sha256": "1d32dba3243f21a087bd0d268d3d6034a984bcc5e879cc91c63f33325f2b30a4"
     },
     {
+      "path": "js/qa-chat.js",
+      "sha256": "219241ed72d4c4883977dc03b235d67e3093036912ee68eadf34bfe540e43a83"
+    },
+    {
       "path": "js/review.js",
       "sha256": "32e21977a829c202e5555ff2fd7f66b151e6204e4297dbb12b2b99ffc68620ff"
     },
@@ -139,6 +143,10 @@
     {
       "path": "styles/network.css",
       "sha256": "39a3fb5c89eb06b733f2905dbce9f030fbfb7d2053090c52a654ba2fbfa690a4"
+    },
+    {
+      "path": "styles/qa-chat.css",
+      "sha256": "e118bfea042184880b3c7b6fa0ed28717c0303e87a71c06523e870a7472fd77f"
     },
     {
       "path": "styles/responsive.css",
@@ -199,6 +207,10 @@
     {
       "path": "scripts/test-view-api-config.cjs",
       "sha256": "bb7ac66613ff4fa356a423bbc32e7dd1deedfad2dddfe885fb4f37bd92f59a76"
+    },
+    {
+      "path": "scripts/test-view-qa.cjs",
+      "sha256": "a59971e2fbc620fd3512607d2f8526d98f077c9672c14907d5728486ab7a9165"
     },
     {
       "path": "scripts/test-view-review.cjs",
