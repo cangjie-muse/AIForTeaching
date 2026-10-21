@@ -86,6 +86,7 @@ def seed() -> None:
     # 顺序有讲究：教材挂在 analysis-ii 上，而 analysis-ii 由 seed_real_slice 创建
     seed_real_slice()
     seed_textbook()
+    seed_demo_revision()
     print(f"示例数据就绪：1 门课、{len(NODES)} 个节点、{len(EXERCISES)} 道题、"
           f"{len(CHUNKS)} 个教材片段")
 
@@ -157,6 +158,36 @@ def seed_real_slice() -> None:
         )
         imported += 1
     print(f"真题种子：analysis-ii / {imported} 道（id 与前端一致，可走通作答与解锁）")
+
+
+def seed_demo_revision() -> None:
+    """造一条真实的修订记录，好让审核界面的差异视图有东西可看。
+
+    走的是和接口一样的路径（同一个触发器、同一个 app.actor 会话变量），
+    不是往 exercise_revision 里硬塞一行——硬塞出来的差异，界面能显示但不可信。
+    只改难度与书页，不动题干：开发库里的题干是真题原文，随手改写会让"核对"
+    这件事失去意义。
+    """
+    row = db.query_one(
+        "SELECT id, difficulty, source_page FROM exercise WHERE course_id = %s ORDER BY id LIMIT 1",
+        ("analysis-ii",),
+    )
+    if not row:
+        return
+    existing = db.query_one(
+        "SELECT count(*) AS n FROM exercise_revision WHERE course_id = %s AND exercise_id = %s",
+        ("analysis-ii", row["id"]),
+    )
+    if existing and existing["n"]:
+        return
+    with db.cursor() as cur:
+        cur.execute("SELECT set_config('app.actor', %s, true)", ("开发种子",))
+        cur.execute("SELECT set_config('app.change_note', %s, true)", ("按教材核对页码与难度",))
+        cur.execute(
+            "UPDATE exercise SET difficulty = %s, source_page = %s WHERE course_id = %s AND id = %s",
+            (3, 21, "analysis-ii", row["id"]),
+        )
+    print(f"演示修订：{row['id']} 难度 {row['difficulty']}→3、书页 {row['source_page']}→21")
 
 
 def seed_textbook() -> None:

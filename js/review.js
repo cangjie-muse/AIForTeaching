@@ -48,6 +48,7 @@
     items: [],
     filters: { course_id: '', category: '', priority: '' },
     checked: {},
+    diffs: {},       // 按「课程/题目」缓存修订历史，避免每次重渲染都请求
     busy: false
   };
 
@@ -209,6 +210,87 @@
     </section>`;
   }
 
+  function diffKey(item) {
+    return `${item.course_id}/${item.exercise_id}`;
+  }
+
+  async function loadDiff(item) {
+    const key = diffKey(item);
+    S().diffs = S().diffs || {};
+    const cached = S().diffs[key];
+    if (cached && cached.status === 'ready') return;
+    S().diffs[key] = { status: 'loading' };
+    A.render();
+    try {
+      const course = encodeURIComponent(item.course_id);
+      const exercise = encodeURIComponent(item.exercise_id);
+      const data = await A.api.get(`/api/v1/review/exercises/${course}/${exercise}/revisions`);
+      S().diffs[key] = { status: 'ready', current: data.current || {}, revisions: data.revisions || [] };
+    } catch (error) {
+      S().diffs[key] = { status: 'error', error: error.message };
+    }
+    A.render();
+  }
+
+  // 差异按"最近一次修改前 → 现在"呈现。这里显示的是**原文**而不是渲染后的公式：
+  // 渲染会把 \ 与空格吃掉，而审核员要看的往往正是这些。
+  function diffHunk(before, after) {
+    const parts = A.diffText(before || '', after || '');
+    if (!parts.length) return '<span class="muted">无变化</span>';
+    const html = parts.map(part => {
+      if (part.type === 'same') return e(part.text);
+      const tag = part.type === 'add' ? 'ins' : 'del';
+      return `<${tag} class="df-${part.type}">${e(part.text)}</${tag}>`;
+    }).join('');
+    return `<div class="df-text">${html}</div>`;
+  }
+
+  function scalarHunk(before, after) {
+    const diff = A.diffField(before, after);
+    if (!diff.changed) return '<span class="muted">无变化</span>';
+    return `<span class="df-scalar"><del>${e(before ?? '—')}</del> → <ins>${e(after ?? '—')}</ins></span>`;
+  }
+
+  function setHunk(before, after) {
+    const diff = A.diffSet(before, after);
+    if (!diff.added.length && !diff.removed.length) return '<span class="muted">无变化</span>';
+    return [
+      ...diff.added.map(id => `<ins class="df-add">+ ${e(id)}</ins>`),
+      ...diff.removed.map(id => `<del class="df-del">- ${e(id)}</del>`)
+    ].join(' ');
+  }
+
+  function revisionSection(item) {
+    const cached = (S().diffs || {})[diffKey(item)] || { status: 'idle' };
+    if (cached.status === 'loading' || cached.status === 'idle') {
+      return '<p class="muted small">正在读取修订历史…</p>';
+    }
+    if (cached.status === 'error') {
+      return `<p class="muted small">读不到修订历史：${e(cached.error)}</p>`;
+    }
+    const revisions = cached.revisions || [];
+    if (!revisions.length) {
+      return '<p class="muted small">这道题还没有修订记录——当前内容就是导入时的样子。</p>';
+    }
+    const latest = revisions[0];
+    const current = cached.current || {};
+    const when = latest.changed_at ? String(latest.changed_at).replace('T', ' ').slice(0, 16) : '时间未知';
+    return `<details class="rv-diff" open>
+      <summary>${A.icon('layers')} 修订差异：第 ${e(latest.version)} 次修改前 → 现在
+        <span class="muted small">${e(latest.changed_by || '改动者未知')} · ${e(when)}${latest.change_note ? ` · ${e(latest.change_note)}` : ''}</span>
+      </summary>
+      <dl class="df-list">
+        <dt>题干</dt><dd>${diffHunk(latest.prompt_md, current.prompt_md)}</dd>
+        <dt>答案</dt><dd>${diffHunk(latest.answer_md, current.answer_md)}</dd>
+        <dt>难度</dt><dd>${scalarHunk(latest.difficulty, current.difficulty)}</dd>
+        <dt>书页</dt><dd>${scalarHunk(latest.source_page, current.source_page)}</dd>
+        <dt>挂载</dt><dd>${setHunk(latest.node_ids, current.node_ids)}</dd>
+      </dl>
+      ${revisions.length > 1 ? `<p class="muted small">此前还有 ${revisions.length - 1} 次修改记录。</p>` : ''}
+      <p class="muted small">显示的是 Markdown 原文，不是渲染后的公式——空格与反斜杠常常正是被改坏的地方。</p>
+    </details>`;
+  }
+
   function detailPanel(item) {
     const nodes = (item.node_ids || []).length
       ? item.node_ids.map(id => `<code>${e(id)}</code>`).join(' ')
@@ -230,6 +312,8 @@
       <div class="md">${A.markdown(item.prompt_md || '')}</div>
       <h3>挂载知识点</h3>
       <p>${nodes}</p>
+      <h3>修订差异</h3>
+      ${revisionSection(item)}
       <h3>问题清单</h3>
       ${issueList(item.issues)}
       <div class="rv-detail-actions">
@@ -304,6 +388,8 @@
   A.actions['review-open'] = function (button) {
     S().open = button.dataset.task;
     A.render();
+    const item = S().items.find(row => String(row.task_id) === String(button.dataset.task));
+    if (item) loadDiff(item);
   };
 
   A.actions['review-close'] = function () {

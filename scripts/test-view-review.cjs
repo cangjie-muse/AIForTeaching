@@ -32,7 +32,7 @@ sandbox.window = sandbox;
 sandbox.window.confirm = () => true;
 vm.createContext(sandbox);
 
-const bundle = ['js/core.js', 'js/visual-identity.js', 'js/api-client.js', 'js/review.js']
+const bundle = ['js/core.js', 'js/visual-identity.js', 'js/api-client.js', 'js/diff.js', 'js/review.js']
   .map(file => fs.readFileSync(path.join(root, file), 'utf8'))
   .join('\n;\n');
 vm.runInContext(bundle, sandbox, { filename: 'bundle.js' });
@@ -58,6 +58,7 @@ function reset(overrides) {
     error: '',
     summary: { tiers: [], task_states: [], open_issues: [] },
     items: [],
+    diffs: {},
     filters: { course_id: '', category: '', priority: '' },
     checked: {},
     busy: false,
@@ -132,6 +133,49 @@ reset({
 App.state.review.open = 9;
 html = App.views.review();
 check('未挂知识点显示警告', html.includes('未挂任何知识点'));
+
+// 8. 修订差异
+const diffItem = {
+  task_id: 9, course_id: 'math', exercise_id: 'ex-9', state: 'pending', priority: 1,
+  prompt_md: '改后的题干', tier: 'none', node_ids: ['n-2'], issues: []
+};
+reset({
+  items: [diffItem],
+  diffs: {
+    'math/ex-9': {
+      status: 'ready',
+      current: { prompt_md: '求 $x^2$ 的极限', answer_md: '解：略', difficulty: 3, source_page: 20, node_ids: ['n-2'] },
+      revisions: [{
+        version: 1, prompt_md: '求 $x$ 的极限', answer_md: '解：详', difficulty: 2,
+        source_page: 18, node_ids: ['n-1'], changed_by: '张老师',
+        changed_at: '2026-10-20T09:30:00+08:00', change_note: '核对页码'
+      }]
+    }
+  }
+});
+App.state.review.open = 9;
+html = App.views.review();
+check('显示修订差异区块', html.includes('rv-diff') && html.includes('第 1 次修改前'));
+check('差异定位到字符（有增有删）', html.includes('df-add') && html.includes('df-del'));
+check('显示了改动人与说明', html.includes('张老师') && html.includes('核对页码'));
+check('标量变化并列显示', html.includes('df-scalar') && html.includes('2026-10-20 09:30'));
+check('挂载变化显示增减', html.includes('- n-1'));
+
+reset({
+  items: [diffItem],
+  diffs: { 'math/ex-9': { status: 'ready', current: { prompt_md: '题' }, revisions: [] } }
+});
+App.state.review.open = 9;
+html = App.views.review();
+check('没有修订时明说导入时就是这样', html.includes('还没有修订记录'));
+
+reset({
+  items: [diffItem],
+  diffs: { 'math/ex-9': { status: 'error', error: '后端未启动' } }
+});
+App.state.review.open = 9;
+html = App.views.review();
+check('读不到修订历史时不白屏', html.includes('读不到修订历史') && html.includes('后端未启动'));
 
 console.log();
 if (failures.length) {

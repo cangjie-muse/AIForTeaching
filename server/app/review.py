@@ -279,3 +279,37 @@ def patch_exercise(
                     (course_id, exercise_id, node_id),
                 )
     return {"course_id": course_id, "exercise_id": exercise_id, "updated": True}
+
+
+@router.get("/exercises/{course_id}/{exercise_id}/revisions")
+def revisions(course_id: str, exercise_id: str) -> dict:
+    """修订历史 + 当前版本，供审核界面做差异对照。
+
+    触发器在每次 UPDATE **之前**快照旧值，所以 exercise_revision 里存的是"改之前长什么样"，
+    当前内容在 exercise 表里。审核员看到的差异因此是"最近一次修订前 → 现在"。
+    """
+    current = db.query_one(
+        """SELECT prompt_md, answer_md, difficulty, source_page, content_version,
+                  human_verified_at, provenance
+           FROM exercise WHERE course_id = %s AND id = %s""",
+        (course_id, exercise_id),
+    )
+    if not current:
+        raise HTTPException(404, f"题目不存在：{course_id}/{exercise_id}")
+
+    nodes = db.query(
+        "SELECT node_id FROM exercise_node WHERE course_id = %s AND exercise_id = %s ORDER BY node_id",
+        (course_id, exercise_id),
+    )
+    current["node_ids"] = [row["node_id"] for row in nodes]
+
+    rows = db.query(
+        """SELECT version, prompt_md, answer_md, difficulty, source_page, node_ids,
+                  provenance, changed_by, changed_at, change_note
+           FROM exercise_revision
+           WHERE course_id = %s AND exercise_id = %s
+           ORDER BY version DESC
+           LIMIT 20""",
+        (course_id, exercise_id),
+    )
+    return {"current": current, "revisions": rows, "count": len(rows)}

@@ -36,3 +36,87 @@
 .rv-filters .rv-chips {
   margin-bottom: 0;
 }
+
+/* 修订差异：定位到字符，但只让"变了的那几笔"抢眼，正文保持可读。 */
+.rv-diff {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: #fcfdff;
+  margin-bottom: 14px;
+}
+
+.rv-diff > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #2b3a4d;
+  list-style: none;
+}
+
+.rv-diff > summary::-webkit-details-marker {
+  display: none;
+}
+
+.df-list {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 6px 10px;
+  margin: 12px 0 6px;
+  font-size: 12px;
+}
+
+.df-list dt {
+  color: var(--muted);
+  padding-top: 2px;
+}
+
+.df-list dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.df-text {
+  font-family: "Consolas", "Menlo", monospace;
+  font-size: 12px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.df-text ins,
+.df-text del,
+.df-scalar ins,
+.df-scalar del {
+  text-decoration: none;
+  border-radius: 3px;
+  padding: 1px 2px;
+}
+
+.df-add,
+.df-text ins.df-add {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.df-del,
+.df-text del.df-del {
+  background: #fee2e2;
+  color: #991b1b;
+  text-decoration: line-through;
+}
+
+.df-scalar del {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.df-scalar ins {
+  background: #dcfce7;
+  color: #166534;
+}

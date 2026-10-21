@@ -1,8 +1,8 @@
 {
-  "checkedAt": "2026-10-21T03:18:42.509Z",
+  "checkedAt": "2026-10-21T03:22:59.557Z",
   "scope": "Project source/provenance audit; no private competitor source or internet-wide similarity database comparison",
   "checks": {
-    "runtimeFiles": 37,
+    "runtimeFiles": 38,
     "generatedCourseScriptIsDataOnly": true,
     "competitorMarkerHits": [],
     "remoteEntryAssets": [],
@@ -18,7 +18,7 @@
   "projectSourceInventory": [
     {
       "path": "index.html",
-      "sha256": "9216a408dd21a0f9915756fd16e3c3fb5bcd35c4b022692b847e742eba8e4b31"
+      "sha256": "4f67b39994bf840f60015ef98e5721915af7f8b2b20587b9425e81dadbae2f81"
     },
     {
       "path": "js/api-client.js",
@@ -61,6 +61,10 @@
       "sha256": "cc7b29fd3f9341a7eb24215cdfeadd586233fc3031bfb553ef71b3e35efec60a"
     },
     {
+      "path": "js/diff.js",
+      "sha256": "26423535caa57b7ce8e182c5538a1f1307c6f4cd2d1f4f84a89268d09886d06e"
+    },
+    {
       "path": "js/graph-atlas.js",
       "sha256": "4e3d152a28cd537bb26e4572e48754edf75490924a67db61d256e5752c0e9c22"
     },
@@ -98,7 +102,7 @@
     },
     {
       "path": "js/review.js",
-      "sha256": "32e21977a829c202e5555ff2fd7f66b151e6204e4297dbb12b2b99ffc68620ff"
+      "sha256": "b2da4ea2e93a2055b85d8bb69b0f94bd0ed60951bb1b177f9484460513b1f751"
     },
     {
       "path": "js/storage.js",
@@ -154,7 +158,7 @@
     },
     {
       "path": "styles/review.css",
-      "sha256": "b883332ffff94842b540d8edb6132c53dbe55fcc4d73e0609090da200a0d7117"
+      "sha256": "b4af04aa65031b8c5a2086c9cba6693d780005f3248c636bae54477cbb0ae3a7"
     },
     {
       "path": "styles/views.css",
@@ -205,6 +209,10 @@
       "sha256": "1d710ff017f8f3c84bf676abb59c9c139ae042cd536cd90f589249ce1bc13e58"
     },
     {
+      "path": "scripts/test-diff.cjs",
+      "sha256": "f97ff244a72e1f31619b273c655d22a1f03b0843f91af41af6c3a9d5c767d3a1"
+    },
+    {
       "path": "scripts/test-view-api-config.cjs",
       "sha256": "bb7ac66613ff4fa356a423bbc32e7dd1deedfad2dddfe885fb4f37bd92f59a76"
     },
@@ -214,7 +222,7 @@
     },
     {
       "path": "scripts/test-view-review.cjs",
-      "sha256": "9b6ab935529d77a554ffc9b147fb0e7c78a4571079b1aee86e7445e7703b822d"
+      "sha256": "a6d05a665b23ffc8163dea2070cc2bef80dbe6532edbf5a46d55c2a2a4021a51"
     },
     {
       "path": "scripts/vendor.mjs",

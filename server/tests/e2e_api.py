@@ -443,6 +443,49 @@ def run() -> None:
         finally:
             llm.chat = real_chat
 
+        print("\n修订差异：")
+
+        before = client.get("/api/v1/review/exercises/e2e-course/ex-2/revisions")
+        check("未修改时没有修订历史", before.status_code == 200 and before.json()["count"] == 0,
+              str(before.json().get("count")) if before.status_code == 200 else before.text[:80])
+
+        patched = client.patch(
+            "/api/v1/review/exercises/e2e-course/ex-2", headers=ADMIN,
+            json={"prompt_md": "改过的题干（第一版）", "change_note": "改页码"},
+        )
+        check("管理员可以改题干", patched.status_code == 200, patched.text[:100])
+        client.patch(
+            "/api/v1/review/exercises/e2e-course/ex-2", headers=ADMIN,
+            json={"prompt_md": "改过的题干（第二版）", "difficulty": 4},
+        )
+
+        after = client.get("/api/v1/review/exercises/e2e-course/ex-2/revisions")
+        payload = after.json() if after.status_code == 200 else {}
+        check("两次修改产生两条快照", payload.get("count") == 2, str(payload.get("count")))
+        check("当前版本在 exercise 表", payload.get("current", {}).get("prompt_md") == "改过的题干（第二版）",
+              str(payload.get("current", {}).get("prompt_md")))
+        latest = (payload.get("revisions") or [{}])[0]
+        check("最近一条快照是上一版内容", latest.get("prompt_md") == "改过的题干（第一版）",
+              str(latest.get("prompt_md")))
+        check("快照记了改动人", bool(latest.get("changed_by")), str(latest.get("changed_by")))
+        check("最近一条快照的说明来自那次修改", latest.get("change_note") == "api patch",
+              str(latest.get("change_note")))
+        oldest = (payload.get("revisions") or [{}, {}])[-1]
+        check("最早一条快照记了手写的修改说明", oldest.get("change_note") == "改页码",
+              str(oldest.get("change_note")))
+        check("最早一条快照保留了原始题干", "第 2 题" in str(oldest.get("prompt_md")),
+              str(oldest.get("prompt_md"))[:40])
+
+        gone = client.get("/api/v1/review/exercises/e2e-course/no-such/revisions")
+        check("不存在的题目查修订返回 404", gone.status_code == 404, str(gone.status_code))
+
+        # 改完之后，审核队列里读到的应该是新题干
+        refreshed = client.get("/api/v1/review/queue?limit=100")
+        target = next((item for item in refreshed.json()["items"]
+                       if item["exercise_id"] == "ex-2"), None)
+        check("队列读到的是修改后的题干", target and target["prompt_md"] == "改过的题干（第二版）",
+              str(target["prompt_md"]) if target else "未找到 ex-2")
+
         # --- 以下会产生真正的数据库错误，必须最后跑（见文件头说明）---
         print("\n数据库约束（放在最后：会让 PGlite 协议错位）：")
         dup = client.post(
