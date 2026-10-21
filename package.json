@@ -14,6 +14,7 @@
     "seed:db": "python db/build_seed.py",
     "verify:db": "node db/verify_seed.mjs",
     "test:api": "node scripts/e2e-api.cjs",
+    "test:preflight": "node scripts/test-preflight.cjs",
     "dev:api": "node scripts/dev-api.cjs"
   },
   "dependencies": {

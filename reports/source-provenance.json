@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-21T03:22:59.557Z",
+  "checkedAt": "2026-10-21T03:30:44.660Z",
   "scope": "Project source/provenance audit; no private competitor source or internet-wide similarity database comparison",
   "checks": {
     "runtimeFiles": 38,
@@ -182,7 +182,7 @@
     },
     {
       "path": "scripts/dev_seed.py",
-      "sha256": "d2f4b0b7ad149780ef9d8632b2e7bb0252e21b2eb2cb06a2f38a412eb929edc8"
+      "sha256": "0a40ec7b19b0479828c3bd45194751e99ec633a06c83ecba6be43c7c47dbb935"
     },
     {
       "path": "scripts/e2e-api.cjs",
@@ -201,6 +201,10 @@
       "sha256": "313257a228f3fbad2daf5e8fe9347e0c5b0c3769084fbf3f8e8fe9b0c19ccd53"
     },
     {
+      "path": "scripts/preflight.py",
+      "sha256": "66d8517d06933aa6a2192b1dc7978881af0edfca0194b16509f8d3186d761eb2"
+    },
+    {
       "path": "scripts/serve-lan.py",
       "sha256": "9c5d45f48db0089fcb2ba03a2fa9116679de347e5548b5bd2d9a9bea9ca8169a"
     },
@@ -211,6 +215,10 @@
     {
       "path": "scripts/test-diff.cjs",
       "sha256": "f97ff244a72e1f31619b273c655d22a1f03b0843f91af41af6c3a9d5c767d3a1"
+    },
+    {
+      "path": "scripts/test-preflight.cjs",
+      "sha256": "321f35ce518d0682659814cbb5b2037fb3f66bf4c6f398374cb084ce036d93ba"
     },
     {
       "path": "scripts/test-view-api-config.cjs",
