@@ -81,7 +81,15 @@ async function main() {
   check('开发环境离线自检无阻断项', dev.code === 0, `退出码 ${dev.code}`);
   check('明确告知数据库未检查', dev.out.includes('--offline'));
 
-  // 5. 真的连一个库：迁移应通过，pgvector 缺失应被指出
+  // 5. GBK 控制台不能因为打印不出勾就崩掉（Windows 默认就是 GBK）
+  const gbk = runPreflight(['--offline'], {
+    PYTHONIOENCODING: 'gbk', APP_ENV: 'dev', AUTH_MODE: 'dev', MODEL_EGRESS: 'allowlist'
+  });
+  check('GBK 控制台下不崩', !gbk.out.includes('Traceback'), gbk.out.slice(-120));
+  check('GBK 控制台退回 ASCII 记号', gbk.out.includes('[OK]'));
+  check('GBK 控制台退出码仍正确', gbk.code === 0, `退出码 ${gbk.code}`);
+
+  // 6. 真的连一个库：迁移应通过，pgvector 缺失应被指出
   const { PGlite } = await import('@electric-sql/pglite');
   const { PGLiteSocketServer } = await import('@electric-sql/pglite-socket');
   const { pgcrypto } = await import('@electric-sql/pglite/contrib/pgcrypto');

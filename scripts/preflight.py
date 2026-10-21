@@ -30,6 +30,30 @@ SECRETS_HINTS = ("secrets", ".secrets")
 
 PASS, WARN, FAIL, SKIP = "pass", "warn", "fail", "skip"
 MARKS = {PASS: "✓", WARN: "!", FAIL: "✗", SKIP: "-"}
+ASCII_MARKS = {PASS: "[OK]", WARN: "[!]", FAIL: "[X]", SKIP: "[-]"}
+
+
+def use_safe_marks() -> None:
+    """Windows 控制台默认 GBK，直接 print ✓ 会抛 UnicodeEncodeError 而不是显示方块。
+
+    自检脚本因为"打印不出勾"而崩掉，是最没必要的一种失败。做法是：
+    - 输出流本来就支持 ✓：什么都不改。
+    - 不支持（GBK）：整体退回 ASCII 记号（[OK] / [!] / [X]），中文照常输出——
+      GBK 能显示中文，只是没有勾。**不要**为了勾把整个流改成 UTF-8：
+      那样中文会在 GBK 控制台上变成乱码，为了一个符号牺牲整屏可读性不划算。
+    - 实在写不出去的字符替换成 ?，不让脚本崩。
+    """
+    global MARKS
+    encoding = sys.stdout.encoding or "ascii"
+    try:
+        "✓".encode(encoding)
+        return
+    except (LookupError, UnicodeEncodeError):
+        MARKS = ASCII_MARKS
+    try:
+        sys.stdout.reconfigure(errors="replace")
+    except (AttributeError, OSError, ValueError):
+        pass
 
 
 @dataclass
@@ -295,6 +319,7 @@ def main() -> int:
     parser.add_argument("--offline", action="store_true", help="跳过数据库检查")
     args = parser.parse_args()
 
+    use_safe_marks()
     checks = run(args.offline, args.url)
     pad = max(width(item.name) for item in checks)
     for item in checks:

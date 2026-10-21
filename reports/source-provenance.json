@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-21T03:30:44.660Z",
+  "checkedAt": "2026-10-21T03:33:29.476Z",
   "scope": "Project source/provenance audit; no private competitor source or internet-wide similarity database comparison",
   "checks": {
     "runtimeFiles": 38,
@@ -202,7 +202,7 @@
     },
     {
       "path": "scripts/preflight.py",
-      "sha256": "66d8517d06933aa6a2192b1dc7978881af0edfca0194b16509f8d3186d761eb2"
+      "sha256": "163dedad71433d5c2e5031d3412ab7fe1185855f0fff61683e71fcc32b08b550"
     },
     {
       "path": "scripts/serve-lan.py",
@@ -218,7 +218,7 @@
     },
     {
       "path": "scripts/test-preflight.cjs",
-      "sha256": "321f35ce518d0682659814cbb5b2037fb3f66bf4c6f398374cb084ce036d93ba"
+      "sha256": "4cb38a5eff798e142abb0854f81a4b5c49146a7aecdd98673f6a03e7a8684a64"
     },
     {
       "path": "scripts/test-view-api-config.cjs",
