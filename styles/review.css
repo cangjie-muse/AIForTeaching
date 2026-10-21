@@ -133,3 +133,21 @@
 .rv-tier{display:inline-flex;align-items:center;gap:6px}
 .rv-tier b{color:var(--ink,#1d2430)}
 @media(max-width:720px){.rv-policy-row select{min-width:0;width:100%}}
+/* 作用范围（全局 / 某门课）：一行下拉 + 一句状态说明。 */
+.rv-policy-scope{display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px;margin:12px 0 2px}
+.rv-policy-scope .rv-select{display:flex;align-items:center;gap:8px}
+.rv-policy-scope select{min-width:240px}
+.rv-policy-scope p{margin:0}
+
+/* 知识图谱审核：按章通过。表格沿用审核页的紧凑行高。 */
+.rv-graph{margin-bottom:18px}
+.rv-graph table{width:100%;border-collapse:collapse;margin-top:10px}
+.rv-graph th{text-align:left;font-size:12px;font-weight:600;color:var(--muted);
+  padding:6px 10px;border-bottom:1px solid var(--line,#e3e6ec)}
+.rv-graph td{padding:8px 10px;border-bottom:1px solid var(--line,#e3e6ec);vertical-align:middle}
+.rv-graph td.rv-main small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.rv-graph .rv-actions{text-align:right;white-space:nowrap}
+@media(max-width:720px){
+  .rv-policy-scope select{min-width:0;width:100%}
+  .rv-policy-scope{flex-direction:column;align-items:stretch}
+}

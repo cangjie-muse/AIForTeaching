@@ -51,6 +51,8 @@
     diffs: {},       // 按「课程/题目」缓存修订历史，避免每次重渲染都请求
     busy: false,
     visibility: null, // 学生可见范围（验证等级闸）
+    policyScope: '',  // '' = 全局口径；课程号 = 这门课的覆盖
+    graph: null,      // 当前课程的知识图谱审核状态
     policyDraft: null // 未保存的草案：先让人看到"这一档会放出多少题"，再决定保存
   };
 
@@ -98,16 +100,19 @@
     state.error = '';
     A.render();
     try {
-      const [summary, queue, courses, policy] = await Promise.all([
+      const scope = state.policyScope || '';
+      const [summary, queue, courses, policy, graph] = await Promise.all([
         A.api.get('/api/v1/review/summary'),
         A.api.get(`/api/v1/review/queue?${query()}`),
         A.api.get('/api/v1/courses'),
-        A.api.visibility(S().filters.course_id || undefined)
+        A.api.visibility(scope || undefined),
+        scope ? A.api.reviewGraph(scope) : Promise.resolve(null)
       ]);
       state.summary = summary;
       state.items = queue.items || [];
       state.courses = courses.items || [];
       state.visibility = policy;
+      state.graph = graph;
       state.checked = {};
       state.status = 'ready';
     } catch (error) {
@@ -127,32 +132,112 @@
   // ---------------------------------------------------------------------------
 
   // 学生可见范围：把"审核到什么程度才给学生看"变成一句可执行的口径。
-  // 关键设计：选中某一档时先把"这一档会放出多少题"算出来给人看，
+  // 两级：全局默认 + 课程覆盖。选中某一档时先把"这一档会放出多少题/多少节点"算出来，
   // 而不是等保存之后发现学生端空了再回头查。
+  function scopeStatus(policy) {
+    const names = (policy.labels && {});
+    const label = value => (policy.labels || {})[value] || value;
+    const graphLabel = value => (policy.graph_labels || {})[value] || value;
+    if (policy.scope === 'global') {
+      return `全局默认：习题 ${e(label(policy.effective.exercise_tier))} · 问答 ${e(label(policy.effective.qa_tier))} · 图谱 ${e(graphLabel(policy.effective.graph_tier))}`;
+    }
+    const tail = `全局是 习题 ${e(label(policy.global.exercise_tier))} · 问答 ${e(label(policy.global.qa_tier))} · 图谱 ${e(graphLabel(policy.global.graph_tier))}`;
+    if (policy.override) {
+      return `<b>这门课单独设置</b>：习题 ${e(label(policy.effective.exercise_tier))} · 问答 ${e(label(policy.effective.qa_tier))} · 图谱 ${e(graphLabel(policy.effective.graph_tier))}（${tail}）`;
+    }
+    return `这门课跟随全局（${tail}）；保存后才会为它单独设置`;
+  }
+
   function policyPanel() {
     const policy = S().visibility;
     if (!policy) return '';
-    const draft = S().policyDraft || { exercise_tier: policy.exercise_tier, qa_tier: policy.qa_tier };
+    const draft = S().policyDraft || {
+      exercise_tier: policy.effective.exercise_tier,
+      qa_tier: policy.effective.qa_tier,
+      graph_tier: policy.effective.graph_tier
+    };
+    const scope = S().policyScope || '';
     const options = current => (policy.options || ['human', 'verified', 'all']).map(key =>
       `<option value="${key}"${key === current ? ' selected' : ''}>${e(policy.labels[key] || key)} · 学生可见 ${policy.impact[key] ?? 0} 题</option>`).join('');
+    const graphOptions = current => (policy.graph_options || ['all', 'human']).map(key =>
+      `<option value="${key}"${key === current ? ' selected' : ''}>${e(policy.graph_labels[key] || key)} · 学生可见 ${policy.graph.impact[key] ?? 0} 节点</option>`).join('');
     const chips = (policy.tiers || []).map(row =>
       `<span class="rv-tier">${tierBadge(row.tier)}<b>${row.total}</b> 题，已发布 ${row.published}</span>`).join('');
     const visible = policy.impact[draft.exercise_tier] ?? 0;
-    const warning = visible === 0
-      ? `<div class="notice amber">${A.icon('info')}<span>这一档现在放不出任何已发布习题——还没有题达到这个验证等级。要么先去审核，要么换回更宽的档。</span></div>`
-      : `<p class="muted small">当前设置下，学生端可见 <b>${visible}</b> 道已发布习题；全平台共 ${policy.total} 道，其中已发布 ${policy.published_total} 道。</p>`;
+    const graphVisible = policy.graph.impact[draft.graph_tier] ?? 0;
+    const warnings = [];
+    if (visible === 0) {
+      warnings.push(`这一档现在放不出任何已发布习题——还没有题达到这个验证等级。要么先去审核，要么换回更宽的档。`);
+    }
+    if (draft.graph_tier === 'human' && graphVisible === 0) {
+      warnings.push('这一档下没有任何节点通过人工审核，学生端会看不到知识图谱。');
+    }
+    if (draft.exercise_tier === 'verified') {
+      warnings.push('Lean 验证尚未接入：选这一档目前与「仅人工审核通过」效果相同。');
+    }
+    const warningHtml = warnings.map(text =>
+      `<div class="notice amber">${A.icon('info')}<span>${e(text)}</span></div>`).join('');
+    const scopeOptions = [{ id: '', title: '全局默认（所有课程）', has_override: false }]
+      .concat(policy.courses || [])
+      .map(course => `<option value="${e(course.id)}"${course.id === scope ? ' selected' : ''}>${e(course.title)}${course.has_override ? '（单独设置）' : ''}</option>`)
+      .join('');
     return `<div class="panel rv-policy">
       <div class="rv-policy-head">
-        <div><h2>学生可见范围</h2><p class="muted">审核不是二元的。这里决定学生端的习题与 AI 问答从哪一档可信等级取内容；它与发布闸是「与」的关系：先发布，再按等级过滤。</p></div>
-        <div class="button-row">${A.button('保存设置', 'visibility-save', 'check', '', 'primary small')}</div>
+        <div><h2>学生可见范围</h2><p class="muted">审核不是二元的。这里决定学生端的习题、AI 问答、知识图谱从哪一档可信等级取内容；它与发布闸是「与」的关系：先发布，再按等级过滤。口径分两级，课程可以覆盖全局。</p></div>
+        <div class="button-row">
+          ${scope && policy.override ? `<button class="btn small" data-action="visibility-reset">取消本课设置</button>` : ''}
+          ${A.button('保存设置', 'visibility-save', 'check', '', 'primary small')}
+        </div>
+      </div>
+      <div class="rv-policy-scope">
+        <label class="rv-select"><span>作用范围</span>
+          <select data-input="visibility-scope">${scopeOptions}</select>
+        </label>
+        <p class="muted small">${scopeStatus(policy)}</p>
       </div>
       <div class="rv-policy-row">
         <label class="rv-select"><span>习题与测验</span><select data-input="visibility-tier" data-kind="exercise">${options(draft.exercise_tier)}</select></label>
         <label class="rv-select"><span>AI 问答（完整解答）</span><select data-input="visibility-tier" data-kind="qa">${options(draft.qa_tier)}</select></label>
+        <label class="rv-select"><span>知识图谱</span><select data-input="visibility-tier" data-kind="graph">${graphOptions(draft.graph_tier)}</select></label>
       </div>
-      <div class="rv-policy-tiers">${chips}</div>
-      ${warning}
+      <div class="rv-policy-tiers">${chips}
+        <span class="rv-tier">${'图谱'}<b>${policy.graph.verified}</b>/${policy.graph.total} 节点已人工审核</span>
+      </div>
+      ${warningHtml}
+      <p class="muted small">当前设置下，学生端可见 <b>${visible}</b> 道已发布习题、<b>${graphVisible}</b> 个图谱节点；当前范围共 ${policy.total} 道题（已发布 ${policy.published_total}）、${policy.graph.total} 个节点。</p>
       <p class="muted small">${policy.updated_at ? `上次修改：${e(String(policy.updated_at).slice(0, 19).replace('T', ' '))}${policy.updated_by ? ` · ${e(policy.updated_by)}` : ''}` : '还没有改过，当前是默认设置（全部）。'}</p>
+    </div>`;
+  }
+
+  // 知识图谱审核：按章通过。几百个节点逐个点不现实，老师看图本来也是按章看。
+  function graphPanel() {
+    const facts = S().graph;
+    const scope = S().policyScope;
+    if (!scope) {
+      return `<div class="panel rv-graph"><h2>知识图谱审核</h2>
+        <p class="muted">教材切片正文不审（原文转载）。需要人工确认的是图谱结构挂得对不对——在上面选一门课，就能按章通过。</p></div>`;
+    }
+    if (!facts) return '';
+    const totals = facts.totals || { nodes: 0, verified: 0 };
+    const rows = (facts.chapters || []).map(chapter => {
+      const done = chapter.verified >= chapter.nodes;
+      return `<tr>
+        <td class="rv-main"><b>${e(chapter.title || chapter.chapter_id)}</b><small>${e(chapter.course_id)} · ${chapter.nodes} 个节点</small></td>
+        <td>${done ? A.badge('已通过', 'green') : `<span class="muted">${chapter.verified}/${chapter.nodes} 已审</span>`}</td>
+        <td class="rv-actions">
+          <button class="btn small${done ? '' : ' primary'}" data-action="graph-verify" data-chapter="${e(chapter.chapter_id)}" data-verb="${done ? 'unverify' : 'verify'}">
+            ${done ? '撤销本课通过' : '整章人工通过'}
+          </button>
+        </td>
+      </tr>`;
+    }).join('');
+    return `<div class="panel rv-graph">
+      <div class="rv-policy-head">
+        <div><h2>知识图谱审核</h2>
+          <p class="muted">教材切片正文不审（原文转载，审的是作者不是我们）。这里审「图谱挂得对不对」，只有人工一档——它不是定理，谈不上形式化验证。</p></div>
+      </div>
+      <p class="muted small">当前课程 ${totals.nodes} 个节点，已人工审核 <b>${totals.verified}</b> 个${totals.nodes && totals.verified === totals.nodes ? '（全部通过）' : ''}。</p>
+      ${rows ? `<table class="rv-table"><thead><tr><th>章节</th><th>状态</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : '<p class="muted">这门课还没有知识节点。</p>'}
     </div>`;
   }
 
@@ -387,7 +472,7 @@
     const openId = state.open;
     const detail = openId ? state.items.find(item => String(item.task_id) === String(openId)) : null;
 
-    return heading + policyPanel() + statsPanel() + `<div class="rv-filters">${courseFilter()}${issueSummary()}</div>` + `
+    return heading + policyPanel() + graphPanel() + statsPanel() + `<div class="rv-filters">${courseFilter()}${issueSummary()}</div>` + `
       <div class="rv-layout ${detail ? 'has-detail' : ''}">
         ${listPanel()}
         ${detail ? detailPanel(detail) : ''}
@@ -404,11 +489,25 @@
 
   A.actions['review-refresh'] = function () { reload(); };
 
+  A.inputs['visibility-scope'] = function (select) {
+    // 换作用域 = 换一份口径，草案必须丢掉，否则会把全局的值带到某门课上
+    S().policyScope = select.value;
+    S().policyDraft = null;
+    S().graph = null;
+    reload();
+  };
+
   A.inputs['visibility-tier'] = function (select) {
     const policy = S().visibility;
     if (!policy) return;
-    const draft = S().policyDraft || { exercise_tier: policy.exercise_tier, qa_tier: policy.qa_tier };
-    draft[select.dataset.kind === 'qa' ? 'qa_tier' : 'exercise_tier'] = select.value;
+    const draft = S().policyDraft || {
+      exercise_tier: policy.effective.exercise_tier,
+      qa_tier: policy.effective.qa_tier,
+      graph_tier: policy.effective.graph_tier
+    };
+    const key = select.dataset.kind === 'qa' ? 'qa_tier'
+      : select.dataset.kind === 'graph' ? 'graph_tier' : 'exercise_tier';
+    draft[key] = select.value;
     S().policyDraft = draft;
     // 立刻重渲染，把"这一档会放出多少题"算给操作者看——保存前就知道后果
     A.render();
@@ -417,16 +516,63 @@
   A.actions['visibility-save'] = async function (button) {
     const policy = S().visibility;
     if (!policy) return;
-    const draft = S().policyDraft || { exercise_tier: policy.exercise_tier, qa_tier: policy.qa_tier };
+    const draft = S().policyDraft || {
+      exercise_tier: policy.effective.exercise_tier,
+      qa_tier: policy.effective.qa_tier,
+      graph_tier: policy.effective.graph_tier
+    };
+    const scope = S().policyScope || '';
     button.disabled = true;
     try {
-      S().visibility = await A.api.saveVisibility({
-        exercise_tier: draft.exercise_tier, qa_tier: draft.qa_tier
-      });
+      await A.api.saveVisibility({
+        exercise_tier: draft.exercise_tier,
+        qa_tier: draft.qa_tier,
+        graph_tier: draft.graph_tier
+      }, scope || undefined);
       S().policyDraft = null;
-      A.toast('已保存：学生端与 AI 问答按新的可见范围取内容。');
+      A.toast(scope ? '已保存：这门课单独设置生效（其余课程仍用全局口径）。' : '已保存：全局口径生效，没有单独设置的课程都按它来。');
+      S().status = 'idle';
+      load();
     } catch (error) {
       A.toast(`保存失败：${error.message}`);
+    }
+    button.disabled = false;
+    A.render();
+  };
+
+  A.actions['visibility-reset'] = async function (button) {
+    const scope = S().policyScope;
+    if (!scope || !window.confirm('取消这门课的单独设置，让它回到跟随全局？')) return;
+    button.disabled = true;
+    try {
+      await A.api.resetVisibility(scope);
+      S().policyDraft = null;
+      A.toast('已取消：这门课回到跟随全局。');
+      S().status = 'idle';
+      load();
+    } catch (error) {
+      A.toast(`取消失败：${error.message}`);
+    }
+    button.disabled = false;
+    A.render();
+  };
+
+  A.actions['graph-verify'] = async function (button) {
+    const scope = S().policyScope;
+    if (!scope) return;
+    const verifying = button.dataset.verb !== 'unverify';
+    if (!verifying && !window.confirm('撤销这一章的人工审核？学生端会重新看不到它（若图谱口径为仅人工审核）。')) return;
+    button.disabled = true;
+    try {
+      const result = await A.api.verifyGraph({
+        course_id: scope, chapter_id: button.dataset.chapter,
+        action: verifying ? 'verify' : 'unverify'
+      });
+      A.toast(verifying ? `已通过 ${result.changed} 个节点。` : `已撤销 ${result.changed} 个节点。`);
+      S().status = 'idle';
+      load();
+    } catch (error) {
+      A.toast(`操作失败：${error.message}`);
     }
     button.disabled = false;
     A.render();

@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
@@ -37,6 +39,16 @@ class ExercisePatch(BaseModel):
     node_ids: list[str] | None = None
     change_note: str | None = None
     human_verified: bool = False
+
+
+class GraphVerifyIn(BaseModel):
+    """知识图谱人工审核：按章整批通过，或按节点列表通过/撤销。"""
+
+    course_id: str
+    chapter_id: str | None = None
+    node_ids: list[str] = Field(default_factory=list)
+    action: str = Field(default="verify", pattern="^(verify|unverify)$")
+    note: str | None = None
 
 
 @router.get("/summary")
@@ -240,6 +252,90 @@ def decide(task_id: int, body: DecisionIn, actor: Actor = Depends(current_actor)
                 (x_actor, f"{task['course_id']}/{task['target_id']}", body.note),
             )
     return {"task_id": task_id, "state": new_state}
+
+
+@router.get("/graph")
+def graph(course_id: str | None = None) -> dict:
+    """知识图谱的审核状态：按章分组，给"整章通过"用。
+
+    为什么按章而不是按节点：图谱节点几百个，逐个点不现实；老师看图时也是按章看
+    "这一章的树挂得对不对"。逐节点通过留到后面再加。
+    """
+    chapters = db.query(
+        """
+        SELECT n.course_id,
+               coalesce(n.chapter_id, n.id) AS chapter_id,
+               coalesce(ch.title, n.title) AS title,
+               count(*)::int AS nodes,
+               count(*) FILTER (WHERE n.human_verified_at IS NOT NULL)::int AS verified
+          FROM knowledge_node n
+          LEFT JOIN knowledge_node ch ON ch.course_id = n.course_id AND ch.id = n.chapter_id
+         WHERE n.review_status <> 'retired'
+           AND (%s::text IS NULL OR n.course_id = %s)
+         GROUP BY n.course_id, coalesce(n.chapter_id, n.id), ch.title, n.title
+         ORDER BY n.course_id, chapter_id
+        """,
+        (course_id, course_id),
+    )
+    totals = db.query_one(
+        """
+        SELECT count(*)::int AS nodes,
+               count(*) FILTER (WHERE human_verified_at IS NOT NULL)::int AS verified,
+               count(DISTINCT course_id)::int AS courses
+          FROM knowledge_node
+         WHERE review_status <> 'retired'
+           AND (%s::text IS NULL OR course_id = %s)
+        """,
+        (course_id, course_id),
+    ) or {"nodes": 0, "verified": 0, "courses": 0}
+    return {"chapters": chapters, "totals": totals}
+
+
+@router.post("/graph/verify")
+def graph_verify(
+    body: GraphVerifyIn,
+    actor: Actor = Depends(current_actor),
+) -> dict:
+    """把一章（或一批节点）标为人工审核通过 / 撤销。
+
+    写 human_verified_at + human_verified_by；图谱可见范围的 human 档就看这两个字段。
+    """
+    if not body.chapter_id and not body.node_ids:
+        raise HTTPException(400, "要么给 chapter_id（整章），要么给 node_ids（逐个）")
+    if not actor.has("teacher", "reviewer", "admin"):
+        raise HTTPException(403, "学生不能审核知识图谱")
+
+    verified = body.action == "verify"
+    if body.chapter_id:
+        changed = db.execute(
+            """UPDATE knowledge_node
+                  SET human_verified_at = CASE WHEN %s THEN now() ELSE NULL END,
+                      human_verified_by = CASE WHEN %s THEN %s ELSE NULL END
+                WHERE course_id = %s AND (chapter_id = %s OR id = %s)
+                  AND review_status <> 'retired'
+                  AND (human_verified_at IS NOT NULL) <> %s""",
+            (verified, verified, actor.id, body.course_id, body.chapter_id, body.chapter_id,
+             verified),
+        )
+    else:
+        changed = db.execute(
+            """UPDATE knowledge_node
+                  SET human_verified_at = CASE WHEN %s THEN now() ELSE NULL END,
+                      human_verified_by = CASE WHEN %s THEN %s ELSE NULL END
+                WHERE course_id = %s AND id = ANY(%s::text[])
+                  AND review_status <> 'retired'
+                  AND (human_verified_at IS NOT NULL) <> %s""",
+            (verified, verified, actor.id, body.course_id, body.node_ids, verified),
+        )
+    db.execute(
+        """INSERT INTO audit_log (actor, action, entity, entity_key, detail)
+           VALUES (%s, %s, 'knowledge_node', %s, %s::jsonb)""",
+        (actor.id, "graph.verify" if verified else "graph.unverify",
+         f"{body.course_id}/{body.chapter_id or 'nodes'}",
+         json.dumps({"chapter_id": body.chapter_id, "node_ids": body.node_ids,
+                     "changed": changed, "note": body.note}, ensure_ascii=False)),
+    )
+    return {"course_id": body.course_id, "action": body.action, "changed": changed}
 
 
 @router.patch("/exercises/{course_id}/{exercise_id}")

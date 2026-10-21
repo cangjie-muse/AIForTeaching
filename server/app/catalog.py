@@ -11,6 +11,8 @@
 3. 验证等级闸（visibility_policy）：已发布的题还要满足当前允许的可信等级——
    「仅人工审核通过」/「Lean 验证 + 人工审核」/「全部（含未验证）」。三道是 AND。
    这一道单独存在的原因：发布是"能不能出现"，等级是"哪一档可信度才允许出现"。
+   口径分两级：全局默认 + 课程覆盖（课程有覆盖就用覆盖，否则跟随全局）。
+   图谱另有一档 graph_tier（all / human）：节点也要人工审核过才放。
 
 知识点不设条目级门禁：知识点的正文在「课程内容」页由老师直接改，改完即定稿；
 再要求逐条发布只会让树缺枝。retired 的节点与题目始终隐藏。
@@ -147,11 +149,12 @@ SELECT c.id, c.title, c.description, c.audience, c.subject, c.content_updated_at
 """
 
 PUBLISHED_NODES_SQL = """
-SELECT id, chapter_id, parent_id, title, level, kind, path, content_md,
-       exercise_anchor, source_raw
-  FROM knowledge_node
- WHERE course_id = %s AND review_status <> 'retired'
- ORDER BY level, id
+SELECT n.id, n.chapter_id, n.parent_id, n.title, n.level, n.kind, n.path, n.content_md,
+       n.exercise_anchor, n.source_raw
+  FROM knowledge_node n
+ WHERE n.course_id = %s AND n.review_status <> 'retired'
+   AND {node_filter}
+ ORDER BY n.level, n.id
 """
 
 PUBLISHED_EXERCISES_SQL = """
@@ -173,9 +176,13 @@ def published_course(course_id: str) -> dict | None:
         (course_id,))
     if not course:
         return None
-    nodes = db.query(PUBLISHED_NODES_SQL, (course_id,))
-    # 发布闸之后还有一道"验证等级"闸：学生端只拿到当前设置允许的那一档。
-    tier_filter, tier_params = visibility.exercise_filter()
+    # 三道闸：课程已发布、条目已发布、当前口径允许的等级。
+    # 口径按课程解析：这门课有单独设置就用它，否则跟随全局。
+    node_filter, node_params = visibility.node_filter(course_id)
+    nodes = db.query(
+        PUBLISHED_NODES_SQL.format(node_filter=node_filter),
+        (course_id, *node_params))
+    tier_filter, tier_params = visibility.exercise_filter(course_id)
     exercises = db.query(
         PUBLISHED_EXERCISES_SQL.format(tier_filter=tier_filter),
         (course_id, *tier_params))
@@ -190,7 +197,7 @@ def catalog() -> list[dict]:
     rows = db.query(PUBLISHED_COURSES_SQL)
     items = []
     for row in rows:
-        tier_filter, tier_params = visibility.exercise_filter()
+        tier_filter, tier_params = visibility.exercise_filter(row["id"])
         visible = db.query_one(
             f"""SELECT count(*) AS n FROM exercise e
                  JOIN v_exercise_verification v ON v.course_id = e.course_id AND v.id = e.id

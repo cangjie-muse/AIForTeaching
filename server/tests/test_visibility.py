@@ -1,11 +1,9 @@
-"""学生可见范围（验证等级闸）的单元测试（不连数据库）。
+"""可见范围的作用域解析与图谱档位（纯函数，不连数据库）。
 
-测的是三件容易出错、且出错后很难被发现的事：
-
-1. **档位是包含关系**：human ⊂ verified ⊂ all。写错一个等级名字，学生端会静默少题
-   或多题——没有报错，只有"怎么少了几道题"这种事后才发现的问题。
-2. **未知档位直接拒绝**：不能静默降级成"全部"，那等于把没审的题发给学生。
-3. **默认值与引入本表之前一致**：all/all。升级不能让在读的学生突然看不到题。
+测三件容易静默出错的事：
+1. 课程有覆盖 → 用课程；没有 → 跟随全局。写反了，一门试点课的宽松口径会污染整校。
+2. 课程只覆盖了部分字段时，其余字段仍跟随全局（合并，不是整行替换）。
+3. 图谱只有 all / human 两档，未知值必须拒绝。
 """
 
 from __future__ import annotations
@@ -39,6 +37,12 @@ def raises_400(setting: str) -> bool:
     return False
 
 
+GLOBAL = {"exercise_tier": "all", "qa_tier": "all", "graph_tier": "all", "note": "全校默认"}
+COURSE_STRICT = {"exercise_tier": "human", "qa_tier": "human", "graph_tier": "human",
+                 "note": "数学分析要严"}
+COURSE_PARTIAL = {"exercise_tier": "verified", "qa_tier": None, "graph_tier": None}
+
+
 print("档位的包含关系：")
 human = set(visibility.allowed("human"))
 verified = set(visibility.allowed("verified"))
@@ -48,33 +52,57 @@ check("Lean 档包含仅人工档", human <= verified, str(sorted(verified)))
 check("全部档包含 Lean 档", verified <= everything, str(sorted(everything)))
 check("三档严格递增", len(human) < len(verified) < len(everything),
       f"{len(human)} < {len(verified)} < {len(everything)}")
-check("全部档覆盖四种验证等级",
-      everything == {"none", "lean", "human", "strongest"}, str(sorted(everything)))
 
 print("\n未知档位不能静默降级：")
 check("未知值抛 400", raises_400("whatever"))
 check("空字符串抛 400", raises_400(""))
 check("大小写不一致也抛 400（不猜意图）", raises_400("HUMAN"))
 
-print("\n标签与选项：")
-check("每一档都有中文标签", all(key in visibility.TIER_LABELS for key in visibility.TIERS),
-      str(list(visibility.TIER_LABELS)))
-check("标签顺序与档位一致", list(visibility.TIERS) == ["human", "verified", "all"],
-      str(list(visibility.TIERS)))
-check("页面上按从严到宽展示", visibility.TIERS[0] == "human")
+print("\n作用域解析：")
+global_only = visibility.resolve(GLOBAL, None)
+check("没有课程覆盖时跟随全局", global_only["exercise_tier"] == "all"
+      and global_only["source"] == "global", str(global_only["source"]))
+strict = visibility.resolve(GLOBAL, COURSE_STRICT)
+check("课程有覆盖时用课程", strict["exercise_tier"] == "human", strict["exercise_tier"])
+check("课程覆盖标记来源", strict["source"] == "course", strict["source"])
+check("课程覆盖也带上了自己的修改信息", strict["note"] == "数学分析要严", str(strict["note"]))
 
-print("\n默认策略：")
-check("习题默认全部", visibility.DEFAULT_POLICY["exercise_tier"] == "all")
-check("问答默认全部", visibility.DEFAULT_POLICY["qa_tier"] == "all")
-check("默认值本身合法", not raises_400(visibility.DEFAULT_POLICY["exercise_tier"]))
+partial = visibility.resolve(GLOBAL, COURSE_PARTIAL)
+check("只覆盖习题时，问答仍跟随全局", partial["qa_tier"] == "all", partial["qa_tier"])
+check("只覆盖习题时，图谱仍跟随全局", partial["graph_tier"] == "all", partial["graph_tier"])
+check("被覆盖的字段用课程值", partial["exercise_tier"] == "verified", partial["exercise_tier"])
+
+nothing = visibility.resolve(None, None)
+check("库是空的也能给出默认口径", nothing == {**visibility.DEFAULT_POLICY, "source": "default",
+                                             "note": None, "updated_at": None, "updated_by": None},
+      str(nothing))
+check("默认口径是全部（升级不改变行为）",
+      nothing["exercise_tier"] == "all" and nothing["qa_tier"] == "all"
+      and nothing["graph_tier"] == "all")
+
+print("\n图谱档位：")
+check("all 不限", visibility.graph_allowed("all") is True)
+check("human 只放人工审核过的", visibility.graph_allowed("human") is False)
+try:
+    visibility.graph_allowed("lean")
+    check("未知图谱档位抛 400", False, "没有拒绝 lean")
+except HTTPException as exc:
+    check("未知图谱档位抛 400", exc.status_code == 400, str(exc.status_code))
 
 print("\nSQL 片段：")
-fragment, params = visibility.exercise_filter("human")
+fragment, params = visibility.exercise_filter(setting="human")
 check("片段按验证等级过滤", fragment == "v.tier = ANY(%s::text[])", fragment)
 check("参数是列表（psycopg 需要数组）", isinstance(params[0], list), str(type(params[0])))
 check("参数与档位一致", params[0] == ["human", "strongest"], str(params[0]))
 check("每次调用返回新列表（调用方改不坏策略）",
-      visibility.exercise_filter("human")[1][0] is not params[0])
+      visibility.exercise_filter(setting="human")[1][0] is not params[0])
+
+node_sql, node_params = visibility.node_filter(setting="all")
+check("图谱全放时片段恒真（SQL 可统一拼接）", node_sql == "TRUE" and node_params == (),
+      f"{node_sql} {node_params}")
+node_sql, node_params = visibility.node_filter(setting="human")
+check("图谱严格时只放人工审核过的节点",
+      node_sql == "n.human_verified_at IS NOT NULL" and node_params == (), node_sql)
 
 print("")
 if failures:

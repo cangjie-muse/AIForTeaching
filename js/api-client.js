@@ -260,14 +260,30 @@
     return request('POST', `/api/v1/courses/${encodeURIComponent(courseId)}/unpublish`, { body: note ? { note } : {} });
   }
 
-  // 学生可见范围：验证等级闸。传 courseId 只统计这门课，不传是全平台。
+  // 学生可见范围：验证等级闸。courseId 空 = 全局口径，非空 = 这门课的覆盖。
   function visibility(courseId) {
     const suffix = courseId ? `?course_id=${encodeURIComponent(courseId)}` : '';
     return request('GET', `/api/v1/visibility${suffix}`);
   }
 
-  function saveVisibility(policy) {
-    return request('PUT', '/api/v1/visibility', { body: policy });
+  function saveVisibility(policy, courseId) {
+    const suffix = courseId ? `?course_id=${encodeURIComponent(courseId)}` : '';
+    return request('PUT', `/api/v1/visibility${suffix}`, { body: policy });
+  }
+
+  // 取消某门课的单独设置，回到跟随全局。
+  function resetVisibility(courseId) {
+    return request('DELETE', `/api/v1/visibility?course_id=${encodeURIComponent(courseId)}`);
+  }
+
+  // 知识图谱人工审核：列表 + 按章/按节点标记。
+  function reviewGraph(courseId) {
+    const suffix = courseId ? `?course_id=${encodeURIComponent(courseId)}` : '';
+    return request('GET', `/api/v1/review/graph${suffix}`);
+  }
+
+  function verifyGraph(payload) {
+    return request('POST', '/api/v1/review/graph/verify', { body: payload });
   }
 
   A.api = {
@@ -300,6 +316,9 @@
     unpublishCourse,
     visibility,
     saveVisibility,
+    resetVisibility,
+    reviewGraph,
+    verifyGraph,
     get: (path, options) => request('GET', path, options),
     post: (path, body, options) => request('POST', path, { ...options, body }),
     patch: (path, body, options) => request('PATCH', path, { ...options, body }),

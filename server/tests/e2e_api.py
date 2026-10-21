@@ -948,8 +948,10 @@ def run() -> None:
         policy = client.get("/api/v1/visibility", headers=REVIEWER)
         check("可见范围接口可读", policy.status_code == 200, policy.text[:120])
         check("默认是全部（升级不改变行为）",
-              policy.json()["exercise_tier"] == "all" and policy.json()["qa_tier"] == "all",
-              str(policy.json().get("exercise_tier")))
+              policy.json()["effective"]["exercise_tier"] == "all"
+              and policy.json()["effective"]["qa_tier"] == "all"
+              and policy.json()["effective"]["graph_tier"] == "all",
+              str(policy.json().get("effective")))
 
         bad = client.put("/api/v1/visibility", headers=REVIEWER,
                          json={"exercise_tier": "strict", "qa_tier": "all"})
@@ -986,6 +988,121 @@ def run() -> None:
         check("切回全部后两道都能看到",
               {item["id"] for item in wide.json()["exercises"]} == {"pub-a", "pub-b"},
               str(sorted(item["id"] for item in wide.json()["exercises"])))
+
+        # ---- 口径按课程分别设置 ----
+        # 全局收紧到 human，再给这一门课单独放宽到 all：两套口径并存，互不影响。
+        print("\n按课程分别设置：")
+        client.put("/api/v1/visibility", headers=REVIEWER,
+                   json={"exercise_tier": "human", "qa_tier": "human", "graph_tier": "all"})
+        check("全局收紧后这门课只见人工确认的题",
+              {item["id"] for item in client.get("/api/v1/catalog/e2e-publish",
+                                                 headers=STUDENT).json()["exercises"]} == {"pub-a"},
+              "全局口径没有生效")
+
+        override = client.put("/api/v1/visibility?course_id=e2e-publish", headers=REVIEWER,
+                              json={"exercise_tier": "all", "qa_tier": "all", "graph_tier": "all",
+                                    "note": "试点课全放"})
+        check("为单门课单独设置成功", override.status_code == 200, override.text[:120])
+        check("课程覆盖来源标记为 course", override.json()["source"] == "course",
+              str(override.json().get("source")))
+        relaxed = {item["id"] for item in client.get("/api/v1/catalog/e2e-publish",
+                                                     headers=STUDENT).json()["exercises"]}
+        check("这门课放宽后能看到未人工确认的题", relaxed == {"pub-a", "pub-b"}, str(sorted(relaxed)))
+
+        global_view = client.get("/api/v1/visibility", headers=REVIEWER).json()
+        check("全局口径没有被课程覆盖污染",
+              global_view["effective"]["exercise_tier"] == "human"
+              and global_view["scope"] == "global",
+              str(global_view.get("effective")))
+        courses_list = {row["id"]: row for row in global_view.get("courses", [])}
+        check("课程清单标出谁有单独设置",
+              courses_list.get("e2e-publish", {}).get("has_override") is True,
+              str(courses_list.get("e2e-publish")))
+        check("没设置的课程标为跟随全局",
+              courses_list.get("e2e-publish", {}).get("has_override") is True
+              and any(row["has_override"] is False for row in global_view.get("courses", [])),
+              "没有跟随全局的课程可对照")
+
+        dropped = client.delete("/api/v1/visibility?course_id=e2e-publish", headers=REVIEWER)
+        check("取消课程覆盖成功", dropped.status_code == 200, dropped.text[:120])
+        back = {item["id"] for item in client.get("/api/v1/catalog/e2e-publish",
+                                                 headers=STUDENT).json()["exercises"]}
+        check("取消后回到跟随全局（只见 pub-a）", back == {"pub-a"}, str(sorted(back)))
+        check("重复取消返回 404",
+              client.delete("/api/v1/visibility?course_id=e2e-publish",
+                            headers=REVIEWER).status_code == 404,
+              "第二次取消没有报 404")
+        check("学生不能给学生端口径开小灶",
+              client.put("/api/v1/visibility?course_id=e2e-publish", headers=STUDENT,
+                         json={"exercise_tier": "all", "qa_tier": "all",
+                               "graph_tier": "all"}).status_code == 403,
+              "学生身份改了课程口径")
+
+        # ---- 知识图谱人工审核 ----
+        # 教材切片正文不审；审的是"图谱挂得对不对"。只有人工一档。
+        print("\n知识图谱人工审核：")
+        before = client.get("/api/v1/catalog/e2e-publish", headers=STUDENT).json()["stats"]["nodes"]
+        check("图谱默认全放（与引入审核前一致）", before == 3, str(before))
+
+        client.put("/api/v1/visibility", headers=REVIEWER,
+                   json={"exercise_tier": "all", "qa_tier": "all", "graph_tier": "human"})
+        strict_graph = client.get("/api/v1/catalog/e2e-publish", headers=STUDENT).json()
+        check("图谱切到仅人工审核后未审核节点被挡掉",
+              strict_graph["stats"]["nodes"] == 0, str(strict_graph["stats"]))
+        check("题目不因图谱口径被隐藏",
+              {item["id"] for item in strict_graph["exercises"]} == {"pub-a", "pub-b"},
+              str(sorted(item["id"] for item in strict_graph["exercises"])))
+
+        graph_list = client.get("/api/v1/review/graph?course_id=e2e-publish", headers=REVIEWER)
+        check("图谱审核列表可读", graph_list.status_code == 200, graph_list.text[:120])
+        chapter_ids = {row["chapter_id"] for row in graph_list.json()["chapters"]}
+        check("按章分组", {"ch-pub"} <= chapter_ids or "course-e2e-pub" in chapter_ids,
+              str(sorted(chapter_ids)))
+
+        verified = client.post("/api/v1/review/graph/verify", headers=REVIEWER,
+                               json={"course_id": "e2e-publish", "chapter_id": "ch-pub",
+                                     "action": "verify"})
+        check("整章人工通过成功", verified.status_code == 200, verified.text[:120])
+        check("报告通过节点数", verified.json()["changed"] >= 2, str(verified.json().get("changed")))
+        partial = client.get("/api/v1/catalog/e2e-publish", headers=STUDENT).json()
+        check("通过一章后该章节点可见",
+              {"ch-pub", "kp-pub"} <= {node["id"] for node in partial["nodes"]},
+              str([node["id"] for node in partial["nodes"]]))
+        check("没审过的课程根节点仍被挡掉",
+              "course-e2e-pub" not in {node["id"] for node in partial["nodes"]},
+              str([node["id"] for node in partial["nodes"]]))
+        check("统计跟着变", partial["stats"]["nodes"] == 2, str(partial["stats"]["nodes"]))
+
+        whole = client.post("/api/v1/review/graph/verify", headers=REVIEWER,
+                            json={"course_id": "e2e-publish",
+                                  "node_ids": ["course-e2e-pub"], "action": "verify"})
+        check("可以逐节点通过", whole.status_code == 200 and whole.json()["changed"] == 1,
+              whole.text[:120])
+        full = client.get("/api/v1/catalog/e2e-publish", headers=STUDENT).json()
+        check("全部通过后整棵树可见",
+              {node["id"] for node in full["nodes"]} == {"course-e2e-pub", "ch-pub", "kp-pub"},
+              str([node["id"] for node in full["nodes"]]))
+        check("关系边跟着节点一起出现",
+              len(full["relationships"]) == 2, str(len(full["relationships"])))
+
+        undone = client.post("/api/v1/review/graph/verify", headers=REVIEWER,
+                             json={"course_id": "e2e-publish", "chapter_id": "ch-pub",
+                                   "action": "unverify"})
+        check("撤销整章通过", undone.status_code == 200 and undone.json()["changed"] >= 2,
+              undone.text[:120])
+        check("撤销后该章节点重新隐藏",
+              "kp-pub" not in {node["id"] for node in client.get(
+                  "/api/v1/catalog/e2e-publish", headers=STUDENT).json()["nodes"]},
+              "撤销没有生效")
+        check("学生不能审核知识图谱",
+              client.post("/api/v1/review/graph/verify", headers=STUDENT,
+                          json={"course_id": "e2e-publish", "chapter_id": "ch-pub",
+                                "action": "verify"}).status_code == 403,
+              "学生身份做了图谱审核")
+
+        # 收尾：把口径恢复成全放，后面的撤回发布测试按默认口径走
+        client.put("/api/v1/visibility", headers=REVIEWER,
+                   json={"exercise_tier": "all", "qa_tier": "all", "graph_tier": "all"})
 
         unpub = client.post("/api/v1/courses/e2e-publish/unpublish", headers=ADMIN, json={})
         check("撤回发布成功", unpub.status_code == 200, unpub.text[:120])
