@@ -173,9 +173,48 @@ const learning = fs.readFileSync(path.join(root, 'js/learning.js'), 'utf8');
 check('习题页有「问这道题」入口', /A\.link\('问这道题', 'qa'/.test(learning));
 check('入口带上习题 id', /问这道题', 'qa'[^)]*\{ exercise: ex\.id \}/.test(learning));
 
-console.log();
-if (failures.length) {
-  console.log(`失败 ${failures.length} 项：${failures.join(', ')}`);
-  process.exit(1);
-}
-console.log('问答页渲染测试全部通过。');
+// 12. 作答提交：课程 id 要换成后端的，失败要说人话
+(async () => {
+  const backendCourses = [{ id: 'demo-analysis-2', title: '数学分析（II）' }];
+  let posted = null;
+
+  sandbox.fetch = async (url, options) => {
+    const body = options && options.body ? JSON.parse(options.body) : null;
+    posted = { url, body };
+    const payload = String(url).endsWith('/api/v1/attempts')
+      ? { id: 7, attempt_no: 1, unlocks_full: true }
+      : { items: backendCourses };
+    return { ok: true, status: 201, text: async () => JSON.stringify(payload) };
+  };
+
+  const submitted = await App.api.submitAttempt({
+    courseId: '数学分析II', exerciseId: 'CJX-II-SELF-001', answerMd: '我的思路'
+  });
+  check('提交时把前端课程 id 换成后端的', submitted.status === 'submitted' && posted.body.course_id === 'demo-analysis-2',
+        JSON.stringify(posted && posted.body));
+  check('提交带上习题 id 与作答原文',
+        posted.body.exercise_id === 'CJX-II-SELF-001' && posted.body.answer_md === '我的思路');
+
+  // 后端不认识这门课：不提交，返回原因让页面显示
+  const unmatched = await App.api.submitAttempt({ courseId: '高等代数', exerciseId: 'x', answerMd: 'y' });
+  check('课程对不上时不提交', unmatched.status === 'no-course' && unmatched.reason.includes('高等代数'));
+
+  // 题目不存在（404）要能被上层区分出来
+  sandbox.fetch = async () => ({
+    ok: false, status: 404, text: async () => JSON.stringify({ detail: '题目不存在：demo/x' })
+  });
+  let caught = null;
+  try {
+    await App.api.submitAttempt({ courseId: '数学分析II', exerciseId: 'x', answerMd: 'y' });
+  } catch (error) {
+    caught = error;
+  }
+  check('题目不存在时抛出 404，供页面给出"未导入"提示', caught && caught.status === 404);
+
+  console.log();
+  if (failures.length) {
+    console.log(`失败 ${failures.length} 项：${failures.join(', ')}`);
+    process.exit(1);
+  }
+  console.log('问答页渲染测试全部通过。');
+})();

@@ -78,9 +78,34 @@
   A.after.exercises = () => { if (A.course.exercises) renderExercises(); };
   A.inputs['exercise-filter'] = () => { A.state.exercisePage = 1; renderExercises(); };
   A.actions['exercise-page'] = button => { A.state.exercisePage += Number(button.dataset.step); renderExercises(); document.querySelector('.exercise-filters').scrollIntoView({ block: 'start' }); };
-  A.actions['save-answer'] = button => {
-    A.local[A.record('answer', button.dataset.id)] = document.getElementById(`answer-${button.dataset.id}`).value;
-    if (A.save()) A.toast('作答已保存。此处为个人练习记录，未提交到教学班。');
+  A.actions['save-answer'] = async button => {
+    const exerciseId = button.dataset.id;
+    const answer = document.getElementById(`answer-${exerciseId}`).value;
+    A.local[A.record('answer', exerciseId)] = answer;
+    if (!A.save()) return;
+    if (!answer.trim()) {
+      A.toast('作答已保存（内容为空，未提交到后端）。');
+      return;
+    }
+    // 本地保存永远先做——断网时学生的字不能丢。提交失败只是不解锁，不影响已写内容。
+    try {
+      const result = await A.api.submitAttempt({
+        courseId: A.course.id, exerciseId, answerMd: answer
+      });
+      if (result.status === 'submitted') {
+        A.toast(`已提交到后端（第 ${result.attempt.attempt_no} 次），完整解答已解锁。`);
+      } else {
+        A.toast(`${result.reason}；作答只保存在本机。`);
+      }
+    } catch (error) {
+      if (error.status === 404) {
+        A.toast('这道题还没导入后端题目库，作答只保存在本机。');
+      } else if (error.status === 0) {
+        A.toast('连不上后端，作答只保存在本机。');
+      } else {
+        A.toast(`提交失败：${error.message}（作答已保存在本机）`);
+      }
+    }
   };
   A.actions['preview-answer'] = button => A.openDialog('作答预览', A.markdown(document.getElementById(`answer-${button.dataset.id}`).value));
   A.actions.assess = button => {

@@ -52,34 +52,8 @@
     return current && (current.chunk_count ?? 0) === 0;
   }
 
-  // 前端课程包用的是 analysis-ii，后端导入时可能另起 id（demo-analysis-2）。
-  // 靠标题归一化对上，对不上就明说，而不是拿一个后端不认识的 id 去检索——
-  // 那样只会得到"没有依据"，而人看到的是"模型不会答"。
-  function normalizeTitle(text) {
-    return String(text || '')
-      .toLowerCase()
-      .replace(/[\s（）()《》·—\-_.]/g, '');
-  }
-
-  function courseTitle(courseId) {
-    // 课程包没加载时（比如测试环境、导入前）不能因此让整页报错
-    try {
-      return A.courseData?.(courseId)?.title || courseId;
-    } catch {
-      return courseId;
-    }
-  }
-
-  function resolveCourse(routeCourseId, courses) {
-    if (!routeCourseId) return { id: null, note: '' };
-    const title = courseTitle(routeCourseId);
-    const matched = courses.find(course => normalizeTitle(course.title) === normalizeTitle(title));
-    if (matched) return { id: matched.id, note: '' };
-    return {
-      id: null,
-      note: `后端没有与「${title}」对应的课程，检索范围暂为全部课程`
-    };
-  }
+  // 课程 id 匹配统一放在 api-client，问答题与作答提交共用一份规则
+  const resolveCourse = (routeCourseId, courses) => A.api.matchCourse(routeCourseId, courses);
 
   A.qaResolveCourse = resolveCourse;
 
@@ -239,8 +213,7 @@
       }
     }
     try {
-      const courses = await A.api.get('/api/v1/courses');
-      S().courses = courses.items || [];
+      S().courses = await A.api.courseList();
     } catch {
       S().courses = [];
     }

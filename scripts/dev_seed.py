@@ -83,6 +83,8 @@ def seed() -> None:
                    VALUES (%s, %s, %s) ON CONFLICT (course_id, exercise_id, node_id) DO NOTHING""",
                 (COURSE, ex_id, node_id),
             )
+    # 顺序有讲究：教材挂在 analysis-ii 上，而 analysis-ii 由 seed_real_slice 创建
+    seed_real_slice()
     seed_textbook()
     print(f"示例数据就绪：1 门课、{len(NODES)} 个节点、{len(EXERCISES)} 道题、"
           f"{len(CHUNKS)} 个教材片段")
@@ -103,13 +105,67 @@ CHUNKS = [
 ]
 
 
+def seed_real_slice() -> None:
+    """从 data/courses.js 里搬几道**真实**题进开发库。
+
+    为什么用真题而不是自编的 demo-ex：前端课程包的习题 id（CJX-II-SELF-001）
+    与后端导入后的 id 是同一套。开发库若用假 id，页面上"保存作答 → 解锁完整解答"
+    永远走 404，看起来像功能没做，实际是数据对不上。搬真题能让这条链路真正走通，
+    也不会让库里出现"id 是真的、内容是编的"这种最容易误导人的行。
+    """
+    import json
+    from pathlib import Path
+
+    source = Path(__file__).resolve().parents[1] / "data" / "courses.js"
+    raw = source.read_text(encoding="utf-8")
+    courses = json.loads(raw[raw.index("["):raw.rindex("]") + 1])
+    course = next((c for c in courses if c.get("id") == "analysis-ii"), None)
+    if not course:
+        print("未找到 analysis-ii，跳过真题种子")
+        return
+
+    db.query(
+        """INSERT INTO course (id, title, audience, subject, status, review_status, description)
+           VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING""",
+        ("analysis-ii", course.get("title", "数学分析II"), course.get("audience"),
+         course.get("subject", "math"), "ready", "draft", course.get("description")),
+    )
+    db.query(
+        """INSERT INTO chapter (id, course_id, title, ord)
+           VALUES (%s,%s,%s,%s) ON CONFLICT (course_id, id) DO NOTHING""",
+        ("analysis-ii-ch-1", "analysis-ii", "第一章 函数与极限", 1),
+    )
+    db.query(
+        """INSERT INTO knowledge_node (course_id, id, chapter_id, parent_id, title, level, kind, path)
+           VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+           ON CONFLICT (course_id, id) DO NOTHING""",
+        ("analysis-ii", "analysis-ii-ch-1", "analysis-ii-ch-1", None,
+         "第一章 函数与极限", 2, "container", ["第一章 函数与极限"]),
+    )
+
+    imported = 0
+    for exercise in (course.get("exercises") or [])[:6]:
+        db.query(
+            """INSERT INTO exercise (course_id, id, chapter_id, prompt_md, answer_md, difficulty,
+                                      source_raw, source_book, provenance, review_status)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+               ON CONFLICT (course_id, id) DO NOTHING""",
+            ("analysis-ii", exercise["id"], "analysis-ii-ch-1",
+             exercise.get("prompt", ""), exercise.get("answer", ""),
+             exercise.get("difficulty", 2), exercise.get("source", ""),
+             "陈纪修等《数学分析》第三版", "textbook", "draft"),
+        )
+        imported += 1
+    print(f"真题种子：analysis-ii / {imported} 道（id 与前端一致，可走通作答与解锁）")
+
+
 def seed_textbook() -> None:
     """教材片段：没有它，问答链路只能拒答（这是设计使然）。"""
     db.query(
         """INSERT INTO textbook (id, course_id, title, edition, authors, publisher,
                                  copyright_status, pdf_sha256)
            VALUES (%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING""",
-        ("demo-tb-analysis", COURSE, "数学分析（示例片段）", "第 1 版", "示例",
+        ("demo-tb-analysis", "analysis-ii", "数学分析（示例片段）", "第 1 版", "示例",
          "示例出版社", "licensed", "d" * 64),
     )
     for seq, path, page_from, page_to, content in CHUNKS:

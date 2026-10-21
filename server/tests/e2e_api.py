@@ -42,6 +42,7 @@ def check(name: str, cond: bool, detail: str = "") -> None:
 ADMIN = {"X-Actor": "%E4%BF%A1%E6%81%AF%E5%8C%96%E4%B8%93%E5%91%98", "X-Roles": "admin"}
 REVIEWER = {"X-Actor": "reviewer-1", "X-Roles": "reviewer"}
 STUDENT = {"X-Actor": "student-1", "X-Roles": "student"}
+STUDENT2 = {"X-Actor": "student-2", "X-Roles": "student"}
 
 
 def seed_fixture() -> None:
@@ -383,6 +384,64 @@ def run() -> None:
         check("上下文预算硬生效", used <= 200 and len(text) <= 200, f"{used} 字符")
         _, zero_used, _ = qa.compose_context(rows, budget=50)
         check("剩余预算太小时整段丢弃", zero_used == 0, f"{zero_used} 字符")
+
+        print("\n作答提交：")
+
+        first = client.post(
+            "/api/v1/attempts", headers=STUDENT,
+            json={"course_id": "e2e-course", "exercise_id": "ex-3",
+                  "answer_md": "我的思路：先取 N = [1/ε] + 1。", "duration_sec": 90},
+        )
+        check("学生可提交作答", first.status_code == 201, first.text[:120])
+        payload = first.json() if first.status_code == 201 else {}
+        check("首次提交记为第 1 次", payload.get("attempt_no") == 1, str(payload.get("attempt_no")))
+        check("提交即声明解锁完整解答", payload.get("unlocks_full") is True)
+
+        second = client.post(
+            "/api/v1/attempts", headers=STUDENT,
+            json={"course_id": "e2e-course", "exercise_id": "ex-3", "answer_md": "再交一次。"},
+        )
+        check("重复提交累加次数而不是覆盖", second.json().get("attempt_no") == 2,
+              str(second.json().get("attempt_no")))
+
+        missing = client.post(
+            "/api/v1/attempts", headers=STUDENT,
+            json={"course_id": "e2e-course", "exercise_id": "no-such-exercise", "answer_md": "x"},
+        )
+        check("不存在的题目不建档（404）", missing.status_code == 404, missing.text[:100])
+
+        blank = client.post(
+            "/api/v1/attempts", headers=STUDENT,
+            json={"course_id": "e2e-course", "exercise_id": "ex-3", "answer_md": ""},
+        )
+        check("空作答被拒绝", blank.status_code == 422, str(blank.status_code))
+
+        mine = client.get("/api/v1/attempts?course_id=e2e-course&exercise_id=ex-3", headers=STUDENT)
+        check("能查回自己的作答记录", mine.status_code == 200 and len(mine.json()["items"]) == 2,
+              str(len(mine.json()["items"])) if mine.status_code == 200 else mine.text[:80])
+
+        # 换一个学生来查：作答属于个人，不能互相看见（审核员/教师走另一条授权路径）
+        other = client.get("/api/v1/attempts?exercise_id=ex-3", headers=STUDENT2)
+        check("别的学生查不到我的作答", other.status_code == 200 and other.json()["items"] == [],
+              other.text[:100])
+
+        # 提交后，同一道题可以解锁完整解答。这里用假模型，避免依赖真实密钥。
+        def fake_unlock(messages, temperature=0.2):
+            return {"provider": "fake", "model": "fake-chat", "data_scope": "approved",
+                    "content": "完整解答（测试）", "usage": {}}
+
+        real_chat = llm.chat
+        llm.chat = fake_unlock
+        try:
+            unlocked_by_api = client.post(
+                "/api/v1/qa/ask", headers=STUDENT,
+                json={"question": "数列极限怎么定义", "course_id": "e2e-course",
+                      "exercise_id": "ex-3", "mode": "full"},
+            )
+            check("通过作业接口提交后即可解锁完整解答",
+                  unlocked_by_api.status_code == 200, unlocked_by_api.text[:100])
+        finally:
+            llm.chat = real_chat
 
         # --- 以下会产生真正的数据库错误，必须最后跑（见文件头说明）---
         print("\n数据库约束（放在最后：会让 PGlite 协议错位）：")

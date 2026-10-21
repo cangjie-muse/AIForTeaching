@@ -69,9 +69,66 @@
     return data;
   }
 
+  // ---------------------------------------------------------------------
+  // 课程 id 对不上是当前的真实问题：前端课程包用 analysis-ii，后端导入后
+  // 可能是另一个 id。拿前端 id 直接请求，后端只会说"没有这门课"，而人看到
+  // 的是"模型不会答"。所以统一在这里做标题归一化匹配。
+  // ---------------------------------------------------------------------
+
+  function courseTitle(courseId) {
+    // 课程包没加载时（测试环境、导入前）不能因此报错
+    try {
+      return A.courseData?.(courseId)?.title || courseId;
+    } catch {
+      return courseId;
+    }
+  }
+
+  function normalizeTitle(text) {
+    return String(text || '').toLowerCase().replace(/[\s（）()《》·—\-_.]/g, '');
+  }
+
+  function matchCourse(courseId, courses) {
+    if (!courseId) return { id: null, note: '' };
+    const title = courseTitle(courseId);
+    const matched = (courses || []).find(course => normalizeTitle(course.title) === normalizeTitle(title));
+    if (matched) return { id: matched.id, note: '' };
+    return {
+      id: null,
+      note: `后端没有与「${title}」对应的课程，检索范围暂为全部课程`
+    };
+  }
+
+  let courseCache = null;
+
+  async function courseList(force = false) {
+    if (!courseCache || force) {
+      const data = await request('GET', '/api/v1/courses');
+      courseCache = data.items || [];
+    }
+    return courseCache;
+  }
+
+  async function submitAttempt({ courseId, exerciseId, answerMd, durationSec }) {
+    const matched = matchCourse(courseId, await courseList());
+    if (!matched.id) return { status: 'no-course', reason: matched.note };
+    const attempt = await request('POST', '/api/v1/attempts', {
+      body: {
+        course_id: matched.id,
+        exercise_id: exerciseId,
+        answer_md: answerMd,
+        duration_sec: durationSec ?? null
+      }
+    });
+    return { status: 'submitted', attempt };
+  }
+
   A.api = {
     ApiError,
     base,
+    courseList,
+    matchCourse,
+    submitAttempt,
     get: (path, options) => request('GET', path, options),
     post: (path, body, options) => request('POST', path, { ...options, body }),
     patch: (path, body, options) => request('PATCH', path, { ...options, body }),
@@ -83,6 +140,7 @@
   // 避免两处各存一份 A.local.apiBase 的写入口径。
   A.inputs['api-base'] = function (input) {
     A.local.apiBase = input.value.trim();
+    courseCache = null;
     A.save();
   };
 })();
