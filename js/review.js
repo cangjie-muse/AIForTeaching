@@ -44,6 +44,7 @@
     status: 'idle',
     error: '',
     summary: null,
+    courses: [],
     items: [],
     filters: { course_id: '', category: '', priority: '' },
     checked: {},
@@ -94,12 +95,14 @@
     state.error = '';
     A.render();
     try {
-      const [summary, queue] = await Promise.all([
+      const [summary, queue, courses] = await Promise.all([
         A.api.get('/api/v1/review/summary'),
-        A.api.get(`/api/v1/review/queue?${query()}`)
+        A.api.get(`/api/v1/review/queue?${query()}`),
+        A.api.get('/api/v1/courses')
       ]);
       state.summary = summary;
       state.items = queue.items || [];
+      state.courses = courses.items || [];
       state.checked = {};
       state.status = 'ready';
     } catch (error) {
@@ -132,6 +135,19 @@
       <div class="rv-stat"><b>${published}</b><span>已发布</span></div>
       <div class="rv-stat"><b>${issues}</b><span>未解决问题</span></div>
     </div>`;
+  }
+
+  function courseFilter() {
+    const courses = S().courses || [];
+    if (!courses.length) return '';
+    const current = S().filters.course_id;
+    return `<label class="rv-select">
+      <span>课程</span>
+      <select data-input="review-course">
+        <option value="">全部课程（${courses.length}）</option>
+        ${courses.map(course => `<option value="${e(course.id)}"${course.id === current ? ' selected' : ''}>${e(course.title)}（${course.exercise_count ?? 0} 题）</option>`).join('')}
+      </select>
+    </label>`;
   }
 
   function issueSummary() {
@@ -253,7 +269,7 @@
     const openId = state.open;
     const detail = openId ? state.items.find(item => String(item.task_id) === String(openId)) : null;
 
-    return heading + statsPanel() + issueSummary() + `
+    return heading + statsPanel() + `<div class="rv-filters">${courseFilter()}${issueSummary()}</div>` + `
       <div class="rv-layout ${detail ? 'has-detail' : ''}">
         ${listPanel()}
         ${detail ? detailPanel(detail) : ''}
@@ -269,6 +285,11 @@
   // ---------------------------------------------------------------------------
 
   A.actions['review-refresh'] = function () { reload(); };
+
+  A.inputs['review-course'] = function (select) {
+    S().filters.course_id = select.value;
+    reload();
+  };
 
   A.actions['review-filter'] = function (button) {
     S().filters.category = button.dataset.category || '';

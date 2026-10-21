@@ -83,6 +83,8 @@ check('空队列时指引用「从数据生成队列」', html.includes('从数�
 
 // 4. 正常列表
 reset({
+  courses: [{ id: 'analysis', title: '数学分析 I', exercise_count: 416 },
+            { id: 'analysis-ii', title: '数学分析 II', exercise_count: 349 }],
   summary: {
     tiers: [{ course_id: 'math', tier: 'none', n: 3 }],
     task_states: [{ state: 'pending', n: 3 }, { state: 'approved', n: 1 }],
@@ -104,6 +106,7 @@ check('显示大盘统计', html.includes('待审') && html.includes('已通过'
 check('问题分类可点击筛选', html.includes('data-action="review-filter"') && html.includes('页码不精确'));
 check('优先级高亮', html.includes('rv-priority high'));
 check('可信度显示为「未核」', html.includes('未核'));
+check('有课程筛选且列出题量', html.includes('data-input="review-course"') && html.includes('数学分析 II（349 题）'));
 
 // 5. 打开详情
 App.state.review.open = 7;
