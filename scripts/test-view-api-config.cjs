@@ -36,7 +36,7 @@ vm.createContext(sandbox);
 
 // 三个文件必须拼成一段执行：core.js 用顶层 const 定义 App，
 // 分开 runInContext 时后续脚本看不到这个词法绑定。
-const bundle = ['js/core.js', 'js/visual-identity.js', 'js/api-config.js']
+const bundle = ['js/core.js', 'js/visual-identity.js', 'js/api-client.js', 'js/api-config.js']
   .map(file => fs.readFileSync(path.join(root, file), 'utf8'))
   .join('\n;\n');
 vm.runInContext(bundle, sandbox, { filename: 'bundle.js' });

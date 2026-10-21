@@ -12,23 +12,6 @@
 
   A.state.apiConfig = A.state.apiConfig || { status: 'idle', items: [], me: null, error: '' };
 
-  function base() { return (A.local.apiBase || '').replace(/\/+$/, ''); }
-  function actorId() { return A.local.devActor === false ? '平台用户' : (A.local.actorId || '信息化专员'); }
-  function roles() { return A.local.devActor === false ? [] : (A.local.actorRoles || ['admin']); }
-
-  async function api(path, options = {}) {
-    const headers = { 'Content-Type': 'application/json' };
-    if (A.local.devActor !== false) {
-      // 头值只能是 ASCII，中文姓名要编码；服务端用 unquote 还原
-      headers['X-Actor'] = encodeURIComponent(actorId());
-      headers['X-Roles'] = roles().join(',');
-    }
-    const response = await fetch(`${base()}${path}`, { ...options, headers });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.detail || `请求失败（HTTP ${response.status}）`);
-    return data;
-  }
-
   async function load() {
     const state = A.state.apiConfig;
     if (state.status === 'loading') return;
@@ -36,8 +19,8 @@
     A.render();
     try {
       const [me, list] = await Promise.all([
-        api('/api/v1/admin/whoami'),
-        api('/api/v1/admin/model-endpoints')
+        A.api.get('/api/v1/admin/whoami'),
+        A.api.get('/api/v1/admin/model-endpoints')
       ]);
       state.me = me; state.items = list.items || []; state.status = 'ready';
     } catch (error) {
@@ -97,7 +80,7 @@
       <p class="muted">这个页面配置的是服务器上的模型接口，需要后端运行才能读写。当前请求失败：<code>${e(error)}</code></p>
       <div class="api-base-row">
         <label for="api-base-input">后端地址</label>
-        <input id="api-base-input" data-input="api-base" value="${e(base())}" placeholder="http://127.0.0.1:8000" autocomplete="off">
+        <input id="api-base-input" data-input="api-base" value="${e(A.api.base())}" placeholder="http://127.0.0.1:8000" autocomplete="off">
         <button class="btn primary" data-action="api-config-refresh">重试</button>
       </div>
       <p class="muted small">本地启动：<code>uvicorn app.main:app --app-dir server --reload</code>。留空表示同源访问。</p>
@@ -244,12 +227,10 @@
     button.disabled = true;
     try {
       if (mode === 'create') {
-        await api('/api/v1/admin/model-endpoints', { method: 'POST', body: JSON.stringify(payload) });
+        await A.api.post('/api/v1/admin/model-endpoints', payload);
         A.toast('端点已登记，接着配置密钥');
       } else {
-        await api(`/api/v1/admin/model-endpoints/${encodeURIComponent(button.dataset.name)}`, {
-          method: 'PATCH', body: JSON.stringify(payload)
-        });
+        await A.api.patch(`/api/v1/admin/model-endpoints/${encodeURIComponent(button.dataset.name)}`, payload);
         A.toast('已保存');
       }
       document.getElementById('dialog').close();
@@ -276,9 +257,7 @@
     const value = document.getElementById('f-api-key').value.trim();
     if (value.length < 8) { A.toast('密钥太短'); return; }
     try {
-      await api(`/api/v1/admin/model-endpoints/${encodeURIComponent(button.dataset.name)}/key`, {
-        method: 'PUT', body: JSON.stringify({ api_key: value })
-      });
+      await A.api.put(`/api/v1/admin/model-endpoints/${encodeURIComponent(button.dataset.name)}/key`, { api_key: value });
       document.getElementById('dialog').close();
       A.toast('密钥已保存（不会再显示）');
       reload();
@@ -287,7 +266,7 @@
 
   A.actions['api-config-key-clear'] = async function (button) {
     try {
-      await api(`/api/v1/admin/model-endpoints/${encodeURIComponent(button.dataset.name)}/key`, { method: 'DELETE' });
+      await A.api.del(`/api/v1/admin/model-endpoints/${encodeURIComponent(button.dataset.name)}/key`);
       document.getElementById('dialog').close();
       A.toast('密钥已删除');
       reload();
@@ -298,7 +277,7 @@
     button.disabled = true;
     button.textContent = '自检中…';
     try {
-      const result = await api(`/api/v1/admin/model-endpoints/${encodeURIComponent(button.dataset.name)}/test`, { method: 'POST' });
+      const result = await A.api.post(`/api/v1/admin/model-endpoints/${encodeURIComponent(button.dataset.name)}/test`);
       A.toast(result.ok ? `自检通过：${result.note}` : `自检失败：${result.note}`);
       reload();
     } catch (error) {
@@ -311,9 +290,7 @@
   A.actions['api-config-toggle'] = async function (button) {
     const enable = button.dataset.enabled !== 'true';
     try {
-      await api(`/api/v1/admin/model-endpoints/${encodeURIComponent(button.dataset.name)}`, {
-        method: 'PATCH', body: JSON.stringify({ enabled: enable })
-      });
+      await A.api.patch(`/api/v1/admin/model-endpoints/${encodeURIComponent(button.dataset.name)}`, { enabled: enable });
       A.toast(enable ? '已启用' : '已停用');
       reload();
     } catch (error) { A.toast(error.message); }

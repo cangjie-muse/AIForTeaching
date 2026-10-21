@@ -215,6 +215,12 @@ def run() -> None:
         items = queue.get("items", [])
         check("队列返回待审题目", len(items) >= 2, f"{len(items)} 条")
         check("队列条目带问题清单", all("issues" in item for item in items))
+        # 审核页依赖这些字段名；改后端列名时这里必须一起改
+        required = {"task_id", "course_id", "exercise_id", "state", "priority",
+                    "prompt_md", "difficulty", "provenance", "source_page",
+                    "tier", "node_ids", "issues"}
+        missing = required - set(items[0].keys()) if items else required
+        check("队列字段满足审核页契约", not missing, f"缺 {sorted(missing)}" if missing else "")
 
         if items:
             task_id = items[0]["task_id"]

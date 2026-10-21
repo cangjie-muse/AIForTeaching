@@ -1,0 +1,226 @@
+/* 审核工作台。只写这一页用到的样式。 */
+
+.rv-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 16px;
+}
+
+.rv-stat {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rv-stat b {
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1;
+  color: #2b3a4d;
+}
+
+.rv-stat span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.rv-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.rv-chips .chip {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.rv-chips .chip.active {
+  border-color: #365f9f;
+  color: #365f9f;
+  background: #eef3fb;
+}
+
+.rv-chips .chip b {
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+.rv-layout {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+}
+
+.rv-layout.has-detail {
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+}
+
+.rv-table-wrap {
+  overflow-x: auto;
+  margin: 0 -6px;
+}
+
+.rv-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.rv-table th {
+  text-align: left;
+  font-size: 10px;
+  font-weight: 500;
+  color: #9caabd;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.rv-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.rv-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.rv-table tr.rv-selected {
+  background: #f7fafd;
+}
+
+.rv-check {
+  width: 28px;
+}
+
+.rv-pri {
+  width: 46px;
+}
+
+.rv-priority {
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: #c3ccd8;
+}
+
+.rv-priority.high { color: #c0644a; }
+.rv-priority.mid { color: #b39553; }
+
+.rv-title {
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  font-size: 12px;
+  color: #2b3a4d;
+  cursor: pointer;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.rv-title:hover {
+  color: #365f9f;
+  text-decoration: underline;
+}
+
+.rv-main small {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.rv-issue-cell {
+  max-width: 220px;
+}
+
+.rv-issues {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rv-issues li {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.rv-issues .badge {
+  flex: none;
+}
+
+.rv-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.rv-detail {
+  position: sticky;
+  top: 16px;
+}
+
+.rv-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  font-size: 10px;
+  color: var(--muted);
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 14px;
+}
+
+.rv-detail h3 {
+  font-size: 11px;
+  font-weight: 500;
+  color: #9caabd;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin: 16px 0 8px;
+}
+
+.rv-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.rv-warn {
+  color: #b4543f;
+  font-size: 11px;
+}
+
+@media (max-width: 1080px) {
+  .rv-layout.has-detail { grid-template-columns: 1fr; }
+  .rv-detail { position: static; }
+}
+
+@media (max-width: 720px) {
+  .rv-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
