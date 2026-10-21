@@ -6,10 +6,17 @@
  *
  * 为什么不是"管理员点一个班、手工输入学号"：一学期几十上百人，靠手打学号必然
  * 出错。这里从账号库里搜人、勾选、批量加入；加错可以单人移出，且每一步都留审计。
+ *
+ * 学期用"学年 + 秋/春/夏"两个下拉，显示成"2026年秋季学期"。原来是让人手打
+ * 2026-2027-1，老师既看不懂也必然打错。
  */
 (function () {
   const A = App, e = A.escape;
-  const TERM_RE = /^\d{4}-\d{4}-[12]$/;
+  const KINDS = [
+    { value: '秋', label: '秋季学期' },
+    { value: '春', label: '春季学期' },
+    { value: '夏', label: '夏季学期' }
+  ];
 
   A.state.classes = A.state.classes || {
     status: 'idle', error: '',
@@ -17,20 +24,40 @@
     items: [], total: 0, seats: 0,
     openClassId: '',
     roster: { status: 'idle', error: '', items: [] },
-    form: { courseId: '', name: '', term: '', note: '' },
+    form: { courseId: '', name: '', academicYear: '', termKind: '', note: '' },
     picker: { open: false, query: '', status: 'idle', error: '', items: [], selected: [] },
     saving: false
   };
   const S = () => A.state.classes;
 
-  function defaultTerm() {
+  // 学年的两个年份必须连续；学期名字按学校口径拼。
+  // 秋季学期在学年第一年（2026年9月），春季与夏季在第二年（2027年2月、6月）。
+  function termLabel(academicYear, kind) {
+    const [start, end] = String(academicYear || '').split('-');
+    if (!start || !end) return '';
+    return `${kind === '秋' ? start : end}年${kind === '秋' ? '秋' : kind === '春' ? '春' : '夏'}季学期`;
+  }
+
+  // 现在该默认选哪一学期：9月—次年1月是秋季，2月—6月是春季，7月—8月算夏季。
+  function currentTerm() {
     const now = new Date();
     const year = now.getFullYear();
-    // 9 月到次年 1 月是第一学期，2 月到 8 月是第二学期
     const month = now.getMonth() + 1;
-    return month >= 9 ? `${year}-${year + 1}-1`
-      : month === 1 ? `${year - 1}-${year}-1`
-        : `${year - 1}-${year}-2`;
+    if (month >= 9) return { academicYear: `${year}-${year + 1}`, termKind: '秋' };
+    if (month === 1) return { academicYear: `${year - 1}-${year}`, termKind: '秋' };
+    if (month <= 6) return { academicYear: `${year - 1}-${year}`, termKind: '春' };
+    return { academicYear: `${year - 1}-${year}`, termKind: '夏' };
+  }
+
+  function yearOptions(selected) {
+    // 前后各留几年：补录上学期的班、提前建下学期的班都用得上。
+    const base = Number((currentTerm().academicYear || '2026-2027').slice(0, 4));
+    const years = [];
+    for (let year = base + 2; year >= base - 3; year -= 1) years.push(`${year}-${year + 1}`);
+    if (selected && !years.includes(selected)) years.unshift(selected);
+    return years.map(year =>
+      `<option value="${e(year)}" ${year === selected ? 'selected' : ''}>${e(year)}学年</option>`
+    ).join('');
   }
 
   function courseOptions(selected) {
@@ -98,7 +125,11 @@
 
   A.after.classes = function () {
     if (S().status === 'idle') load();
-    if (!S().form.term) S().form.term = defaultTerm();
+    if (!S().form.academicYear) {
+      const term = currentTerm();
+      S().form.academicYear = term.academicYear;
+      S().form.termKind = term.termKind;
+    }
   };
 
   // ---------------- 视图 ----------------
@@ -188,17 +219,22 @@
   function formPanel() {
     const form = S().form;
     const courseId = form.courseId || A.course?.id || (A.courses[0] || {}).id || '';
-    const invalid = form.term && !TERM_RE.test(form.term.trim());
+    const terms = currentTerm();
+    const academicYear = form.academicYear || terms.academicYear;
+    const termKind = form.termKind || terms.termKind;
     return `<div class="panel">
       <h2>新建班级</h2>
       <p class="muted">一个班对应「一门课 + 一个学期」。同一门课同一学期不允许重名；任课教师默认是你自己。</p>
       <div class="cls-form">
         <label class="ax-inline">课程<select data-input="classes-form-course">${courseOptions(courseId)}</select></label>
         <label class="ax-inline">班级名称<input data-input="classes-form-name" value="${e(form.name)}" placeholder="如 数学分析II-01班"></label>
-        <label class="ax-inline">学期<input data-input="classes-form-term" value="${e(form.term || defaultTerm())}" placeholder="2026-2027-1"></label>
+        <label class="ax-inline">学年<select data-input="classes-form-year">${yearOptions(academicYear)}</select></label>
+        <label class="ax-inline">学期<select data-input="classes-form-kind">
+          ${KINDS.map(kind => `<option value="${kind.value}" ${kind.value === termKind ? 'selected' : ''}>${kind.label}</option>`).join('')}
+        </select></label>
         <button class="btn primary" data-action="classes-create" ${S().saving ? 'disabled' : ''}>建班</button>
       </div>
-      ${invalid ? '<p class="cls-error">学期格式应为 2026-2027-1（学年-学年-学期）</p>' : ''}
+      <p class="muted small">将建成：${e(termLabel(academicYear, termKind))}</p>
     </div>`;
   }
 
@@ -242,7 +278,8 @@
   A.inputs['classes-filter-course'] = input => { S().courseId = input.value; load(); };
   A.inputs['classes-form-course'] = input => { S().form.courseId = input.value; };
   A.inputs['classes-form-name'] = input => { S().form.name = input.value; };
-  A.inputs['classes-form-term'] = input => { S().form.term = input.value; };
+  A.inputs['classes-form-year'] = input => { S().form.academicYear = input.value; A.render(); };
+  A.inputs['classes-form-kind'] = input => { S().form.termKind = input.value; A.render(); };
   A.inputs['classes-picker-query'] = input => { S().picker.query = input.value; };
   A.inputs['classes-pick'] = input => {
     const id = input.value;
@@ -256,18 +293,21 @@
 
   A.actions['classes-create'] = async function (button) {
     const form = S().form;
+    const terms = currentTerm();
     const courseId = form.courseId || A.course?.id || (A.courses[0] || {}).id || '';
     const name = form.name.trim();
-    const term = (form.term || defaultTerm()).trim();
+    const academicYear = form.academicYear || terms.academicYear;
+    const termKind = form.termKind || terms.termKind;
     if (!courseId) { A.toast('先选一门课'); return; }
     if (!name) { A.toast('班级名称要填'); return; }
-    if (!TERM_RE.test(term)) { A.toast('学期格式应为 2026-2027-1'); return; }
     button.disabled = true;
     S().saving = true;
     try {
-      const created = await A.api.createClass({ course_id: courseId, name, term });
-      A.toast(`已建班：${created.course_title} · ${created.name}`);
-      S().form = { courseId, name: '', term, note: '' };
+      const created = await A.api.createClass({
+        course_id: courseId, name, academic_year: academicYear, term_kind: termKind
+      });
+      A.toast(`已建班：${created.course_title} · ${created.term}`);
+      S().form = { courseId, name: '', academicYear, termKind, note: '' };
       S().saving = false;
       S().openClassId = created.id;
       S().roster = { status: 'idle', error: '', items: [] };
@@ -353,4 +393,7 @@
       A.toast(error.message);
     }
   };
+
+  // 供测试直接验证学期文案（不在视图里重复实现一遍）
+  A.classTermLabel = termLabel;
 })();

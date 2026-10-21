@@ -6,6 +6,9 @@
 
 权限：teacher / admin。学生一律 403——名单是教务工作，不是学生自助。
 写操作全部落 audit_log：学期末对不上名单时，"谁把谁加进来"必须查得到。
+
+学期的存法：`academic_year`（2026-2027）+ `term_kind`（秋/春/夏），显示成
+"2026年秋季学期"。拆开存是因为文案会变、排序不能靠字符串（见迁移 0016 的注释）。
 """
 
 from __future__ import annotations
@@ -22,8 +25,35 @@ from .auth import Actor, require
 
 router = APIRouter(prefix="/api/v1", tags=["classes"])
 
-TERM_RE = re.compile(r"^\d{4}-\d{4}-[12]$")
+ACADEMIC_YEAR_RE = re.compile(r"^(\d{4})-(\d{4})$")
+TERM_KINDS = ("秋", "春", "夏")
 STAFF = ("teacher", "admin")
+
+
+def term_label(academic_year: str, term_kind: str) -> str:
+    """学年 + 学期 → 老师口中的说法。
+
+    秋季学期开学在学年第一年（2026年9月），春季与夏季在第二年（2027年2月、6月），
+    所以前缀年份要按学期取，不能一律用学年的第一个年份。
+    """
+    start, end = academic_year.split("-")
+    if term_kind == "秋":
+        return f"{start}年秋季学期"
+    if term_kind == "春":
+        return f"{end}年春季学期"
+    return f"{end}年夏季学期"
+
+
+def _parse_term(academic_year: str, term_kind: str) -> tuple[str, str]:
+    """校验并标准化学期。写错就 400，不做模糊猜测。"""
+    year = (academic_year or "").strip()
+    kind = (term_kind or "").strip()
+    match = ACADEMIC_YEAR_RE.match(year)
+    if not match or int(match.group(2)) != int(match.group(1)) + 1:
+        raise HTTPException(400, "学年格式应为 2026-2027（前一年-后一年，必须连续两个学年）")
+    if kind not in TERM_KINDS:
+        raise HTTPException(400, "学期只能是秋季学期、春季学期或夏季学期")
+    return year, kind
 
 
 def _audit(actor: Actor, action: str, entity: str, entity_key: str, detail: dict) -> None:
@@ -37,8 +67,8 @@ def _audit(actor: Actor, action: str, entity: str, entity_key: str, detail: dict
 
 def _class_or_404(class_id: str) -> dict:
     row = db.query_one(
-        """SELECT c.id, c.course_id, c.name, c.term, c.teacher_id, c.created_by,
-                  c.created_at, c.updated_at, c.note,
+        """SELECT c.id, c.course_id, c.name, c.academic_year, c.term_kind,
+                  c.teacher_id, c.created_by, c.created_at, c.updated_at, c.note,
                   co.title AS course_title,
                   t.display_name AS teacher_name
              FROM teaching_class c
@@ -58,7 +88,9 @@ def _public_class(row: dict, students: int = 0) -> dict:
         "course_id": row["course_id"],
         "course_title": row["course_title"],
         "name": row["name"],
-        "term": row["term"],
+        "academic_year": row["academic_year"],
+        "term_kind": row["term_kind"],
+        "term": term_label(row["academic_year"], row["term_kind"]),
         "teacher_id": row["teacher_id"],
         "teacher_name": row["teacher_name"] or "",
         "student_count": students,
@@ -70,14 +102,16 @@ def _public_class(row: dict, students: int = 0) -> dict:
 class ClassIn(BaseModel):
     course_id: str
     name: str = Field(min_length=1, max_length=60)
-    term: str
+    academic_year: str
+    term_kind: str
     teacher_id: str | None = None
     note: str | None = None
 
 
 class ClassPatch(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=60)
-    term: str | None = None
+    academic_year: str | None = None
+    term_kind: str | None = None
     teacher_id: str | None = None
     note: str | None = None
 
@@ -89,7 +123,8 @@ class StudentsIn(BaseModel):
 @router.get("/classes")
 def list_classes(
     course_id: str | None = None,
-    term: str | None = None,
+    academic_year: str | None = None,
+    term_kind: str | None = None,
     _actor: Actor = Depends(require(*STAFF)),
 ) -> dict:
     """班级列表。带 course_id 就是"这门课有哪些班"。"""
@@ -97,13 +132,16 @@ def list_classes(
     if course_id:
         where.append("c.course_id = %s")
         params.append(course_id)
-    if term:
-        where.append("c.term = %s")
-        params.append(term)
+    if academic_year:
+        where.append("c.academic_year = %s")
+        params.append(academic_year)
+    if term_kind:
+        where.append("c.term_kind = %s")
+        params.append(term_kind)
     clause = f"WHERE {' AND '.join(where)}" if where else ""
     rows = db.query(
-        f"""SELECT c.id, c.course_id, c.name, c.term, c.teacher_id, c.created_by,
-                   c.created_at, c.updated_at, c.note,
+        f"""SELECT c.id, c.course_id, c.name, c.academic_year, c.term_kind,
+                   c.teacher_id, c.created_by, c.created_at, c.updated_at, c.note,
                    co.title AS course_title,
                    t.display_name AS teacher_name,
                    (SELECT count(*)::int FROM enrollment e WHERE e.class_id = c.id) AS student_count
@@ -111,7 +149,9 @@ def list_classes(
               JOIN course co ON co.id = c.course_id
               LEFT JOIN app_account t ON t.id = c.teacher_id
               {clause}
-             ORDER BY c.term DESC, c.course_id, c.name""",
+             ORDER BY c.academic_year DESC,
+                      CASE c.term_kind WHEN '夏' THEN 3 WHEN '春' THEN 2 ELSE 1 END DESC,
+                      c.course_id, c.name""",
         tuple(params),
     )
     items = [_public_class(row, row["student_count"]) for row in rows]
@@ -127,9 +167,8 @@ def create_class(payload: ClassIn, actor: Actor = Depends(require(*STAFF))) -> d
     name = payload.name.strip()
     if not name:
         raise HTTPException(400, "班级名称不能为空")
-    if not TERM_RE.match(payload.term.strip()):
-        raise HTTPException(400, "学期格式应为 2026-2027-1（学年-学年-学期）")
-    term = payload.term.strip()
+    academic_year, term_kind = _parse_term(payload.academic_year, payload.term_kind)
+    label = term_label(academic_year, term_kind)
     course = db.query_one("SELECT id, title FROM course WHERE id = %s", (payload.course_id,))
     if not course:
         raise HTTPException(404, f"没有这门课：{payload.course_id}")
@@ -143,21 +182,24 @@ def create_class(payload: ClassIn, actor: Actor = Depends(require(*STAFF))) -> d
             raise HTTPException(400, "任课教师必须是教师或管理员账号")
 
     if db.query_one(
-        "SELECT id FROM teaching_class WHERE course_id = %s AND term = %s AND name = %s",
-        (payload.course_id, term, name),
+        """SELECT id FROM teaching_class
+            WHERE course_id = %s AND academic_year = %s AND term_kind = %s AND name = %s""",
+        (payload.course_id, academic_year, term_kind, name),
     ):
-        raise HTTPException(409, f"{course['title']} 在 {term} 已经有同名班级「{name}」")
+        raise HTTPException(409, f"{course['title']} 在{label}已经有同名班级「{name}」")
 
     class_id = f"class-{secrets.token_hex(5)}"
     db.execute(
-        """INSERT INTO teaching_class (id, course_id, name, term, teacher_id, created_by, note)
-           VALUES (%s, %s, %s, %s, %s, %s, %s)""",
-        (class_id, payload.course_id, name, term, teacher_id, actor.id or None,
-         (payload.note or "").strip() or None),
+        """INSERT INTO teaching_class
+             (id, course_id, name, academic_year, term_kind, teacher_id, created_by, note)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+        (class_id, payload.course_id, name, academic_year, term_kind, teacher_id,
+         actor.id or None, (payload.note or "").strip() or None),
     )
     _audit(actor, "class.create", "teaching_class", class_id, {
         "course_id": payload.course_id, "course_title": course["title"],
-        "name": name, "term": term, "teacher_id": teacher_id,
+        "name": name, "academic_year": academic_year, "term_kind": term_kind,
+        "term": label, "teacher_id": teacher_id,
     })
     return _public_class(_class_or_404(class_id), 0)
 
@@ -176,11 +218,13 @@ def patch_class(
             raise HTTPException(400, "班级名称不能为空")
         fields.append("name = %s")
         params.append(name)
-    if payload.term is not None:
-        if not TERM_RE.match(payload.term.strip()):
-            raise HTTPException(400, "学期格式应为 2026-2027-1（学年-学年-学期）")
-        fields.append("term = %s")
-        params.append(payload.term.strip())
+    if payload.academic_year is not None or payload.term_kind is not None:
+        academic_year, term_kind = _parse_term(
+            payload.academic_year if payload.academic_year is not None else row["academic_year"],
+            payload.term_kind if payload.term_kind is not None else row["term_kind"],
+        )
+        fields.extend(["academic_year = %s", "term_kind = %s"])
+        params.extend([academic_year, term_kind])
     if payload.teacher_id is not None:
         if payload.teacher_id:
             teacher = db.query_one("SELECT id, role FROM app_account WHERE id = %s",
@@ -217,7 +261,8 @@ def delete_class(class_id: str, actor: Actor = Depends(require(*STAFF))) -> dict
     students = db.query_one("SELECT count(*)::int AS n FROM enrollment WHERE class_id = %s",
                             (class_id,))
     _audit(actor, "class.delete", "teaching_class", class_id, {
-        "course_id": row["course_id"], "name": row["name"], "term": row["term"],
+        "course_id": row["course_id"], "name": row["name"],
+        "academic_year": row["academic_year"], "term_kind": row["term_kind"],
         "student_count": (students or {}).get("n", 0),
     })
     # enrollment 有 ON DELETE CASCADE，删班连带清名单；审计里已经记下人数。

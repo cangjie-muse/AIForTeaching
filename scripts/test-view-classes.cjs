@@ -6,7 +6,8 @@
  *   1. 学生没有建班、加人的权限（菜单不显示、直接开页面也是"没有权限"）；
  *   2. 建班前不许把学生加进去——先有班才有人；
  *   3. 已经在班上的学生不再出现在"可添加"列表里，避免重复点；
- *   4. 删班要提示会连带移除多少人的选课记录。
+ *   4. 删班要提示会连带移除多少人的选课记录；
+ *   5. 学期只能从"学年 + 秋/春/夏"里选，手打不进去。
  */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -31,7 +32,8 @@ const classesFixture = {
   items: [
     {
       id: 'class-a', course_id: 'analysis-ii', course_title: '数学分析II',
-      name: '数学分析II-01班', term: '2026-2027-1',
+      name: '数学分析II-01班',
+      academic_year: '2026-2027', term_kind: '秋', term: '2026年秋季学期',
       teacher_id: 'acc-t', teacher_name: '张老师', student_count: 2, created_at: '2026-10-01'
     }
   ],
@@ -123,7 +125,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   App.state.classes = {
     status: 'idle', error: '', courseId: '', items: [], total: 0, seats: 0, openClassId: '',
     roster: { status: 'idle', error: '', items: [] },
-    form: { courseId: '', name: '', term: '', note: '' },
+    form: { courseId: '', name: '', academicYear: '', termKind: '', note: '' },
     picker: { open: false, query: '', status: 'idle', error: '', items: [], selected: [] },
     saving: false
   };
@@ -179,14 +181,32 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   await wait(40);
   check('调用了加人接口', calls.some(call => call[0] === 'add' && call[2].includes('acc-s2')));
 
+  console.log('\n学期口径：');
+  check('秋季学期显示成 2026年秋季学期',
+    App.classTermLabel('2026-2027', '秋') === '2026年秋季学期', App.classTermLabel('2026-2027', '秋'));
+  check('春季学期落在学年第二年',
+    App.classTermLabel('2026-2027', '春') === '2027年春季学期', App.classTermLabel('2026-2027', '春'));
+  check('夏季学期同样落在第二年',
+    App.classTermLabel('2026-2027', '夏') === '2027年夏季学期', App.classTermLabel('2026-2027', '夏'));
+  html = elements.get('app').innerHTML;
+  check('表单给的是学年下拉，不是手打学期',
+    html.includes('data-input="classes-form-year"') && !html.includes('data-input="classes-form-term"'),
+    '还在让人手打学期');
+  check('表单里能选秋季学期', html.includes('<option value="秋" selected>秋季学期</option>'));
+  check('建班前就把将建成的学期显示出来', html.includes('将建成：2026年秋季学期'),
+    '没显示学期文案');
+
   console.log('\n建班与删班：');
-  App.state.classes.form = { courseId: 'analysis-ii', name: '  ', term: '2026-2027-1' };
+  App.state.classes.form = { courseId: 'analysis-ii', name: '  ', academicYear: '2026-2027', termKind: '秋' };
   await App.actions['classes-create']({ disabled: false });
   check('班名为空时不提交', !calls.some(call => call[0] === 'create'));
   check('提示了原因', calls.some(call => call[0] === 'toast' && String(call[1]).includes('班级名称')));
-  App.state.classes.form = { courseId: 'analysis-ii', name: '数学分析II-02班', term: '2026秋' };
+  App.state.classes.form = { courseId: 'analysis-ii', name: '数学分析II-02班', academicYear: '2026-2027', termKind: '秋' };
   await App.actions['classes-create']({ disabled: false });
-  check('学期格式不对时不提交', !calls.some(call => call[0] === 'create' && call[1].term === '2026秋'));
+  const sent = calls.filter(call => call[0] === 'create').pop();
+  check('建班提交的是学年 + 学期，不是自由文本',
+    sent && sent[1].academic_year === '2026-2027' && sent[1].term_kind === '秋' && !('term' in sent[1]),
+    JSON.stringify(sent && sent[1]));
 
   const asked = [];
   sandbox.confirm = message => { asked.push(message); return false; };

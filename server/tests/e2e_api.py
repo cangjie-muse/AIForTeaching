@@ -1468,7 +1468,8 @@ def run() -> None:
         student_row = [row for row in listing["items"] if row["username"] == "e2e-student"][0]
         teacher_row = [row for row in listing["items"] if row["username"] == "e2e-teacher"][0]
         teacher_headers = {"X-Actor": teacher_row["id"], "X-Roles": "teacher"}
-        inbox = {"course_id": "e2e-course", "name": "E2E-01班", "term": "2026-2027-1"}
+        inbox = {"course_id": "e2e-course", "name": "E2E-01班",
+                 "academic_year": "2026-2027", "term_kind": "秋"}
 
         check("学生不能建班", client.post("/api/v1/classes", headers=STUDENT, json=inbox)
               .status_code == 403, "学生把班建起来了")
@@ -1482,15 +1483,29 @@ def run() -> None:
         made_class = made.json() if made.status_code == 200 else {}
         check("建班返回课程名", made_class.get("course_title") == "端到端测试课",
               str(made_class.get("course_title")))
+        check("学期按学校口径显示", made_class.get("term") == "2026年秋季学期",
+              str(made_class.get("term")))
+        check("学期同时返回结构字段",
+              made_class.get("academic_year") == "2026-2027"
+              and made_class.get("term_kind") == "秋",
+              str((made_class.get("academic_year"), made_class.get("term_kind"))))
         check("任课教师默认是建班的人", made_class.get("teacher_name") == "端到端教师",
               str(made_class.get("teacher_name")))
         check("新班人数为 0", made_class.get("student_count") == 0)
 
         dup_class = client.post("/api/v1/classes", headers=teacher_headers, json=inbox)
         check("同课程同学期重名被 409 拒绝", dup_class.status_code == 409, str(dup_class.status_code))
-        bad_term = client.post("/api/v1/classes", headers=teacher_headers,
-                               json={**inbox, "name": "E2E-02班", "term": "2026秋"})
-        check("学期格式不对被 400 拒绝", bad_term.status_code == 400, str(bad_term.status_code))
+        bad_year = client.post("/api/v1/classes", headers=teacher_headers,
+                               json={**inbox, "name": "E2E-02班", "academic_year": "2026-2028"})
+        check("学年两个年份不连续被 400 拒绝", bad_year.status_code == 400, str(bad_year.status_code))
+        bad_kind = client.post("/api/v1/classes", headers=teacher_headers,
+                               json={**inbox, "name": "E2E-02班", "term_kind": "第一学期"})
+        check("学期不在秋/春/夏里被 400 拒绝", bad_kind.status_code == 400, str(bad_kind.status_code))
+        free_text = client.post("/api/v1/classes", headers=teacher_headers,
+                                json={**inbox, "name": "E2E-02班",
+                                      "academic_year": "2026年", "term_kind": "秋"})
+        check("把 2026年 当学年传被 400 拒绝", free_text.status_code == 400,
+              str(free_text.status_code))
         no_course = client.post("/api/v1/classes", headers=teacher_headers,
                                 json={**inbox, "course_id": "nope", "name": "E2E-03班"})
         check("课程不存在被 404 拒绝", no_course.status_code == 404, str(no_course.status_code))
@@ -1526,6 +1541,19 @@ def run() -> None:
         check("名单记下是谁加进来的",
               roster["items"][0]["added_by"] == "端到端教师",
               str(roster["items"][0]["added_by"]))
+
+        spring = client.post("/api/v1/classes", headers=teacher_headers,
+                             json={**inbox, "name": "E2E-春季班", "term_kind": "春"})
+        check("同一学年能另建春季班", spring.status_code == 200, spring.text[:160])
+        check("春季班显示成次年春季学期",
+              spring.status_code == 200 and spring.json()["term"] == "2027年春季学期",
+              str(spring.json().get("term") if spring.status_code == 200 else ""))
+        only_autumn = client.get("/api/v1/classes", headers=teacher_headers,
+                                 params={"course_id": "e2e-course", "term_kind": "秋"}).json()
+        check("能按学期筛班级", only_autumn["total"] == 1
+              and only_autumn["items"][0]["term_kind"] == "秋", str(only_autumn["total"]))
+        if spring.status_code == 200:
+            client.delete("/api/v1/classes/" + spring.json()["id"], headers=teacher_headers)
 
         listed = client.get("/api/v1/classes?course_id=e2e-course",
                             headers=teacher_headers).json()
