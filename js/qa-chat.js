@@ -85,6 +85,8 @@
     }
     const tags = [
       message.refused ? A.badge('拒答', 'amber') : '',
+      // 没走教材的回答必须一眼看出来。灰色不行——它要能阻止人把结论当真。
+      message.grounded === false ? A.badge('通用知识·未依据教材', 'amber') : '',
       message.demo ? A.badge('演示模式', 'blue') : '',
       message.mode === 'full' ? A.badge('完整解答', 'green') : ''
     ].join(' ');
@@ -102,7 +104,7 @@
     return `<div class="qa-welcome">
       <span class="qa-avatar large">${A.icon('ai')}</span>
       <h2>问一个具体的问题</h2>
-      <p>回答只依据课程材料（教材片段或知识点正文），并标出出处。材料没有覆盖的内容，它会说没有依据，而不是编一个。</p>
+      <p>回答优先依据课程材料（教材片段或知识点正文）并标出出处。材料里找不到依据时，它会改用模型的通用知识回答，但会明确标注「通用知识·未依据教材」——那种回答没有经过教师确认，请自行核对。</p>
       <div class="qa-hints">
         <span>${A.icon('info')}默认是「引导思考」：先给思路，不直接给答案</span>
         <span>${A.icon('info')}「完整解答」要先提交自己的作答才能解锁</span>
@@ -268,6 +270,8 @@
       push('assistant', payload.answer_md, {
         citations: payload.citations || [],
         refused: Boolean(payload.refused),
+        // 后端没给这个字段时按"有依据"处理：老数据没有 basis，不该被误标成通用知识
+        grounded: payload.grounded !== false,
         demo: Boolean(payload.demo),
         mode: payload.mode
       });

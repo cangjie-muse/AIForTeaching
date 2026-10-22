@@ -88,6 +88,42 @@ FULL_SYSTEM = """你是武汉大学数学与统计学院的教学助手，面向
 """
 
 
+FALLBACK_SYSTEM = """你是武汉大学数学与统计学院的教学助手，面向本科生。
+
+这次课程材料里没有检索到能支撑回答的片段。规则：
+1. 用你自己的通用数学知识回答，但你要清楚：这不是本课程材料的结论。
+2. 不要编造教材章节、页码、定理编号，也不要写"书中第 X 页"这类出处；不确定就说不确定。
+3. 有些记号/定义在不同教材里约定不同，遇到这种地方要指出来。
+4. 学生要思路时别直接给完整答案；「完整解答」模式下可以给推导。
+5. 数学式子用 $LaTeX$，行间公式用 $$LaTeX$$。
+6. 不要在回答开头重复免责声明，系统会单独标注这一段没有教材依据。
+"""
+
+# 机器加的标注，不依赖模型是否照做。放在正文最前面，复制走也带着。
+UNVERIFIED_BANNER = (
+    "> ⚠️ **未使用课程材料**：课程知识库里没有找到相关依据，"
+    "以下内容由模型自身的通用知识生成，不是本课程教材或大纲的结论，"
+    "也没有经过教师审核，可能有误，请对照教材核对。\n\n"
+)
+
+
+def fallback_enabled() -> bool:
+    """知识库没有依据时，是否允许改用模型的通用知识回答。
+
+    默认开着：一个连"什么是勒贝格积分"都答不了的教学助手，学生会直接不用它。
+    但必须在回答上标注，且 `QA_FALLBACK=off` 能一键回到严格模式（论文/答辩场合）。
+    """
+    return os.environ.get("QA_FALLBACK", "model").strip().lower() != "off"
+
+
+def mark_unverified(text: str) -> str:
+    """给没依据的回答加标注。幂等：模型自己写了也不重复加。"""
+    body = (text or "").strip()
+    if body.startswith("> ⚠️"):
+        return body
+    return UNVERIFIED_BANNER + body
+
+
 class AskIn(BaseModel):
     question: str = Field(min_length=1, max_length=2000)
     course_id: str | None = None
@@ -266,15 +302,16 @@ def _conversation_id(raw: str | None, actor: Actor, course_id: str | None, quest
 
 
 def _save_turn(conversation_id: str, question: str, answer: str,
-               refused: bool, citations: list[dict[str, Any]]) -> int:
+               refused: bool, citations: list[dict[str, Any]],
+               basis: str = "course") -> int:
     db.query(
         "INSERT INTO ai_message (conversation_id, role, content_md) VALUES (%s, 'user', %s)",
         (conversation_id, question),
     )
     message = db.query_one(
-        """INSERT INTO ai_message (conversation_id, role, content_md, refused)
-           VALUES (%s, 'assistant', %s, %s) RETURNING id""",
-        (conversation_id, answer, refused),
+        """INSERT INTO ai_message (conversation_id, role, content_md, refused, basis)
+           VALUES (%s, 'assistant', %s, %s, %s) RETURNING id""",
+        (conversation_id, answer, refused, basis),
     )
     message_id = int(message["id"])
     for citation in citations:
@@ -322,17 +359,49 @@ def ask(body: AskIn, actor: Actor = Depends(require_login)) -> dict:
     conversation_id = _conversation_id(body.conversation_id, actor, body.course_id, body.question)
 
     if not rows:
-        answer = (
-            "这个问题我在课程材料里没有找到可以引用的依据，所以不猜。\n\n"
-            "可能的原因：这门课的知识点还没有入库成问答语料（管理员可在"
-            "「问答语料」里重建），或者问题里的说法与知识点标题差得太远。\n"
-            "你可以换用课程里的术语再问一次，比如直接问某个知识点是什么。"
-        )
-        message_id = _save_turn(conversation_id, body.question, answer, True, [])
+        if not fallback_enabled():
+            answer = (
+                "这个问题我在课程材料里没有找到可以引用的依据，所以不猜。\n\n"
+                "可能的原因：这门课的知识点还没有入库成问答语料（管理员可在"
+                "「问答语料」里重建），或者问题里的说法与知识点标题差得太远。\n"
+                "你可以换用课程里的术语再问一次，比如直接问某个知识点是什么。"
+            )
+            message_id = _save_turn(conversation_id, body.question, answer, True, [])
+            return {
+                "conversation_id": conversation_id, "message_id": message_id,
+                "answer_md": answer, "refused": True, "mode": body.mode,
+                "citations": [], "context_chars": 0, "grounded": True, "basis": "course",
+            }
+
+        # 兜底：课程材料里没有依据，改用模型自身的通用知识，并在回答正文与接口字段上双重标注。
+        # 注意这里**不发任何课程内容**，只发问题——比正常检索路径外传得还少。
+        if DEV_FAKE_MODEL:
+            answer = mark_unverified(
+                "【演示模式，不是模型输出】\n\n"
+                "课程材料里没有找到可以引用的片段。配好模型端点后，这里会换成模型用通用知识给出的回答，"
+                "并带着同样的标注。"
+            )
+            _record_call(succeeded=True, provider="demo", model="demo",
+                         latency_ms=0, context_chars=0)
+            message_id = _save_turn(conversation_id, body.question, answer, False, [], "model")
+            return {
+                "conversation_id": conversation_id, "message_id": message_id,
+                "answer_md": answer, "refused": False, "mode": body.mode,
+                "citations": [], "context_chars": 0, "demo": True,
+                "grounded": False, "basis": "model",
+            }
+
+        result, answer, latency_ms = _call_model(
+            [{"role": "system", "content": FALLBACK_SYSTEM},
+             {"role": "user", "content": body.question}],
+            endpoint, 0)
+        answer = mark_unverified(answer)
+        message_id = _save_turn(conversation_id, body.question, answer, False, [], "model")
         return {
             "conversation_id": conversation_id, "message_id": message_id,
-            "answer_md": answer, "refused": True, "mode": body.mode,
+            "answer_md": answer, "refused": False, "mode": body.mode,
             "citations": [], "context_chars": 0,
+            "grounded": False, "basis": "model",
         }
 
     context, used, citations = compose_context(rows)
@@ -351,49 +420,63 @@ def ask(body: AskIn, actor: Actor = Depends(require_login)) -> dict:
             "conversation_id": conversation_id, "message_id": message_id,
             "answer_md": answer, "refused": False, "mode": body.mode,
             "citations": citations, "context_chars": used, "demo": True,
+            "grounded": True, "basis": "course",
         }
 
+    result, answer, latency_ms = _call_model(messages, endpoint, used)
+    message_id = _save_turn(conversation_id, body.question, answer, False, citations)
+    return {
+        "conversation_id": conversation_id, "message_id": message_id,
+        "answer_md": answer, "refused": False, "mode": body.mode,
+        "citations": citations, "context_chars": used,
+        "grounded": True, "basis": "course",
+    }
+
+
+def _call_model(messages: list[dict[str, str]], endpoint: llm.Endpoint,
+                context_chars: int) -> tuple[dict[str, Any], str, int]:
+    """调用模型并把各类失败翻译成对用户有意义的 HTTP 错误。
+
+    抽出来是因为"有依据"和"没依据"两条路都要走同一套错误处理，
+    复制两份迟早会出现一条路漏了 MissingKey 的 400。
+    """
     started = time.monotonic()
     try:
         result = llm.chat(messages)
     except llm.EgressViolation as exc:
         _record_call(succeeded=False, provider=endpoint.name, model=endpoint.model,
                      latency_ms=int((time.monotonic() - started) * 1000),
-                     error=str(exc), context_chars=used)
+                     error=str(exc), context_chars=context_chars)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except llm.MissingKey as exc:
         # 配置问题（没配密钥）不是上游故障：回 400，别让人以为是模型服务挂了
         _record_call(succeeded=False, provider=endpoint.name, model=endpoint.model,
                      latency_ms=int((time.monotonic() - started) * 1000),
-                     error=str(exc)[:400], context_chars=used)
+                     error=str(exc)[:400], context_chars=context_chars)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except TimeoutError as exc:
         _record_call(succeeded=False, provider=endpoint.name, model=endpoint.model,
                      latency_ms=int((time.monotonic() - started) * 1000),
-                     error="timeout", context_chars=used)
+                     error="timeout", context_chars=context_chars)
         raise HTTPException(status_code=504, detail="模型响应超时，请稍后重试") from exc
     except RuntimeError as exc:
         _record_call(succeeded=False, provider=endpoint.name, model=endpoint.model,
                      latency_ms=int((time.monotonic() - started) * 1000),
-                     error=str(exc)[:400], context_chars=used)
+                     error=str(exc)[:400], context_chars=context_chars)
         raise HTTPException(status_code=502, detail=f"模型调用失败：{exc}") from exc
 
     latency_ms = int((time.monotonic() - started) * 1000)
     answer = (result.get("content") or "").strip()
     if not answer:
         _record_call(succeeded=False, provider=endpoint.name, model=endpoint.model,
-                     latency_ms=latency_ms, error="empty-completion", context_chars=used)
+                     latency_ms=latency_ms, error="empty-completion",
+                     context_chars=context_chars)
         raise HTTPException(status_code=502, detail="模型返回了空内容")
 
     _record_call(succeeded=True, provider=result.get("provider", endpoint.name),
                  model=result.get("model", endpoint.model), latency_ms=latency_ms,
-                 context_chars=used, usage=result.get("usage"))
-    message_id = _save_turn(conversation_id, body.question, answer, False, citations)
-    return {
-        "conversation_id": conversation_id, "message_id": message_id,
-        "answer_md": answer, "refused": False, "mode": body.mode,
-        "citations": citations, "context_chars": used,
-    }
+                 context_chars=context_chars, usage=result.get("usage"))
+    return result, answer, latency_ms
 
 
 def _require_tier(body: AskIn) -> None:

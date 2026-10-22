@@ -1619,4 +1619,15 @@ COMMENT ON COLUMN textbook_chunk.page_from IS
 -- 这里给"按节点找块"一条索引，问答要拿 node_id 回填引用。
 CREATE INDEX IF NOT EXISTS node_chunk_chunk_idx ON node_chunk (chunk_id);
 
+-- ---------------------------------------------------------------
+-- 0018_ai_message_basis.sql
+-- ---------------------------------------------------------------
+-- 回答的"依据"来源。课程材料里找不到依据时，允许改用模型的通用知识，
+-- 但必须留下痕迹：前端会显示「通用知识」标记，回答正文开头也有一段免责说明。
+ALTER TABLE ai_message ADD COLUMN basis text NOT NULL DEFAULT 'course'
+  CHECK (basis IN ('course', 'model'));
+
+COMMENT ON COLUMN ai_message.basis IS
+  'course=依据课程材料（有引用）；model=知识库无依据，模型通用知识（正文已带未验证标注）';
+
 COMMIT;
