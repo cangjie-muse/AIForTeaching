@@ -1,0 +1,26 @@
+[Unit]
+Description=WHU math teaching platform API
+Documentation=file:///home/aiformath/AIForTeaching/docs/服务器部署与迁移指南.md
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=aiformath
+Group=aiformath
+WorkingDirectory=/home/aiformath/AIForTeaching/server
+# 环境变量集中在 .env（chmod 600）；不写进单元文件——单元文件任何用户都能读
+EnvironmentFile=/home/aiformath/AIForTeaching/.env
+ExecStart=/home/aiformath/AIForTeaching/.venv/bin/uvicorn app.main:app \
+    --host 127.0.0.1 --port 8000 --workers 2 --proxy-headers
+# uvicorn 收到 SIGTERM 会等在途请求结束；30 秒还没完就强杀
+TimeoutStopSec=30
+Restart=always
+RestartSec=3
+
+# 只加这一条：不给提权机会。更激进的沙箱（ProtectHome 等）会连 venv 与上传目录
+# 一起挡住，第一次部署时表现为"服务起不来但日志没有明显错误"，不值得在这里冒这个险。
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,61 @@
+# 放到 /etc/nginx/sites-available/whu-teaching，再软链到 sites-enabled/
+#
+# 为什么 nginx 要同时管静态站和 /api：
+#   APP_ENV=prod 时 server/app/main.py 的 _mount_dev_static() 不执行，
+#   FastAPI 只提供 /api/v1/*，不再返回 index.html。前端文件由这里直接发。
+
+upstream whu_teaching_api {
+    server 127.0.0.1:8000 fail_timeout=0;
+}
+
+server {
+    listen 80;
+    # 换成你的域名；先用 IP 访问时写 server_name _;
+    server_name math.example.edu.cn;
+
+    root /home/aiformath/AIForTeaching;
+    index index.html;
+
+    # 教材 PDF 默认可能上百 MB；nginx 默认 1m，会让上传直接 413
+    client_max_body_size 300m;
+    client_body_timeout 300s;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 1024;
+
+    # 静态资源：带哈希/版本的按长缓存，HTML 不缓存
+    location ~* \.(js|css|svg|png|jpg|woff2?)$ {
+        expires 7d;
+        add_header Cache-Control "public, max-age=604800, immutable";
+        try_files $uri =404;
+    }
+
+    location = /index.html {
+        add_header Cache-Control "no-store";
+    }
+
+    location /api/ {
+        proxy_pass http://whu_teaching_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # 少了这一行，后端以为自己在 http 上，Secure cookie 不下发——
+        # 表现为"登录成功但一刷新就掉线"
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # 问答要等模型返回，60s 是 nginx 默认值，实测不够
+        proxy_read_timeout 180s;
+    }
+
+    # 哈希路由（#/course/...）不需要 try_files 兜底，刷新也落在 index.html
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # 这些目录绝不能对外：密钥、数据库脚本、后端源码、上传的原始 PDF
+    location ~ ^/(secrets|db|server|scripts|deploy|\.env|\.tmp|uploads)/ {
+        deny all;
+        return 404;
+    }
+}
