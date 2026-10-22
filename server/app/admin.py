@@ -26,7 +26,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from . import db, llm
+from . import db, keystore, llm
 from .auth import Actor, current_actor, require
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
@@ -102,13 +102,13 @@ def _validate_scope(base_url: str, data_scope: str) -> None:
 
 
 def _key_file(name: str) -> Path:
+    """路径规则在 keystore 里只有一份：写密钥（这里）与读密钥（llm）必须一致。"""
     if not NAME_RE.match(name):
         raise HTTPException(400, "端点名称只能包含小写字母、数字、点、下划线、短横线")
-    path = (SECRETS_DIR / f"{name}.key").resolve()
-    # 双保险：解析后必须仍在 SECRETS_DIR 内
-    if SECRETS_DIR not in path.parents:
-        raise HTTPException(400, "非法的密钥路径")
-    return path
+    try:
+        return keystore.key_path(name)
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from error
 
 
 def _write_key(name: str, value: str) -> None:
@@ -130,16 +130,13 @@ def _write_key(name: str, value: str) -> None:
 
 
 def _read_key(name: str) -> str | None:
-    path = _key_file(name)
-    if not path.exists():
-        return None
-    return path.read_text(encoding="utf-8").strip() or None
+    _key_file(name)  # 名称不合法时先报 400
+    return keystore.read_key(name)
 
 
 def _delete_key(name: str) -> None:
-    path = _key_file(name)
-    if path.exists():
-        path.unlink()
+    _key_file(name)
+    keystore.clear_key(name)
 
 
 def _audit(actor: Actor, action: str, name: str, note: str) -> None:

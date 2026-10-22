@@ -148,7 +148,54 @@ def assert_egress_allowed(endpoint: Endpoint) -> None:
 # 端点配置（全部来自环境变量，不硬编码密钥）
 # ---------------------------------------------------------------------------
 
+def _db_endpoint(kind: str) -> Endpoint | None:
+    """库里启用的端点优先。读不到（没库、没配、连接断了）返回 None，由调用方回落 env。
+
+    为什么让库优先：配置页改一次就该生效，否则"前端填完不生效"会让所有人
+    回到登服务器改 .env 的老路，而那正是配置页想解决的事。
+
+    同名优先：`LLM_NAME` 指定了哪个端点就挑哪个；否则取最近更新的那个，
+    保证"启用两个端点"这种状态下行为可预测，而不是随插入顺序漂移。
+    """
+    try:
+        from . import db as _db
+    except Exception:
+        return None
+
+    preferred = os.environ.get("LLM_NAME" if kind == "chat" else "EMBEDDING_NAME", "").strip()
+    try:
+        if preferred:
+            row = _db.query_one(
+                """SELECT name, base_url, model, dim FROM model_endpoint
+                    WHERE kind = %s AND enabled AND name = %s""",
+                (kind, preferred))
+            if row:
+                return _row_to_endpoint(row, kind)
+        row = _db.query_one(
+            """SELECT name, base_url, model, dim FROM model_endpoint
+                WHERE kind = %s AND enabled
+                ORDER BY updated_at DESC, name LIMIT 1""",
+            (kind,))
+    except Exception:
+        # 库不可用不该让问答直接挂掉：安静回落 env，调用方仍会按 env 发请求。
+        return None
+    return _row_to_endpoint(row, kind) if row else None
+
+
+def _row_to_endpoint(row: dict, kind: str) -> Endpoint:
+    return Endpoint(
+        name=row["name"],
+        base_url=row["base_url"],
+        model=row["model"],
+        kind=kind,
+        dim=row.get("dim"),
+    )
+
+
 def chat_endpoint() -> Endpoint:
+    found = _db_endpoint("chat")
+    if found:
+        return found
     return Endpoint(
         name=os.environ.get("LLM_NAME", "deepseek"),
         base_url=os.environ.get("LLM_BASE_URL", "https://api.deepseek.com"),
@@ -158,6 +205,9 @@ def chat_endpoint() -> Endpoint:
 
 
 def embedding_endpoint() -> Endpoint:
+    found = _db_endpoint("embedding")
+    if found:
+        return found
     return Endpoint(
         name=os.environ.get("EMBEDDING_NAME", "bailian-qwen"),
         base_url=os.environ.get(
@@ -189,6 +239,15 @@ def _api_key(endpoint: Endpoint) -> str | None:
     生成与向量通常来自不同厂商（DeepSeek + 百炼），所以密钥分开配；
     只有一把时回落到 MODEL_API_KEY，方便开发期只测一条链路。
     """
+    # 配置页写入的密钥在 secrets/<name>.key；没有才回落环境变量。
+    # 顺序是"更具体者优先"：端点专属密钥 > 按类型的环境变量 > 通用 MODEL_API_KEY。
+    try:
+        from . import keystore
+        stored = keystore.read_key(endpoint.name)
+    except Exception:
+        stored = None
+    if stored:
+        return stored
     specific = "LLM_API_KEY" if endpoint.kind == "chat" else "EMBEDDING_API_KEY"
     return os.environ.get(specific) or os.environ.get("MODEL_API_KEY")
 
