@@ -88,6 +88,8 @@ class NodePatchIn(BaseModel):
     title: str | None = Field(default=None, max_length=300)
     content_md: str | None = None
     tags: list[str] | None = None
+    # 传空串表示"想移动但没给目标"，单独报 400；不传这个字段才表示不动父节点。
+    parent_id: str | None = Field(default=None, max_length=160)
     review_status: str | None = Field(default=None, pattern="^(draft|machine-checked|teacher-reviewed|published|retired)$")
 
 
@@ -453,14 +455,113 @@ def render_exercise_md(course_title: str, nodes: list[dict], exercises: list[dic
 # 在线修改
 # ---------------------------------------------------------------------------
 
+MAX_NODE_LEVEL = 6
+
+
+def move_node(course_id: str, node_id: str, parent_id: str, actor: str) -> dict:
+    """把节点（连同子树）挪到另一个容器节点下面。
+
+    只改 parent_id / level / path 三列，**不动 chapter_id**：真实导入数据里 chapter_id
+    是空的，章节归属由 review 接口按 parent_id 往上走到 level=2 现算（见 review.graph_view）。
+    往 chapter_id 里写节点 id 还会撞 chapter 表的外键。
+
+    移动改变了"这个知识点挂在哪"，所以节点自己和整棵子树的人工审核一并撤销——
+    和挂载变化同一个口径：位置变了，"审过"这句话就不成立了。
+    """
+    with db.cursor() as cur:
+        cur.execute(
+            """SELECT id, parent_id, level, path, title, kind
+                 FROM knowledge_node WHERE course_id = %s AND id = %s""",
+            (course_id, node_id),
+        )
+        node = cur.fetchone()
+        if not node:
+            raise HTTPException(404, f"知识点不存在：{node_id}")
+        cur.execute(
+            "SELECT id, level, path, kind FROM knowledge_node WHERE course_id = %s AND id = %s",
+            (course_id, parent_id),
+        )
+        parent = cur.fetchone()
+        if not parent:
+            raise HTTPException(404, f"要移到的节点不存在：{parent_id}")
+        if parent["kind"] != "container":
+            raise HTTPException(400, "只能挂到章或节底下：知识点下面不再挂知识点")
+        if parent["id"] == node["id"]:
+            raise HTTPException(400, "不能把节点挂到它自己下面")
+        new_level = parent["level"] + 1
+        if new_level > MAX_NODE_LEVEL:
+            raise HTTPException(400, f"最多 {MAX_NODE_LEVEL} 层")
+
+        cur.execute(
+            """WITH RECURSIVE sub AS (
+                   SELECT id, level, path FROM knowledge_node
+                    WHERE course_id = %s AND id = %s
+                   UNION ALL
+                   SELECT n.id, n.level, n.path FROM knowledge_node n
+                     JOIN sub ON n.parent_id = sub.id AND n.course_id = %s)
+               SELECT id, level, path FROM sub""",
+            (course_id, node_id, course_id),
+        )
+        subtree = cur.fetchall()
+        if any(row["id"] == parent["id"] for row in subtree):
+            raise HTTPException(400, "不能把节点移到它自己的子树里：那样树就成环了")
+
+        delta = new_level - node["level"]
+        old_path = list(node["path"] or [])
+        new_path = list(parent["path"] or []) + [node["title"]]
+        base = len(old_path)
+        cur.execute(
+            """UPDATE knowledge_node
+                  SET parent_id = %s, level = %s, path = %s,
+                      content_version = content_version + 1, updated_at = now(),
+                      human_verified_at = NULL, human_verified_by = NULL
+                WHERE course_id = %s AND id = %s""",
+            (parent_id, new_level, new_path, course_id, node_id),
+        )
+        for row in subtree:
+            if row["id"] == node_id:
+                continue
+            path = list(row["path"] or [])
+            suffix = path[base:] if len(path) >= base else path
+            cur.execute(
+                """UPDATE knowledge_node
+                      SET level = %s, path = %s, updated_at = now(),
+                          human_verified_at = NULL, human_verified_by = NULL
+                    WHERE course_id = %s AND id = %s""",
+                (row["level"] + delta, new_path + suffix, course_id, row["id"]),
+            )
+        cur.execute(
+            """INSERT INTO audit_log (actor, action, entity, entity_key, detail)
+               VALUES (%s, 'node.move', 'knowledge_node', %s, %s::jsonb)""",
+            (actor, f"{course_id}/{node_id}", json.dumps({
+                "from_parent": node["parent_id"],
+                "to_parent": parent_id,
+                "level": new_level,
+                "nodes": len(subtree),
+            }, ensure_ascii=False)),
+        )
+    return {
+        "from_parent": node["parent_id"],
+        "parent_id": parent_id,
+        "level": new_level,
+        "path": new_path,
+        "nodes": len(subtree),
+        "descendants": len(subtree) - 1,
+    }
+
+
 def patch_node(course_id: str, node_id: str, body: NodePatchIn, actor: str) -> dict:
     row = db.query_one(
-        "SELECT id, title, content_md, tags, review_status FROM knowledge_node "
-        "WHERE course_id = %s AND id = %s", (course_id, node_id))
+        "SELECT id, title, content_md, tags, review_status, parent_id, level, path "
+        "FROM knowledge_node WHERE course_id = %s AND id = %s", (course_id, node_id))
     if not row:
         raise HTTPException(404, f"知识点不存在：{node_id}")
+    if body.parent_id is not None and not body.parent_id.strip():
+        raise HTTPException(400, "parent_id 不能是空串：不想移动就别传这个字段")
 
     sets, params = [], []
+    title_changed = (body.title is not None and bool(body.title.strip())
+                     and body.title.strip() != row["title"])
     if body.title is not None and body.title.strip():
         sets.append("title = %s")
         params.append(body.title.strip())
@@ -473,16 +574,27 @@ def patch_node(course_id: str, node_id: str, body: NodePatchIn, actor: str) -> d
     if body.review_status is not None:
         sets.append("review_status = %s")
         params.append(body.review_status)
-    if not sets:
+    # 什么字段都没给、也不想移动：原样返回，不留审计（没有变化就没有可留的痕）。
+    if not sets and body.parent_id is None:
         return row
 
-    sets.append("content_version = content_version + 1")
-    sets.append("updated_at = now()")
-    params.extend([course_id, node_id])
-    db.execute(
-        f"UPDATE knowledge_node SET {', '.join(sets)} WHERE course_id = %s AND id = %s",
-        tuple(params),
-    )
+    if sets:
+        sets.append("content_version = content_version + 1")
+        sets.append("updated_at = now()")
+        # 节点自己的审核结论是"这个标题挂在这个位置，我认了"。标题一改，这句话就不成立了。
+        # 所以改标题要连自己的审核标记一起清掉，不能只在行上继续显示「已通过」。
+        if title_changed:
+            sets.append("human_verified_at = NULL")
+            sets.append("human_verified_by = NULL")
+        params.extend([course_id, node_id])
+        db.execute(
+            f"UPDATE knowledge_node SET {', '.join(sets)} WHERE course_id = %s AND id = %s",
+            tuple(params),
+        )
+    # 移动放在内容更新之后：path 要用新标题重算（改标题同时换位置时不能按旧标题算）。
+    move = None
+    if body.parent_id is not None:
+        move = move_node(course_id, node_id, body.parent_id.strip(), actor)
     # 改的是"这道题挂在哪、这一章叫什么"——挂在这棵子树上的题，人工审核的前提没了。
     # 只改 review_status（停用/启用）不算内容变化，不重置。
     content_fields = sorted(
@@ -498,13 +610,14 @@ def patch_node(course_id: str, node_id: str, body: NodePatchIn, actor: str) -> d
         """INSERT INTO audit_log (actor, action, entity, entity_key, detail)
            VALUES (%s, 'node.patch', 'knowledge_node', %s, %s::jsonb)""",
         (actor, f"{course_id}/{node_id}",
-         json.dumps({"fields": sorted(body.model_dump(exclude_none=True)), "reset": reset},
-                    ensure_ascii=False)),
+         json.dumps({"fields": sorted(body.model_dump(exclude_none=True)), "reset": reset,
+                     "move": move}, ensure_ascii=False)),
     )
     row = db.query_one(
-        "SELECT id, title, content_md, tags, review_status FROM knowledge_node "
-        "WHERE course_id = %s AND id = %s", (course_id, node_id))
-    return {**row, "exercises_reset": reset["cleared"]}
+        "SELECT id, title, content_md, tags, review_status, parent_id, level, path "
+        "FROM knowledge_node WHERE course_id = %s AND id = %s", (course_id, node_id))
+    return {**row, "exercises_reset": reset["cleared"], "title_reverified_reset": title_changed,
+            "move": move}
 
 
 def create_node(course_id: str, body: NodeIn, actor: str) -> dict:

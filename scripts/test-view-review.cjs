@@ -222,8 +222,10 @@ check('展开后列出这一章的子节点',
   html.includes('数列极限') && html.includes('函数极限'), '子节点没渲染出来');
 check('已审节点显示"已通过"', html.includes('已通过'));
 check('未审节点显示"未审"', html.includes('未审'));
-check('每个节点都有通过/撤销与管理',
-  html.includes('data-action="graph-node-verify"') && html.includes('data-action="node-manage"'));
+check('每个节点都有通过/撤销',
+  html.includes('data-action="graph-node-verify"'));
+check('行上给「去图谱里改」的深链（带 node 参数）',
+  html.includes('去图谱里改') && html.includes('node=k-2'));
 check('行上直接显示挂题数', html.includes('3 题'));
 check('没挂题的节点明说未挂题', html.includes('未挂题'), '空着会让人以为是加载失败');
 check('章一级仍可整章通过',
@@ -277,13 +279,16 @@ reset({
   }
 });
 html = App.views.review();
-check('点「管理」展开的节点面板带标题输入框',
-  html.includes('data-input="node-title"') && html.includes('保存标题'));
-check('面板列出挂在这儿的题并可解绑',
-  html.includes('data-action="node-unmount"') && html.includes('ex-9'));
-check('面板给「删除这个节点」并说明连带范围',
-  html.includes('data-action="node-delete"') && html.includes('删除这个节点'));
-check('面板说清改标题会让题退回未核', html.includes('退回未核'));
+// 2026-10-22 分工调整：状态里 nodePanel 还开着，但审核页不该再渲染编辑面板——
+// 改标题/挂题/移动/删除都在图谱页。这四条断言就是这条分工的看门人。
+check('审核页不再渲染编辑面板（即使状态里开着）',
+  !html.includes('data-input="node-title"') && !html.includes('保存标题'));
+check('审核页没有挂题/解绑入口',
+  !html.includes('data-action="node-unmount"') && !html.includes('data-action="node-mount-search"'));
+check('审核页没有删除入口', !html.includes('data-action="node-delete"'));
+check('审核页没有「管理」按钮', !html.includes('data-action="node-manage"'));
+check('审核页说明「只审不改」并指向图谱页',
+  html.includes('只审不改') || html.includes('在「知识图谱」页做'));
 
 (async () => {
   // 逐节点通过：只传这一个节点的 id，不要顺手把整章标掉

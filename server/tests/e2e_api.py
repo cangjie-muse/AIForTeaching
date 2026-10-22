@@ -1282,6 +1282,84 @@ def run() -> None:
         client.patch("/api/v1/review/exercises/e2e-publish/pub-a", headers=REVIEWER,
                      json={"node_ids": ["kp-pub"], "human_verified": True})
 
+        # ---- 改父节点：把知识点挪到别的章，以及"改标题要重新审" ----
+        # 建一个"节"当容器：create 接口只会建知识点（kind='knowledge'），
+        # 真实导入数据里有章→节→知识点三层，所以这里直接落一条 fixture。
+        db.execute(
+            """INSERT INTO knowledge_node
+                 (course_id, id, parent_id, title, level, kind, path, content_md)
+               VALUES ('e2e-publish', 'sec-pub', 'ch-pub', '第一节', 3, 'container',
+                       ARRAY['测试课程', '测试章', '第一节'], '')"""
+        )
+        print("\n节点移动：")
+        ch_detail = client.get("/api/v1/review/nodes/e2e-publish/ch-pub", headers=REVIEWER).json()
+        targets = [row["id"] for row in ch_detail.get("move_targets", [])]
+        check("详情给出可移动目标", "sec-pub" not in targets and targets == ["course-e2e-pub"],
+              str(targets))
+        check("可移动目标里不含自己这棵子树",
+              "ch-pub" not in targets and "kp-pub" not in targets, str(targets))
+
+        client.post("/api/v1/review/graph/verify", headers=REVIEWER,
+                    json={"course_id": "e2e-publish", "node_ids": ["kp-pub"], "action": "verify"})
+        moved = client.patch("/api/v1/courses/e2e-publish/nodes/kp-pub", headers=REVIEWER,
+                             json={"parent_id": "sec-pub"})
+        check("能把知识点挪到别的节下面", moved.status_code == 200, moved.text[:160])
+        check("移动把层级算对了", moved.json().get("level") == 4, str(moved.json().get("level")))
+        check("移动重算了 path",
+              moved.json().get("path") == ["测试课程", "测试章", "第一节", "知识点"],
+              str(moved.json().get("path")))
+        check("移动会撤销这个节点的审核（位置变了）",
+              moved.json().get("move", {}).get("nodes") == 1
+              and db.query_one(
+                  "SELECT human_verified_at FROM knowledge_node "
+                  "WHERE course_id = 'e2e-publish' AND id = 'kp-pub'")["human_verified_at"] is None,
+              "移完还是已通过")
+        check("移动写了审计",
+              "node.move" in {row["action"] for row in db.query(
+                  "SELECT action FROM audit_log ORDER BY id DESC LIMIT 10")})
+
+        cycle = client.patch("/api/v1/courses/e2e-publish/nodes/ch-pub", headers=REVIEWER,
+                             json={"parent_id": "sec-pub"})
+        check("移到自己的子树里被 400 拦住（不能成环）", cycle.status_code == 400,
+              str(cycle.status_code))
+        into_leaf = client.patch("/api/v1/courses/e2e-publish/nodes/ch-pub", headers=REVIEWER,
+                                 json={"parent_id": "kp-pub"})
+        check("不能挂到知识点底下", into_leaf.status_code == 400, str(into_leaf.status_code))
+        ghost_parent = client.patch("/api/v1/courses/e2e-publish/nodes/kp-pub",
+                                    headers=REVIEWER, json={"parent_id": "nope"})
+        check("目标不存在时 404", ghost_parent.status_code == 404, str(ghost_parent.status_code))
+        blank = client.patch("/api/v1/courses/e2e-publish/nodes/kp-pub", headers=REVIEWER,
+                             json={"parent_id": "  "})
+        check("parent_id 传空串被 400 拒绝（想不动就别传）", blank.status_code == 400,
+              str(blank.status_code))
+
+        client.post("/api/v1/review/graph/verify", headers=REVIEWER,
+                    json={"course_id": "e2e-publish", "node_ids": ["kp-pub"], "action": "verify"})
+        renamed_free = client.patch("/api/v1/courses/e2e-publish/nodes/kp-pub",
+                                    headers=REVIEWER, json={"title": "知识点（改名）"})
+        check("改标题会连这个节点的审核一起撤销",
+              renamed_free.json().get("title_reverified_reset") is True
+              and db.query_one(
+                  "SELECT human_verified_at FROM knowledge_node "
+                  "WHERE course_id = 'e2e-publish' AND id = 'kp-pub'")["human_verified_at"] is None,
+              "改完标题还显示已通过")
+        check("只改 review_status 不清审核（停用/启用不算内容变化）",
+              client.patch("/api/v1/courses/e2e-publish/nodes/kp-pub", headers=REVIEWER,
+                           json={"review_status": "draft"}).status_code == 200)
+
+        # 收尾：结构搬回去，后面的用例按原来的树断言。
+        # 搬回来本身也是一次移动，会把挂在 kp-pub 上的 pub-a 退回未核（这正是要的行为），
+        # 所以这里按"收尾"的规矩把 pub-a 重新标成人工已审，后面单题记录的断言才有基准。
+        client.patch("/api/v1/courses/e2e-publish/nodes/kp-pub", headers=REVIEWER,
+                     json={"parent_id": "ch-pub", "title": "知识点"})
+        client.patch("/api/v1/review/exercises/e2e-publish/pub-a", headers=REVIEWER,
+                     json={"human_verified": True})
+        db.execute("DELETE FROM knowledge_node WHERE course_id = 'e2e-publish' "
+                   "AND id = 'sec-pub'")
+        restored = client.get("/api/v1/review/nodes/e2e-publish/kp-pub", headers=REVIEWER).json()
+        check("搬回原处后层级恢复",
+              restored["node"]["level"] == 3, str(restored["node"]["level"]))
+
         # ---- 单道题"标注过什么" ----
         # 已发布的题不在审核队列里，所以要能按题号直接查：等级、谁审的、审的哪版、之后改没改。
         print("\n单题审核记录：")

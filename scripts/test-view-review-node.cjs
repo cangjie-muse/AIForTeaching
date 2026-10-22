@@ -57,6 +57,10 @@ App.api.nodeDetail = async (course, node) => {
     node: { id: node, title: '函数极限', kind: 'knowledge', level: 3, verified: false },
     parent: null, chapter: { id: 'ch-1', title: '第一章 极限' },
     children: [], exercises: [],
+    move_targets: [
+      { id: 'course-root', title: '数学分析 II', level: 1, path: ['数学分析 II'] },
+      { id: 'ch-2', title: '第二章 微分', level: 2, path: ['数学分析 II', '第二章 微分'] }
+    ],
     counts: { children: 0, descendants: 0, exercises: 0 }
   };
 };
@@ -184,6 +188,53 @@ async function deleteTests() {
   check('不确认就不删（只试了一次）', attempts === 1, String(attempts));
 }
 
+async function moveTests() {
+  console.log('\n移动到别的章：');
+  reset();
+  App.api.patchNode = async (course, node, body) => {
+    calls.push(['patchNode', course, node, body]);
+    return {
+      id: node, title: '函数极限', parent_id: body.parent_id, level: 2,
+      exercises_reset: 3,
+      move: { from_parent: 'ch-1', parent_id: body.parent_id, level: 2, nodes: 2, descendants: 1 }
+    };
+  };
+  await App.reviewNode.loadDetail('k-2', 'analysis-ii');
+  let html = App.reviewNode.panelFor('k-2');
+  check('面板给「移到」下拉与移动按钮',
+    html.includes('data-input="node-move-target"') && html.includes('移动到这里'));
+  check('候选里列出别的容器节点',
+    html.includes('第二章 微分') && html.includes('value="ch-2"'));
+  check('候选里不含自己（挪到自己下面会成环）',
+    App.state.review.nodeDetail.move_targets.every(row => row.id !== 'k-2'));
+
+  App.state.review.nodeMoveTarget = '';
+  calls.length = 0;
+  await App.actions['node-move']({ dataset: { node: 'k-2' }, disabled: false });
+  check('没选去处就不发请求', calls.length === 0, JSON.stringify(calls));
+  check('并且说清为什么没动', toasts.some(text => text.includes('先选一个去处')));
+
+  App.state.review.nodeMoveTarget = 'ch-2';
+  calls.length = 0;
+  toasts.length = 0;
+  await App.actions['node-move']({ dataset: { node: 'k-2' }, disabled: false });
+  const patch = calls.find(call => call[0] === 'patchNode');
+  check('移动只提交 parent_id（不是整份节点）',
+    patch && patch[3].parent_id === 'ch-2' && Object.keys(patch[3]).length === 1,
+    JSON.stringify(patch || null));
+  check('移动后说明整棵子树的审核被撤销',
+    toasts.some(text => text.includes('2 个节点的审核已撤销')), String(toasts[0] || ''));
+  check('移动后重新读一次节点', calls.some(call => call[0] === 'nodeDetail'));
+
+  reset();
+  App.api.patchNode = async () => { throw new Error('最多 6 层'); };
+  await App.reviewNode.loadDetail('k-2', 'analysis-ii');
+  App.state.review.nodeMoveTarget = 'ch-2';
+  toasts.length = 0;
+  await App.actions['node-move']({ dataset: { node: 'k-2' }, disabled: false });
+  check('后端拒绝时把原因显示出来', toasts.some(text => text.includes('最多 6 层')));
+}
+
 async function exerciseSideTests() {
   console.log('\n习题侧挂载：');
   reset({
@@ -226,6 +277,7 @@ async function exerciseSideTests() {
   await titleTests();
   await mountTests();
   await deleteTests();
+  await moveTests();
   await exerciseSideTests();
 
   console.log('');

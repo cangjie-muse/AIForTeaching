@@ -1,6 +1,15 @@
+/* 知识图谱页：学生看结构，教师/管理员在这里改结构。
+ *
+ * 分工（2026-10-22 定）：审核页只审不改，改标题/挂题/解绑/删节点/换父节点都在这一页做。
+ * 理由：这五个动作都会让题退回未核，"审核"和"边审边改"放在同一屏，留痕就说不清了。
+ *
+ * 「未审」标记来自 /review/graph，与审核页同一个数据源：同一棵树不该有两个说法。
+ */
 (function () {
   const A = App, e = A.escape;
   const ALL = '__all__';
+  // 只有能进审核页的角色才看得到编辑入口（服务端还会再拦一次）。
+  const canEdit = () => Boolean(A.auth && A.auth.can('review'));
   const G = A.network = { current: null, selected: null, subtree: null, focusOnly: false, showShared: true, display: 'graph', fitScale: 1, camera: { x: 0, y: 0, scale: 1 }, drag: null };
   function options() {
     return `<option value="${ALL}">全课程知识点（${A.course.stats.knowledge}）</option>` + A.course.nodes.filter(node => node.children.length).map(node => `<option value="${e(node.id)}">${node.level === 1 ? '全课程概览（章节）' : e(node.path.slice(1).join(' / '))}</option>`).join('');
@@ -20,7 +29,7 @@
     if (focus !== ALL && !c.nodes.some(node => node.id === focus && node.children.length)) {
       memory.graphFocus = A.state.networkFocus = root.id;
     }
-    return A.sectionTitle('KNOWLEDGE NETWORK', '知识图谱', '全课程先看图谱；需要逐条阅读时切换表格。打开任一层级，画布都会自动适配。', A.link('课程大纲', 'outline', c.id, 'book')) + `<div class="network-toolbar"><div class="field-inline"><label for="network-scope">浏览范围</label><select id="network-scope" data-input="network-scope">${options()}</select></div><div class="search-input">${A.icon('search')}<input id="network-query" data-input="network-query" placeholder="搜索知识点并定位…" aria-label="搜索知识点"></div><button class="btn small" data-action="network-home">${A.icon('graph')}全课程知识点</button></div><div class="network-layout"><section class="network-board" id="network-board"><div class="network-board-head"><div><b id="network-title"></b><span id="network-count"></span></div><div class="network-head-actions"><div class="network-view-switch" id="network-view-switch" role="group" aria-label="全课程显示方式"><button data-action="network-view" data-view="graph">图谱</button><button data-action="network-view" data-view="table">表格</button></div><button class="btn small" data-action="network-parent" id="network-parent">返回上级</button></div></div><div id="network-search-results" class="network-search-results" hidden></div><div class="network-canvas" id="network-canvas"></div><div class="network-controls"><button data-action="network-zoom" data-direction="-1" aria-label="缩小图谱">−</button><input id="network-zoom-range" data-input="network-zoom-range" type="range" min="100" max="1200" step="25" value="100" aria-label="图谱缩放比例"><span id="network-scale">100%</span><button data-action="network-zoom" data-direction="1" aria-label="放大图谱">＋</button><button data-action="network-reset">适应画布</button><button data-action="network-focus" id="network-focus" disabled>仅看关联</button></div><div class="network-key"><span><i class="edge-sample"></i>章节归属</span><label><input type="checkbox" id="network-shared" data-input="network-shared" ${G.showShared ? 'checked' : ''}><i class="edge-sample shared"></i>共用习题</label><small>共用习题不表示先修关系；节点位置仅为浏览排布</small></div></section><aside class="panel network-detail" id="network-detail" hidden></aside></div><section class="network-subtree" id="network-subtree"></section>`;
+    return A.sectionTitle('KNOWLEDGE NETWORK', '知识图谱', '全课程先看图谱；需要逐条阅读时切换表格。打开任一层级，画布都会自动适配。', A.link('课程大纲', 'outline', c.id, 'book')) + `<div class="network-toolbar"><div class="field-inline"><label for="network-scope">浏览范围</label><select id="network-scope" data-input="network-scope">${options()}</select></div><div class="search-input">${A.icon('search')}<input id="network-query" data-input="network-query" placeholder="搜索知识点并定位…" aria-label="搜索知识点"></div><button class="btn small" data-action="network-home">${A.icon('graph')}全课程知识点</button>${canEdit() ? '<span class="network-review-summary" id="network-review-summary"></span>' : ''}</div><div class="network-layout"><section class="network-board" id="network-board"><div class="network-board-head"><div><b id="network-title"></b><span id="network-count"></span></div><div class="network-head-actions"><div class="network-view-switch" id="network-view-switch" role="group" aria-label="全课程显示方式"><button data-action="network-view" data-view="graph">图谱</button><button data-action="network-view" data-view="table">表格</button></div><button class="btn small" data-action="network-parent" id="network-parent">返回上级</button></div></div><div id="network-search-results" class="network-search-results" hidden></div><div class="network-canvas" id="network-canvas"></div><div class="network-controls"><button data-action="network-zoom" data-direction="-1" aria-label="缩小图谱">−</button><input id="network-zoom-range" data-input="network-zoom-range" type="range" min="100" max="1200" step="25" value="100" aria-label="图谱缩放比例"><span id="network-scale">100%</span><button data-action="network-zoom" data-direction="1" aria-label="放大图谱">＋</button><button data-action="network-reset">适应画布</button><button data-action="network-focus" id="network-focus" disabled>仅看关联</button></div><div class="network-key"><span><i class="edge-sample"></i>章节归属</span><label><input type="checkbox" id="network-shared" data-input="network-shared" ${G.showShared ? 'checked' : ''}><i class="edge-sample shared"></i>共用习题</label><small>共用习题不表示先修关系；节点位置仅为浏览排布</small></div></section><aside class="panel network-detail" id="network-detail" hidden></aside></div>${canEdit() ? '<section class="network-edit" id="network-edit" hidden></section>' : ''}<section class="network-subtree" id="network-subtree"></section>`;
   };
   function renderSubtree(focusId) {
     const summary = G.subtree = GraphModel.subtree(A.course, focusId);
@@ -157,16 +166,76 @@
     const focusButton = document.getElementById('network-focus');
     focusButton.disabled = !G.selected; focusButton.textContent = G.focusOnly ? '退出聚焦' : '仅看关联';
   };
+  // ---------------- 审核状态（与审核页同一个接口） ----------------
+
+  function reviewRow(id) {
+    const cache = A.state.networkReview;
+    return cache && cache.byId ? cache.byId.get(id) : null;
+  }
+
+  function statusBadge(id) {
+    if (!canEdit()) return '';
+    const row = reviewRow(id);
+    if (!row) return '';
+    return row.verified
+      ? '<span class="net-state ok">已人工审核</span>'
+      : '<span class="net-state todo">未审 · 学生端看不到</span>';
+  }
+
+  function summaryChip() {
+    const host = document.getElementById('network-review-summary');
+    const cache = A.state.networkReview;
+    if (!host || !cache || !cache.totals) return;
+    const total = cache.totals.nodes || 0;
+    const verified = cache.totals.verified || 0;
+    host.innerHTML = verified >= total && total
+      ? `<span class="net-state ok">整门课已审（${total} 个节点）</span>`
+      : `<span class="net-state todo">未审 ${total - verified} / ${total} 个节点</span>`;
+  }
+
+  async function loadReviewStatus() {
+    if (!canEdit()) return;
+    const courseId = A.course.id;
+    const stale = A.state.networkReviewStale;
+    A.state.networkReviewStale = false;
+    if (!stale && A.state.networkReview && A.state.networkReview.courseId === courseId) {
+      summaryChip();
+      return;
+    }
+    try {
+      const data = await A.api.reviewGraph(courseId);
+      const byId = new Map();
+      (data.nodes || []).forEach(row => byId.set(row.id, row));
+      A.state.networkReview = { courseId, byId, totals: data.totals || {} };
+    } catch (error) {
+      // 读不到状态不该把图谱页弄坏：徽标不显示，画布照常。
+      A.state.networkReview = null;
+    }
+    summaryChip();
+    // 只重画右侧那一块，不动画布——否则每次取状态都会把用户的缩放位置清掉。
+    if (G.selected) {
+      const detail = document.getElementById('network-detail');
+      if (detail && A.node(G.selected)) detail.innerHTML = knowledgeDetail(A.node(G.selected));
+    }
+  }
+
   function showOverview() {
     const focus = A.node(G.current.focusId);
     document.getElementById('network-detail').innerHTML = `<div class="eyebrow">EXPLORE THE CONNECTIONS</div><span class="preview-node-icon">${A.icon('graph')}</span><h2>${e(focus.title)}</h2><p>节点直接显示名称。点击章节进入局部网络，点击知识点查看内容。</p><div class="network-detail-stats"><div><b>${G.subtree.leaves.length}</b><small>末端知识点</small></div><div><b>${G.subtree.exerciseIds.length}</b><small>去重习题</small></div></div><div class="divider"></div><h3>每条连线都有含义</h3><p>浅蓝实线表示章节归属，青色虚线表示两个知识点关联了同一道习题。</p><p class="muted">先修、推导等关系等待教师提供与确认。节点位置仅用于排布。</p>`;
+  }
+  function knowledgeDetail(node) {
+    const id = node.id;
+    const related = G.current.edges.filter(edge => edge.type === 'shared_exercise' && (edge.source === id || edge.target === id));
+    const edit = canEdit()
+      ? `<div class="network-edit-entry"><button class="btn small" data-action="network-edit" data-id="${e(id)}">${A.icon('pen')}编辑这个节点（改标题 / 挂题 / 移动 / 删除）</button></div>`
+      : '';
+    return `<button class="network-detail-close" data-action="network-close-detail" aria-label="关闭知识点预览">×</button><div class="eyebrow">KNOWLEDGE DETAIL</div><h2>${e(node.title)}</h2>${statusBadge(id)}<div class="preview-source">${e(node.source)}</div><div class="preview-text">${A.markdown(node.content.split(/\n\s*\n/)[0])}</div><div class="divider"></div><p>${node.exerciseIds.length} 道关联习题 · ${related.length} 个共题知识点</p><div class="network-detail-actions">${A.button('阅读知识内容', 'read-node', 'book', `data-id="${e(id)}"`, 'primary')}${A.link('查看关联习题', 'exercises', A.course.id, 'pen', '', { node: id })}${A.link('带着知识点提问', 'ai', A.course.id, 'ai', 'text-btn', { node: id })}</div>${edit}${related.length ? `<h3>共用习题的知识点</h3><div class="network-related">${related.map(edge => { const other = A.node(edge.source === id ? edge.target : edge.source); return `<button data-action="network-related" data-id="${e(other.id)}">${e(other.title)}<small>${edge.exerciseIds.length} 道共用题</small></button>`; }).join('')}</div>` : ''}`;
   }
   G.select = function (id, openOnSmall = true) {
     const node = A.node(id); if (!node) return;
     if (node.children.length) { G.open(node.id === G.current.focusId ? node.parentId || node.id : node.id); return; }
     G.selected = id; G.highlight(null);
-    const related = G.current.edges.filter(edge => edge.type === 'shared_exercise' && (edge.source === id || edge.target === id));
-    document.getElementById('network-detail').innerHTML = `<button class="network-detail-close" data-action="network-close-detail" aria-label="关闭知识点预览">×</button><div class="eyebrow">KNOWLEDGE DETAIL</div><h2>${e(node.title)}</h2><div class="preview-source">${e(node.source)}</div><div class="preview-text">${A.markdown(node.content.split(/\n\s*\n/)[0])}</div><div class="divider"></div><p>${node.exerciseIds.length} 道关联习题 · ${related.length} 个共题知识点</p><div class="network-detail-actions">${A.button('阅读知识内容', 'read-node', 'book', `data-id="${e(id)}"`, 'primary')}${A.link('查看关联习题', 'exercises', A.course.id, 'pen', '', { node: id })}${A.link('带着知识点提问', 'ai', A.course.id, 'ai', 'text-btn', { node: id })}</div>${related.length ? `<h3>共用习题的知识点</h3><div class="network-related">${related.map(edge => { const other = A.node(edge.source === id ? edge.target : edge.source); return `<button data-action="network-related" data-id="${e(other.id)}">${e(other.title)}<small>${edge.exerciseIds.length} 道共用题</small></button>`; }).join('')}</div>` : ''}`;
+    document.getElementById('network-detail').innerHTML = knowledgeDetail(node);
     document.getElementById('network-detail').hidden = false;
     if (openOnSmall && window.innerWidth <= 960) A.actions['read-node']({ dataset: { id } });
   };
@@ -179,7 +248,42 @@
     }).join('')}`;
     A.openDialog('共用习题：连线依据', content, 'reader');
   };
-  A.after.graph = () => { if (A.course.nodes) G.open(A.state.networkFocus); };
+  function syncEditPanel() {
+    const host = document.getElementById('network-edit');
+    if (!host) return;
+    const id = A.reviewNode && A.state.review ? A.state.review.nodePanel : '';
+    const body = id ? A.reviewNode.panelFor(id) : '';
+    host.hidden = !body;
+    host.innerHTML = body
+      ? `<div class="network-edit-head">${A.icon('pen')}修改结构：改完要重新点一次「通过」，审核页才知道你看过了。</div>${body}`
+      : '';
+    if (body) document.getElementById('network-detail').hidden = true;
+  }
+
+  A.actions['network-edit'] = function (button) {
+    if (!canEdit() || !A.reviewNode) return;
+    if (A.state.review.nodePanel === button.dataset.id) {
+      A.actions['node-close']();
+      return;
+    }
+    A.reviewNode.loadDetail(button.dataset.id, A.course.id);
+  };
+
+  A.after.graph = () => {
+    if (!A.course.nodes) return;
+    G.open(A.state.networkFocus);
+    // 深链 #/graph?node=xxx：先定位到它，再把编辑面板打开（审核页的「去图谱里改」用它）。
+    const wanted = A.route.params.get('node');
+    if (wanted && A.node(wanted)) {
+      G.select(wanted, false);
+      const editing = A.state.review && A.state.review.nodePanel;
+      if (canEdit() && A.reviewNode && editing !== wanted) {
+        A.reviewNode.loadDetail(wanted, A.course.id);
+      }
+    }
+    syncEditPanel();
+    loadReviewStatus();
+  };
   A.inputs['network-scope'] = input => G.open(input.value);
   A.inputs['network-shared'] = input => { G.showShared = input.checked; A.courseMemory().graphShowShared = input.checked; G.highlight(null); };
   A.inputs['network-zoom-range'] = input => G.zoom(Number(input.value) / 100 * G.fitScale / G.camera.scale, { x: G.current.width / 2, y: G.current.height / 2 });

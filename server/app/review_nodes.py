@@ -86,7 +86,10 @@ def _node_exercises(course_id: str, node_ids: list[str]) -> list[dict]:
 
 @router.get("/nodes/{course_id}/{node_id}")
 def node_detail(course_id: str, node_id: str, actor: Actor = Depends(require("reviewer"))) -> dict:
-    """一个知识点：自己、祖先链、直接子节点、挂着的题。点「管理」时打开的就是它。"""
+    """一个知识点：自己、祖先链、直接子节点、挂着的题，以及能挪到哪儿。
+
+    知识图谱页点「编辑这个节点」时打开的就是它（审核页只给深链，不在那儿渲染面板）。
+    """
     node = _node_or_404(course_id, node_id)
     ancestors = _ancestors(course_id, node_id)
     chapter = next((row for row in ancestors if row["level"] == 2), None)
@@ -101,6 +104,19 @@ def node_detail(course_id: str, node_id: str, actor: Actor = Depends(require("re
         (course_id, node_id),
     )
     subtree = mounting.subtree_ids(course_id, [node_id])
+    # 能挪到哪儿：这门课的容器节点，去掉自己这一整棵子树（挪进去会成环）。
+    # 由后端算而不是前端筛，是为了"能选的都合法"——前端筛错了就是一次 400。
+    move_targets = db.query(
+        """
+        SELECT id, title, level, path FROM knowledge_node
+         WHERE course_id = %s AND kind = 'container'
+           AND review_status <> 'retired'
+           AND id <> ALL(%s::text[])
+           AND level < 6
+         ORDER BY level, path
+        """,
+        (course_id, subtree),
+    )
     exercises = _node_exercises(course_id, [node_id])
     # 改标题/删除影响的是整棵子树，不是只有这一层：文案里的数字要用这个。
     subtree_exercises = len(mounting.exercises_of_nodes(course_id, subtree))
@@ -121,6 +137,7 @@ def node_detail(course_id: str, node_id: str, actor: Actor = Depends(require("re
         "chapter": {"id": chapter["id"], "title": chapter["title"]} if chapter else None,
         "children": children,
         "exercises": exercises,
+        "move_targets": move_targets,
         "counts": {
             "children": len(children),
             "descendants": len(subtree) - 1,

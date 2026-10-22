@@ -3,7 +3,11 @@
  *
  * 图谱为什么做成树：原来是一张按章的长表格，老师只看到「第一章 32 个节点」，
  * 看不到挂了哪些知识点，也就判断不了"挂得对不对"。现在每章展开就是它的子节点，
- * 逐条通过/撤销，标题错了就地改——和图谱页看到的形状一致，不用在两套表达之间换算。
+ * 逐条通过/撤销——和图谱页看到的形状一致，不用在两套表达之间换算。
+ *
+ * 这里**只审不改**（2026-10-22 定）：改标题、挂题、移动、删除都在知识图谱页做。
+ * 理由是那些动作会让题退回未核，和"审"放在同一屏，留痕会分不清是审出来的还是改出来的。
+ * 行上给一个「去图谱里改」的深链，带 node 参数，到那儿编辑面板是打开的。
  */
 (function () {
   const A = App, e = A.escape;
@@ -108,12 +112,10 @@
                   data-node="${e(node.id)}" data-course="${e(courseId)}" data-verb="${node.verified ? 'unverify' : 'verify'}">
             ${node.verified ? '撤销' : '通过'}
           </button>
-          <button class="btn small text-btn" data-action="node-manage" data-node="${e(node.id)}">
-            ${S().nodePanel === node.id ? '收起' : '管理'}
-          </button>
+          <a class="btn small text-btn" href="${A.url('graph', courseId, { node: node.id })}"
+             title="改标题、挂题、移动、删除都在知识图谱页做">去图谱里改</a>
         </span>
       </div>
-      ${A.reviewNodeOf().panelFor(node.id)}
       ${hasChildren && fold ? `<ul class="rv-tree">${children
         .map(child => nodeRow(child, byParent, depth + 1, courseId)).join('')}</ul>` : ''}
     </li>`;
@@ -160,8 +162,10 @@
     const heading = `<div class="rv-policy-head">
       <div><h2>知识图谱审核</h2>
         <p class="muted">教材切片正文不审（原文转载，审的是作者不是我们）。这里审「树挂得对不对」：
-          每章展开就是它的知识点，行上直接写着挂了几道题；点「管理」能改标题、挂题/解绑、删节点。
-          改挂载或改标题都会让受影响的题退回未核——位置变了，"审过了"的前提就没了。</p></div>
+          每章展开就是它的知识点，行上直接写着挂了几道题，逐条通过/撤销。
+          <b>这一页只审不改</b>：改标题、挂题/解绑、移动、删除都在「知识图谱」页做——
+          那些动作会让受影响的题退回未核，和"审"放在一起，留痕就分不清是审出来的还是改出来的。
+          行上的「去图谱里改」会带着这个节点跳过去，编辑面板是打开的。</p></div>
     </div>`;
     if (!course) {
       return `<div class="panel rv-graph">${heading}
