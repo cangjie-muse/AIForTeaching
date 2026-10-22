@@ -121,6 +121,8 @@ bash deploy/bootstrap.sh     # 系统包 + pgvector + venv + 依赖 + 生成 see
 bash deploy/update.sh        # 拉代码 → 依赖 → 迁移 → 重启 → 自检
 bash deploy/backup.sh        # pg_dump + 保留 30 天 + 校验可读
 bash deploy/doctor.sh        # 随时体检：现在到第几步、下一步做什么
+bash deploy/fix-permissions.sh  # 首页 403：让 www-data 读得到前端
+bash deploy/diagnose-http.sh    # 浏览器打不开：逐层定位是网络、nginx 还是后端
 ```
 
 - [标准资源包及改进建议](docs/标准资源包及改进建议.md)
