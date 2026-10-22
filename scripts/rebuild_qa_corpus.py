@@ -17,7 +17,12 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "server"))
+sys.path.insert(0, str(ROOT / "scripts"))
+from _env import ensure_runtime  # noqa: E402
+
+ensure_runtime(Path(__file__).name, ROOT)
 
 from app import db, qa_ingest  # noqa: E402
 

@@ -25,6 +25,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "server"))
+sys.path.insert(0, str(ROOT / "scripts"))
+from _env import ensure_runtime  # noqa: E402
+
+ensure_runtime(Path(__file__).name, ROOT)
 
 from app import auth, db  # noqa: E402
 
