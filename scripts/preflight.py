@@ -164,6 +164,24 @@ def check_env() -> list[Check]:
         ))
     else:
         results.append(check("CORS 白名单", PASS, f"{len(origins)} 个来源：{'、'.join(origins[:3])}"))
+
+    # 会话 cookie 的 Secure 标记。prod 默认带 Secure，http 下浏览器不回传，
+    # 症状是"登录成功、一刷新就掉线"。域名与证书到位前允许显式关掉，
+    # 但必须留一条记录，否则以后没人知道它为什么是关的。
+    secure_raw = os.environ.get("COOKIE_SECURE", "").strip().lower()
+    if secure_raw in ("0", "false", "no", "off"):
+        # 只提醒、不阻断：这是"域名与证书还没批下来"期间的合法过渡状态，
+        # 卡在这里会逼人绕过自检，反而更糟。醒目地记一条就够。
+        results.append(check(
+            "会话 cookie",
+            WARN,
+            "COOKIE_SECURE=0：会话 cookie 不带 Secure，只能在 http 下用。"
+            "域名与证书到位后立刻删掉这一行并重启。",
+        ))
+    elif app_env == "prod":
+        results.append(check("会话 cookie", PASS, "带 Secure（需要 https 访问）"))
+    else:
+        results.append(check("会话 cookie", PASS, "开发环境：不带 Secure，允许 http"))
     return results
 
 

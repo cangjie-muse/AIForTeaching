@@ -1,0 +1,88 @@
+# 放到 /etc/nginx/sites-available/whu-teaching（替换原来的 conf 或与之并存）
+#
+# 前提：域名 A 记录已指向本机，且 443 入站已放行。
+# 证书用 certbot 申请后，下面两行路径会自动存在；先申请再 reload：
+#   sudo apt install -y certbot python3-certbot-nginx
+#   sudo certbot --nginx -d ai.math.example.edu.cn --email you@example.edu.cn --agree-tos -n
+#
+# 申请不到 80 入站时用 DNS-01（不需要开放 80）：
+#   sudo certbot certonly --manual --preferred-challenges dns -d ai.math.example.edu.cn
+# 或者用 acme.sh + 域名商的 API 自动续期。
+
+upstream whu_teaching_api {
+    server 127.0.0.1:8000 fail_timeout=0;
+}
+
+# 80 只做两件事：给 certbot 续期用，其余全部跳 https
+server {
+    listen 80;
+    server_name ai.math.example.edu.cn;
+
+    # 这一行必须留着，否则证书续期会失败（certbot 走 HTTP-01）
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name ai.math.example.edu.cn;
+
+    ssl_certificate     /etc/letsencrypt/live/ai.math.example.edu.cn/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/ai.math.example.edu.cn/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    # 上了 https 之后才加 HSTS。注意：一旦下发，浏览器会记住"这个域名只用 https"，
+    # 证书出问题时短期也回不去 http。先用 1 天，稳定后改 31536000。
+    add_header Strict-Transport-Security "max-age=86400" always;
+
+    root /home/aiformath/AIForTeaching;
+    index index.html;
+
+    client_max_body_size 300m;
+    client_body_timeout 300s;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 1024;
+
+    location ~* \.(js|css|svg|png|jpg|woff2?)$ {
+        expires 7d;
+        add_header Cache-Control "public, max-age=604800, immutable";
+        try_files $uri =404;
+    }
+
+    location = /index.html {
+        add_header Cache-Control "no-store";
+    }
+
+    location /api/ {
+        proxy_pass http://whu_teaching_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # 上了 https 之后这一行尤其关键：后端据此判断"这是 https 请求"，
+        # 会话 cookie 才会带 Secure 下发。
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 180s;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location ~ ^/(secrets|db|server|scripts|deploy|\.env|\.tmp|uploads)/ {
+        deny all;
+        return 404;
+    }
+}

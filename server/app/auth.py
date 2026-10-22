@@ -68,8 +68,28 @@ ROLE_LABELS = {"student": "学生", "teacher": "教师", "admin": "管理员"}
 # 会话 cookie。名字带 whu_ 前缀，避免和校内其它系统撞名。
 SESSION_COOKIE = "whu_session"
 SESSION_TTL = timedelta(hours=float(os.environ.get("SESSION_TTL_HOURS", "12")))
-# 生产必须 https 才带 cookie。本地 http 调试时由 APP_ENV 决定。
-COOKIE_SECURE = os.environ.get("APP_ENV", "dev") == "prod"
+
+
+def _resolve_cookie_secure(app_env: str, override: str | None) -> bool:
+    """会话 cookie 是否带 Secure。默认由 APP_ENV 决定，允许显式覆盖。
+
+    为什么需要覆盖：prod 默认带 Secure，而**http 下浏览器不会回传 Secure cookie**，
+    症状是"登录成功、随便点一下就退回登录页"。域名与证书还没批下来的那几天，
+    整站只能跑在 http 上，这时必须临时关掉——这是一次有意的降级，所以要求
+    写进配置（而不是自动猜测），并且 preflight 会记一条提醒。
+    """
+    raw = (override or "").strip().lower()
+    if raw in ("1", "true", "yes", "on"):
+        return True
+    if raw in ("0", "false", "no", "off"):
+        return False
+    # APP_ENV 也做归一：手写 `APP_ENV=Prod` 不该让 Secure 悄悄失效
+    return (app_env or "").strip().lower() == "prod"
+
+
+COOKIE_SECURE = _resolve_cookie_secure(
+    os.environ.get("APP_ENV", "dev"), os.environ.get("COOKIE_SECURE")
+)
 
 # 密码强度下限。故意不搞"必须有大写+符号"那种规则：它们把用户推向 Passw0rd!，
 # 真正有用的是长度（加上失败锁定与哈希迭代次数）。
