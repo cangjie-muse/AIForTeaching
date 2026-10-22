@@ -58,6 +58,15 @@ def seed_accounts() -> None:
 
 
 if __name__ == "__main__":
+    import os
+
+    # 生产库不许塞默认口令：这些口令写在文档里，塞进生产库等于公开的后门。
+    # 上线第一个管理员用 scripts/create_admin.py，其余账号在平台里建。
+    if os.environ.get("APP_ENV", "dev") == "prod":
+        raise SystemExit(
+            "APP_ENV=prod：不在生产库建默认口令账号。\n"
+            "第一个管理员请用：python scripts/create_admin.py --username admin"
+        )
     # 连接池要自己开：这是独立脚本，不是 FastAPI 的 lifespan 里跑的。
     db.pool.open()
     try:

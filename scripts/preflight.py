@@ -146,6 +146,24 @@ def check_env() -> list[Check]:
         results.append(check("出校策略", PASS, f"MODEL_EGRESS={egress}（失败关闭）"))
     else:
         results.append(check("出校策略", FAIL, f"MODEL_EGRESS={egress} 不是合法值（allowlist / any / internal-only）"))
+
+    # CORS 在生产上留 * 等于让任何站点拿用户的 cookie 调接口。dev 里开着方便，
+    # 上线了还留着就不是"待办"，是漏洞——所以 prod 下按阻断处理。
+    origins = [item.strip() for item in os.environ.get("CORS_ORIGINS", "").split(",") if item.strip()]
+    if "*" in origins or any(origin == "*" for origin in origins):
+        results.append(check(
+            "CORS 白名单",
+            FAIL if app_env == "prod" else WARN,
+            "CORS_ORIGINS 含 *：任何站点都能带凭证调接口。上线前改成具体域名。",
+        ))
+    elif not origins:
+        results.append(check(
+            "CORS 白名单",
+            WARN,
+            "CORS_ORIGINS 未设置：同源部署没问题；如果前端与 API 不同域名，需要显式列出。",
+        ))
+    else:
+        results.append(check("CORS 白名单", PASS, f"{len(origins)} 个来源：{'、'.join(origins[:3])}"))
     return results
 
 
