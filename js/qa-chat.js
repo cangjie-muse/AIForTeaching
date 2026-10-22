@@ -26,10 +26,49 @@
     courses: [],
     courseNote: '',      // 前端课程 id 与后端课程对不上的时候要说清楚
     resolved: false,
-    health: null
+    health: null,
+    // 滚动：整个消息区每次重渲染都会被重建，scrollTop 归零。
+    // 记下之前的位置与"是否贴着底部"，渲染后放回去。
+    scrollTop: 0,
+    stickBottom: true,
+    pinBottom: false,     // 刚发出问题：无视当前位置，直接贴底
+    focusComposer: false  // 一轮问答结束后把光标放回输入框
   };
 
   const S = () => A.state.qa;
+
+  function messageBox() {
+    return document.getElementById('qa-messages');
+  }
+
+  /* 在渲染**之前**记下滚动位置。
+   *
+   * A.views.qa 被调用时旧 DOM 还在，所以这里能读到真实的 scrollTop；
+   * A.render 之后新节点从 0 开始，再由 restoreScroll 放回去。
+   * 不挂在 scroll 事件上：事件要节流、还要处理"滚到底又回上来"，
+   * 而每次重渲染都要读一次位置，直接读比监听更准。 */
+  function captureScroll() {
+    const state = S();
+    const box = messageBox();
+    if (!box) return;
+    if (state.pinBottom) { state.stickBottom = true; return; }
+    const gap = box.scrollHeight - box.scrollTop - (box.clientHeight || 0);
+    state.scrollTop = box.scrollTop;
+    // 32px 容差：差一两行也算"在底部"，不要因为像素误差把人钉在中间
+    state.stickBottom = gap < 32;
+  }
+
+  function restoreScroll() {
+    const state = S();
+    const box = messageBox();
+    if (!box) return;
+    if (state.stickBottom) {
+      // 新消息在场时贴底：这是聊天窗口的默认行为，也是"别让我手动往下滑"的答案
+      box.scrollTop = box.scrollHeight;
+    } else if (typeof state.scrollTop === 'number') {
+      box.scrollTop = state.scrollTop;
+    }
+  }
 
   function modeSwitch() {
     const fullDisabled = !S().exerciseId;
@@ -159,6 +198,7 @@
 
   A.views.qa = function () {
     const state = S();
+    captureScroll();
     const heading = A.sectionTitle(
       'COURSE QA',
       'AI 问答',
@@ -211,6 +251,14 @@
   };
 
   A.after.qa = function () {
+    // 恢复滚动要在任何提前 return 之前：发送中、出错时同样需要它
+    restoreScroll();
+    const state = S();
+    if (state.focusComposer) {
+      state.focusComposer = false;
+      // preventScroll：重建后浏览器默认会把焦点元素滚进视口，那会抵消上面的恢复
+      document.getElementById('qa-input')?.focus({ preventScroll: true });
+    }
     if (S().status !== 'idle') return;
     // 从习题页进来时带 ?exercise=...，顺手把题目上下文接上
     S().exerciseId = A.route.params.get('exercise') || S().exerciseId;
@@ -255,8 +303,10 @@
     state.question = '';
     state.error = '';
     state.status = 'sending';
+    state.pinBottom = true;
     push('user', question);
     A.render();
+    state.pinBottom = false;
 
     try {
       const payload = await A.api.post('/api/v1/qa/ask', {
