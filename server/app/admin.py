@@ -26,7 +26,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from . import db, keystore, llm
+from . import db, keystore, llm, settings
 from .auth import Actor, current_actor, require
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
@@ -79,6 +79,10 @@ class EndpointPatch(BaseModel):
 
 class KeyIn(BaseModel):
     api_key: str = Field(..., min_length=8, max_length=500)
+
+
+class QaFallbackIn(BaseModel):
+    enabled: bool
 
 
 # ---------------------------------------------------------------------------
@@ -347,3 +351,37 @@ def test_endpoint(name: str, actor: Actor = Depends(require("admin"))) -> dict:
         (ok, note, name),
     )
     return {"name": name, "ok": ok, "note": note}
+
+
+# ---------------------------------------------------------------------------
+# 平台开关
+# ---------------------------------------------------------------------------
+
+@router.get("/settings/qa-fallback")
+def get_qa_fallback(actor: Actor = Depends(require("admin"))) -> dict:
+    """读「知识库没依据时用通用模型回答」这个开关的当前状态。
+
+    返回里带 source（env/db/default）与 forced：前端要能说清
+    "为什么我关不掉"——否则运维在 .env 里改了一票否决，页面上的开关
+    会看起来像坏了。
+    """
+    state = settings.qa_fallback()
+    state["note"] = (
+        "已被服务器 .env 的 QA_FALLBACK=off 强制关闭，页面上改不动"
+        if state["forced"] else ""
+    )
+    return state
+
+
+@router.put("/settings/qa-fallback")
+def set_qa_fallback(body: QaFallbackIn, actor: Actor = Depends(require("admin"))) -> dict:
+    if settings.qa_fallback()["forced"]:
+        raise HTTPException(
+            409,
+            "服务器 .env 里设了 QA_FALLBACK=off，这个开关被强制关闭。"
+            "要在这里控制，先删掉 .env 里那一行并重启服务。",
+        )
+    settings.set_value("qa_fallback", body.enabled, actor.id,
+                       note="知识库无依据时使用通用模型回答" if body.enabled
+                       else "严格模式：无依据即拒答")
+    return get_qa_fallback(actor)

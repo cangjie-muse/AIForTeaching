@@ -13,7 +13,9 @@
   A.state.apiConfig = A.state.apiConfig || {
     status: 'idle', items: [], me: null, error: '',
     // 问答语料：corpus 为 null 表示没读到（页面照常显示端点，不整页失败）
-    corpus: null, corpusError: '', corpusBusy: false, corpusNote: ''
+    corpus: null, corpusError: '', corpusBusy: false, corpusNote: '',
+    // 平台开关：null 表示没读到；forced=true 表示被 .env 一票否决
+    qaFallback: null, qaFallbackError: '', qaFallbackBusy: false
   };
 
   async function load() {
@@ -23,17 +25,23 @@
     state.corpusBusy = false;
     A.render();
     try {
-      const [me, list, corpus] = await Promise.all([
+      const [me, list, corpus, fallback] = await Promise.all([
         A.api.get('/api/v1/admin/whoami'),
         A.api.get('/api/v1/admin/model-endpoints'),
         // 语料读不到不该拖垮整页：端点配置本身是能用的
-        A.api.get('/api/v1/admin/qa-corpus').catch(error => ({ __error: error.message }))
+        A.api.get('/api/v1/admin/qa-corpus').catch(error => ({ __error: error.message })),
+        A.api.get('/api/v1/admin/settings/qa-fallback').catch(error => ({ __error: error.message }))
       ]);
       state.me = me; state.items = list.items || []; state.status = 'ready';
       if (corpus && !corpus.__error) {
         state.corpus = corpus; state.corpusError = '';
       } else {
         state.corpus = null; state.corpusError = corpus?.__error || '';
+      }
+      if (fallback && !fallback.__error) {
+        state.qaFallback = fallback; state.qaFallbackError = '';
+      } else {
+        state.qaFallback = null; state.qaFallbackError = fallback?.__error || '';
       }
     } catch (error) {
       // 失败后停在 error 状态。若这里置回 idle，A.after 会立刻重新请求，
@@ -173,6 +181,55 @@
     </section>`;
   }
 
+  /* 平台开关：只有管理员能改，所以整块面板在只读身份下也是灰的。
+   *
+   * 这里刻意不写成"开关关了就等于没有模型"——它管的是"没依据时说不说"，
+   * 文案必须让人一眼看懂代价：关了会拒答，开了可能是错的但会标注。 */
+  function policyPanel() {
+    const state = A.state.apiConfig;
+    const item = state.qaFallback;
+    const editable = canEdit() && item && !item.forced;
+    const head = `<div class="panel-heading">
+        <h2>问答策略</h2>
+      </div>`;
+
+    if (state.qaFallbackError || !item) {
+      return `<section class="panel">${head}
+        <p class="muted">${state.qaFallbackError
+          ? `读取失败：<code>${e(state.qaFallbackError)}</code>（不影响上面的端点配置）`
+          : '正在读取策略…'}</p>
+      </section>`;
+    }
+
+    const source = item.forced
+      ? '服务器 .env 强制关闭'
+      : item.source === 'db' ? '管理员设置' : '平台默认';
+    const state_badge = item.enabled
+      ? A.badge('已开启', 'green') : A.badge('已关闭', 'amber');
+
+    return `<section class="panel">${head}
+      <div class="setting-row">
+        <div>
+          <b>知识库找不到依据时，改用通用大模型回答</b>
+          <p>开启：课程材料里检索不到时，用模型的通用知识回答，并在正文和标签上标注
+          「通用知识·未依据教材」，数据库里记 <code>basis=model</code>。
+          关闭：只说"没有找到依据"，不猜。</p>
+          <p class="muted">当前状态：${state_badge}
+            <span>来源：${e(source)}</span>
+            ${item.forced ? `<br>${e(item.note)}` : ''}</p>
+        </div>
+        <button class="btn ${item.enabled ? 'text-btn' : 'primary'}"
+                data-action="api-config-qa-fallback"
+                data-enabled="${item.enabled ? 'true' : 'false'}"
+                ${editable && !state.qaFallbackBusy ? '' : 'disabled'}>
+          ${state.qaFallbackBusy ? '保存中…' : (item.enabled ? '关闭' : '开启')}
+        </button>
+      </div>
+      ${item.forced ? '' : `<p class="muted">⚠️ 关掉之后，超纲问题会直接拒答。答辩、评审、给校外看的时候建议关；
+        日常教学建议开着，否则学生会以为这个助手什么都不会。</p>`}
+    </section>`;
+  }
+
   A.views['api-config'] = function () {
     const state = A.state.apiConfig;
     const heading = A.sectionTitle(
@@ -189,7 +246,7 @@
       return heading + connectPanel(state.error);
     }
 
-    return heading + identityPanel() + `
+    return heading + identityPanel() + policyPanel() + `
       <section class="panel">
         <div class="panel-heading">
           <h2>已登记的端点</h2>
@@ -366,6 +423,23 @@
       A.toast(error.message);
       button.disabled = false;
       button.textContent = '自检';
+    }
+  };
+
+  A.actions['api-config-qa-fallback'] = async function (button) {
+    const state = A.state.apiConfig;
+    const next = button.dataset.enabled !== 'true';
+    state.qaFallbackBusy = true;
+    A.render();
+    try {
+      const result = await A.api.put('/api/v1/admin/settings/qa-fallback', { enabled: next });
+      state.qaFallback = result;
+      A.toast(next ? '已开启：无依据时用通用模型回答（会标注）' : '已关闭：无依据时直接拒答');
+    } catch (error) {
+      A.toast(error.message);
+    } finally {
+      state.qaFallbackBusy = false;
+      A.render();
     }
   };
 

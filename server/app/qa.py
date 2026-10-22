@@ -111,9 +111,12 @@ def fallback_enabled() -> bool:
     """知识库没有依据时，是否允许改用模型的通用知识回答。
 
     默认开着：一个连"什么是勒贝格积分"都答不了的教学助手，学生会直接不用它。
-    但必须在回答上标注，且 `QA_FALLBACK=off` 能一键回到严格模式（论文/答辩场合）。
+    但必须在回答上标注。开关由管理员在「模型配置」页改（存 app_setting），
+    `.env` 的 `QA_FALLBACK=off` 仍然一票否决——见 settings.qa_fallback()。
     """
-    return os.environ.get("QA_FALLBACK", "model").strip().lower() != "off"
+    from . import settings
+
+    return bool(settings.qa_fallback()["enabled"])
 
 
 def mark_unverified(text: str) -> str:
