@@ -80,7 +80,10 @@
   function nodeMarkup(node, titleOverride) {
     const classes = ['net-node', node.isRoot ? 'net-root' : '', node.kind === 'container' ? 'net-container' : 'net-knowledge', node.appendix ? 'net-appendix' : ''].join(' ');
     const radius = node.isRoot ? 72 : node.kind === 'container' ? 40 : G.current.scope === 'all' ? 17 : 22;
-    const title = titleOverride || node.title;
+    // 只认字符串：这个函数的第二个参数本来是"改名预览"的标题，但
+    // `nodes.map(nodeMarkup)` 会把下标当第二参数传进来，1 会被当成标题用，
+    // lines(1) 直接抛 "title is not iterable" —— 整个 G.open 挂掉，画布空白。
+    const title = typeof titleOverride === 'string' ? titleOverride : (node.title || '');
     const wrapped = lines(title, node.isRoot ? 10 : node.kind === 'container' ? 15 : 18);
     const label = wrapped.map((part, index) => `<tspan x="0" dy="${index ? 18 : 0}">${e(part)}</tspan>`).join('');
     const labelY = node.isRoot ? 5 - (wrapped.length - 1) * 9 : radius + 24;
@@ -132,7 +135,7 @@
     document.getElementById('network-count').textContent = focusId === ALL ? `${A.course.stats.knowledge} 个知识点 · ${A.course.stats.sections} 个章节与附录 · ${G.current.sharedCount} 条共题关系` : document.getElementById('network-count').textContent;
     document.getElementById('network-parent').disabled = focusId === ALL;
     const hint = focusId === ALL ? '全部知识点已入框 · 放大至 170% 显示知识点名称 · 表格可逐条阅读' : '初始已适配全部节点 · 放大后探索局部 · 点击节点查看内容';
-    document.getElementById('network-canvas').innerHTML = `<svg id="network-svg" class="${focusId === ALL ? 'net-global' : ''}" viewBox="0 0 ${G.current.width} ${G.current.height}" aria-label="${e(focus.title)}交互知识网络"><defs><radialGradient id="net-hub-gradient"><stop stop-color="#6489c7"/><stop offset="1" stop-color="#294e8d"/></radialGradient><radialGradient id="net-chapter-gradient"><stop stop-color="#a2bce4"/><stop offset="1" stop-color="#4d76b5"/></radialGradient><radialGradient id="net-point-gradient"><stop stop-color="#b8e5da"/><stop offset="1" stop-color="#52ada3"/></radialGradient></defs><g id="network-scene">${guideMarkup(G.current)}<g class="net-links">${G.current.edges.map(edgeMarkup).join('')}</g><g class="net-nodes">${G.current.nodes.map(nodeMarkup).join('')}</g><g class="net-drafts" id="net-drafts" aria-hidden="true"></g></g></svg><div class="network-hint">${hint}</div>`;
+    document.getElementById('network-canvas').innerHTML = `<svg id="network-svg" class="${focusId === ALL ? 'net-global' : ''}" viewBox="0 0 ${G.current.width} ${G.current.height}" aria-label="${e(focus.title)}交互知识网络"><defs><radialGradient id="net-hub-gradient"><stop stop-color="#6489c7"/><stop offset="1" stop-color="#294e8d"/></radialGradient><radialGradient id="net-chapter-gradient"><stop stop-color="#a2bce4"/><stop offset="1" stop-color="#4d76b5"/></radialGradient><radialGradient id="net-point-gradient"><stop stop-color="#b8e5da"/><stop offset="1" stop-color="#52ada3"/></radialGradient></defs><g id="network-scene">${guideMarkup(G.current)}<g class="net-links">${G.current.edges.map(edgeMarkup).join('')}</g><g class="net-nodes">${G.current.nodes.map(node => nodeMarkup(node)).join('')}</g><g class="net-drafts" id="net-drafts" aria-hidden="true"></g></g></svg><div class="network-hint">${hint}</div>`;
     viewSwitch(focusId === ALL);
     document.getElementById('network-detail').hidden = true;
     renderSubtree(focus.id);
@@ -537,6 +540,7 @@
     paintDrafts();
   };
   G.cancelEnter = () => cancelEnter();
+  G.paintDrafts = () => paintDrafts();
   G.showDropTarget = function (targetId) {
     document.querySelectorAll('.net-node').forEach(el => el.classList.toggle('is-drop-target', el.dataset.nodeId === targetId));
   };

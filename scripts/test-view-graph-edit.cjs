@@ -30,20 +30,26 @@ function makeEl(id = '') {
     appendChild(child) { el.children.push(child); return child; },
     remove() {},
     setAttribute() {}, getAttribute() { return null; }, focus() {}, select() {},
-    getBoundingClientRect: () => ({ left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300 })
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 400, height: 300, right: 400, bottom: 300 }),
+    getBBox: () => ({ x: 0, y: 0, width: 40, height: 40 }),
+    getTotalLength: () => 100, getPointAtLength: () => ({ x: 0, y: 0 })
   };
   return el;
 }
 
 function makeDom() {
   const byId = new Map();
+  const bySelector = new Map();
   return {
     getElementById(id) {
       if (!byId.has(id)) byId.set(id, makeEl(id));
       return byId.get(id);
     },
     createElement: () => makeEl(),
-    querySelector: () => makeEl(),
+    querySelector(selector) {
+      if (!bySelector.has(selector)) bySelector.set(selector, makeEl(selector));
+      return bySelector.get(selector);
+    },
     querySelectorAll: () => [],
     addEventListener() {},
     body: { classList: { add() {}, remove() {} } },
@@ -66,11 +72,14 @@ sandbox.window = sandbox;
 vm.createContext(sandbox);
 
 const bundle = ['js/core.js', 'js/visual-identity.js', 'js/api-client.js',
-  'js/graph-model.js', 'js/graph-atlas.js', 'js/graph-view.js']
+  'js/graph-model.js', 'js/graph-atlas.js', 'js/graph-view.js', 'js/graph-interaction.js']
   .map(file => fs.readFileSync(path.join(root, file), 'utf8')).join('\n;\n');
 vm.runInContext(bundle, sandbox, { filename: 'bundle.js' });
 
 const App = sandbox.window.App;
+// containerTests 会把 G.open 换成记录用的桩，reset 必须还原，否则后面的渲染用例
+// 拿到的还是那个桩——"画布渲染"那组就会空跑。
+const realOpen = App.network.open;
 App.markdown = source => `<div class="prose">${source}</div>`;
 App.render = () => {};
 const failures = [];
@@ -124,6 +133,7 @@ function reset() {
   App.state.review = { nodePanel: '', nodeDetail: null, nodeDetailError: '', nodeCourse: '', filters: {} };
   App.route = { page: 'graph', params: new Map(), course: 'analysis-ii', query: {} };
   App.network.current = null; App.network.selected = null;
+  App.network.open = realOpen;
   App.network.camera = { x: 0, y: 0, scale: 1 };
   App.actions['read-node'] = () => {};
   App.actions['node-close'] = () => { App.state.review.nodePanel = ''; };
@@ -245,6 +255,40 @@ async function containerTests() {
   check('章/节也能双击改名（记成草稿）',
     Boolean(draft) && draft.kind === 'rename' && draft.id === 'ch-1' && draft.title === '第一章 极限与连续',
     JSON.stringify(draft || null));
+}
+
+// 这一组是 2026-10-22 那次"知识图谱打不开、画布空白"的回归：
+// G.open 里 nodes.map(nodeMarkup) 把下标当成标题传了进去，第二个节点就让
+// lines(1) 抛错，整个画布渲染不出来。之前的用例把 G.open 换成了空函数，所以全绿。
+async function renderTests() {
+  console.log('\n画布渲染（G.open）：');
+  reset();
+  App.state.networkEdit = { on: false, drafts: [], busy: false, error: '' };
+  let markup = '';
+  let error = null;
+  try {
+    App.network.open('root');
+    markup = sandbox.document.getElementById('network-canvas').innerHTML;
+  } catch (thrown) {
+    error = thrown;
+  }
+  check('一棵多节点的图能画出来（不抛错）', error === null, error && error.message);
+  check('节点都进了 SVG', (markup.match(/class="net-node/g) || []).length >= 3,
+    String((markup.match(/class="net-node/g) || []).length));
+  check('连线也画了', markup.includes('class="net-link'));
+  const nodeHost = sandbox.document.querySelector('.net-nodes').innerHTML || markup;
+  check('标题按字符串走（不会把下标当标题）',
+    !nodeHost.includes('aria-label="1"') && nodeHost.includes('第一章 极限'),
+    `aria1=${nodeHost.includes('aria-label="1"')} 有标题=${nodeHost.includes('第一章 极限')}`);
+  check('草稿层挂在场景里', markup.includes('id="net-drafts"'));
+
+  // 改名预览：编辑模式下草稿标题要覆盖到节点上
+  App.state.networkEdit.on = true;
+  App.state.networkEdit.drafts = [{ kind: 'rename', id: 'ch-1', title: '第一章 极限（预览）' }];
+  App.network.paintDrafts();
+  const redrawn = sandbox.document.querySelector('.net-nodes').innerHTML;
+  check('草稿标题直接画在节点上（提交前就看得到）', redrawn.includes('第一章 极限（预览）'),
+    String(redrawn.length));
 }
 
 async function dragTests() {
@@ -389,6 +433,7 @@ async function atlasTests() {
   await shellTests();
   await renameTests();
   await containerTests();
+  await renderTests();
   await dragTests();
   await commitTests();
   await failureTests();
