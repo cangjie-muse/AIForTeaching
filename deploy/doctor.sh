@@ -183,6 +183,34 @@ if command -v curl >/dev/null 2>&1; then
   else
     fail "首页不是 HTML —— APP_ENV=prod 时前端必须由 nginx 托管（教程第 13 步）"
   fi
+  # 前端是纯静态数据驱动：data/courses.js 取不到，页面就只剩"待接入"的规划课程，
+  # 看起来像"部署后什么都没有"，实际是静态数据 404。
+  DATA_CODE="$(curl -s -o /dev/null -w '%{http_code} %{size_download}' --max-time 5 http://127.0.0.1/data/courses.js 2>/dev/null)"
+  DATA_SIZE="$(printf '%s' "$DATA_CODE" | awk '{print $2}')"
+  if [ "${DATA_CODE%% *}" = "200" ] && [ "${DATA_SIZE:-0}" -gt 1000000 ]; then
+    pass "课程静态数据可取（data/courses.js，$((${DATA_SIZE:-0} / 1024 / 1024)) MB）"
+  else
+    fail "data/courses.js 取不到或太小（$DATA_CODE）—— 页面会看不到 14 门课"
+  fi
+fi
+
+say "6.5. 登录链路（prod + http 会让登录「成功」但立刻掉线）"
+if [ "${APP_ENV:-}" = "prod" ]; then
+  case "$(printf '%s' "${COOKIE_SECURE:-}" | tr '[:upper:]' '[:lower:]')" in
+    0|false|no|off)
+      warn "COOKIE_SECURE=${COOKIE_SECURE}：会话 cookie 不带 Secure，允许 http。上 https 后删掉"
+      ;;
+    *)
+      if command -v curl >/dev/null 2>&1 && curl -fsS --max-time 5 -o /dev/null https://127.0.0.1/ 2>/dev/null; then
+        pass "prod + Secure cookie + https 已就绪"
+      else
+        fail "prod 默认给会话 cookie 带 Secure，但当前只有 http：浏览器不会回传它"
+        printf '     表现是「登录成功、一翻页又退回登录页」，日志里没有任何错误。\n'
+        printf '     临时解法：在 .env 里加 COOKIE_SECURE=0 并重启；根治：配域名与证书。\n'
+        printf '     详见 docs/域名与校外访问.md 第 0 节。\n'
+      fi
+      ;;
+  esac
 fi
 
 say "7. 上线前自检"
