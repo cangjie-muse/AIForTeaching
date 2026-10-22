@@ -250,9 +250,24 @@
       : '';
     return `<button class="network-detail-close" data-action="network-close-detail" aria-label="关闭知识点预览">×</button><div class="eyebrow">KNOWLEDGE DETAIL</div><h2>${e(node.title)}</h2>${statusBadge(id)}<div class="preview-source">${e(node.source)}</div><div class="preview-text">${A.markdown(node.content.split(/\n\s*\n/)[0])}</div><div class="divider"></div><p>${node.exerciseIds.length} 道关联习题 · ${related.length} 个共题知识点</p><div class="network-detail-actions">${A.button('阅读知识内容', 'read-node', 'book', `data-id="${e(id)}"`, 'primary')}${A.link('查看关联习题', 'exercises', A.course.id, 'pen', '', { node: id })}${A.link('带着知识点提问', 'ai', A.course.id, 'ai', 'text-btn', { node: id })}</div>${edit}${related.length ? `<h3>共用习题的知识点</h3><div class="network-related">${related.map(edge => { const other = A.node(edge.source === id ? edge.target : edge.source); return `<button data-action="network-related" data-id="${e(other.id)}">${e(other.title)}<small>${edge.exerciseIds.length} 道共用题</small></button>`; }).join('')}</div>` : ''}`;
   }
+  // 编辑模式下双击章/节要能改名，可单击章/节本来是"进下一层"。
+  // 所以单击先压 260ms：这期间来了第二击就当双击（改名），否则照旧进入。
+  let enterTimer = null;
+  function enterLater(node) {
+    if (enterTimer) return;
+    enterTimer = setTimeout(() => { enterTimer = null; G.open(node.id); }, 260);
+  }
+  function cancelEnter() {
+    if (enterTimer) { clearTimeout(enterTimer); enterTimer = null; }
+  }
+
   G.select = function (id, openOnSmall = true) {
     const node = A.node(id); if (!node) return;
-    if (node.children.length) { G.open(node.id === G.current.focusId ? node.parentId || node.id : node.id); return; }
+    if (node.children.length) {
+      if (editState().on && canEdit() && !node.isRoot) { enterLater(node); return; }
+      G.open(node.id === G.current.focusId ? node.parentId || node.id : node.id);
+      return;
+    }
     G.selected = id; G.highlight(null);
     // 编辑模式下点节点 = 打开右侧的编辑表单（不再额外给一个"点按钮才编辑"的中间步骤）。
     if (editState().on && canEdit() && A.reviewNode) return openEditCard(id);
@@ -282,7 +297,7 @@
     const state = editState();
     if (!canEdit() || !state.on) return '';
     return `<div class="net-edit-bar" id="net-edit-bar" role="region" aria-label="结构编辑">
-      <span class="net-edit-hint">编辑中：双击知识点改名，拖动知识点到章/节上换归属；点节点在右侧改挂题与删除。</span>
+      <span class="net-edit-hint">编辑中：双击章/节/知识点就地改名，拖知识点到章/节上换归属；点节点在右侧改挂题与删除。</span>
       <span class="net-edit-count" id="net-edit-count"></span>
       <button class="btn small primary" data-action="network-commit" ${state.busy ? 'disabled' : ''}>提交改动</button>
       <button class="btn small" data-action="network-discard" ${state.busy ? 'disabled' : ''}>放弃</button>
@@ -521,6 +536,7 @@
     pushDraft({ kind: 'move', id, parentId });
     paintDrafts();
   };
+  G.cancelEnter = () => cancelEnter();
   G.showDropTarget = function (targetId) {
     document.querySelectorAll('.net-node').forEach(el => el.classList.toggle('is-drop-target', el.dataset.nodeId === targetId));
   };
@@ -576,6 +592,7 @@
 
   A.after.graph = () => {
     if (!A.course.nodes) return;
+    cancelEnter();
     syncCourseState();
     // 面板里的写动作会触发整页重画；这里把 camera 与选中节点接回来，
     // 否则每改一次东西画布就跳回"适应画布"，正在看的局部就丢了。

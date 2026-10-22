@@ -100,9 +100,16 @@
     svg.addEventListener('click', activate);
     svg.addEventListener('dblclick', event => {
       const id = event.target.closest('[data-node-id]')?.dataset.nodeId;
-      if (!id || A.node(id).children.length) return;
-      // 编辑模式下双击 = 就地改名（改名不落库，先攒着）。
-      if (editing()) { A.actions['network-rename']({ dataset: { id } }); return; }
+      if (!id || !A.node(id)) return;
+      const node = A.node(id);
+      // 编辑模式下双击 = 就地改名（改名不落库，先攒着）。章、节也能改：
+      // 双击前那一下单击本来要"进入下一层"，由 G.select 里的 260ms 延后挡掉。
+      if (editing() && !node.isRoot) {
+        A.network.cancelEnter();
+        A.actions['network-rename']({ dataset: { id } });
+        return;
+      }
+      if (node.children.length) return;
       A.actions['read-node']({ dataset: { id } });
     });
     svg.addEventListener('pointerover', event => {

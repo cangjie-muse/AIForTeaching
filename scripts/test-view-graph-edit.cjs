@@ -169,7 +169,7 @@ async function shellTests() {
   check('编辑模式下出现浮条与提交按钮',
     html.includes('id="net-edit-bar"') && html.includes('data-action="network-commit"'));
   check('浮条说清怎么改（双击改名 / 拖动换归属）',
-    html.includes('双击知识点改名') && html.includes('换归属'));
+    html.includes('双击章/节/知识点就地改名') && html.includes('换归属'));
 }
 
 async function renameTests() {
@@ -203,6 +203,48 @@ async function renameTests() {
   escInput.value = '不要了';
   escInput.fire('keydown', { key: 'Escape', preventDefault() {} });
   check('Esc 取消不掉草稿也不会写入', App.state.networkEdit.drafts.length === 1);
+}
+
+async function containerTests() {
+  console.log('\n章 / 节的改名与单击：');
+  reset();
+  fakeCanvas();
+  App.state.networkEdit.on = true;
+  const opened = [];
+  App.network.open = id => opened.push(id);
+  App.network.select('ch-1', false);
+  check('编辑模式单击章：不立刻跳进下一层（等第二击）', opened.length === 0);
+  await new Promise(done => setTimeout(done, 320));
+  check('没有第二击就照旧进入', opened.length === 1 && opened[0] === 'ch-1');
+
+  opened.length = 0;
+  App.network.select('ch-1', false);
+  App.network.cancelEnter();
+  await new Promise(done => setTimeout(done, 320));
+  check('双击时取消进入（不会再跳一下）', opened.length === 0);
+
+  App.network.select('root', false);
+  check('根节点不走延后（课程根不能就地改名）', opened.length === 1 && opened[0] === 'root');
+
+  opened.length = 0;
+  App.state.networkEdit.on = false;
+  App.network.select('ch-1', false);
+  check('非编辑模式单击章：立刻进入', opened.length === 1 && opened[0] === 'ch-1');
+
+  // 章也能改名：同样先进草稿，提交时才落库
+  reset();
+  fakeCanvas();
+  App.views.graph();
+  App.state.networkEdit.on = true;
+  App.actions['network-rename']({ dataset: { id: 'ch-1' } });
+  const host = sandbox.document.getElementById('network-canvas').children[0];
+  const input = host.querySelector('input');
+  input.value = '第一章 极限与连续';
+  input.fire('keydown', { key: 'Enter', preventDefault() {} });
+  const draft = App.state.networkEdit.drafts[0];
+  check('章/节也能双击改名（记成草稿）',
+    Boolean(draft) && draft.kind === 'rename' && draft.id === 'ch-1' && draft.title === '第一章 极限与连续',
+    JSON.stringify(draft || null));
 }
 
 async function dragTests() {
@@ -346,6 +388,7 @@ async function atlasTests() {
 (async () => {
   await shellTests();
   await renameTests();
+  await containerTests();
   await dragTests();
   await commitTests();
   await failureTests();
