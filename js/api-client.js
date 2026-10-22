@@ -385,6 +385,10 @@
     return request('POST', '/api/v1/auth/accounts', { body: payload });
   }
 
+  function importAccounts(payload) {
+    return request('POST', '/api/v1/accounts/import', { body: payload });
+  }
+
   function patchAccount(accountId, payload) {
     return request('PATCH', `/api/v1/auth/accounts/${encodeURIComponent(accountId)}`, { body: payload });
   }
@@ -409,6 +413,13 @@
   }
   function deleteClass(classId) {
     return request('DELETE', `/api/v1/classes/${encodeURIComponent(classId)}`);
+  }
+  function importClasses(payload) {
+    return request('POST', '/api/v1/classes/import', { body: payload });
+  }
+  function importStudents(classId, payload) {
+    return request('POST',
+      `/api/v1/classes/${encodeURIComponent(classId)}/students/import`, { body: payload });
   }
   function classStudents(classId) {
     return request('GET', `/api/v1/classes/${encodeURIComponent(classId)}/students`);
@@ -492,6 +503,7 @@
     classStudents, addStudents, removeStudent, students,
     createAccount,
     patchAccount,
+    importAccounts, importClasses, importStudents,
     get: (path, options) => request('GET', path, options),
     post: (path, body, options) => request('POST', path, { ...options, body }),
     patch: (path, body, options) => request('PATCH', path, { ...options, body }),

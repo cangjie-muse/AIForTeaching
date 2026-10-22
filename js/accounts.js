@@ -73,7 +73,8 @@
       'ACCOUNTS',
       '账号管理',
       '给学生、教师、管理员发账号。停用不会删除人——学习记录还挂在账号上。',
-      `<div class="button-row">${A.button('刷新', 'accounts-refresh', 'refresh')}</div>`
+      `<div class="button-row">${A.button('刷新', 'accounts-refresh', 'refresh')}
+        <button class="btn small" data-action="roster-export" data-kind="accounts">导出当前列表</button></div>`
     ) + `<div class="panel">
       <div class="ax-stats">
         ${['admin', 'teacher', 'student'].map(role =>
@@ -113,8 +114,18 @@
         <label class="ax-inline">初始密码<input data-input="accounts-new-password" type="password" placeholder="至少 8 位"></label>
         <button class="btn primary" data-action="accounts-create" ${S().saving ? 'disabled' : ''}>创建</button>
       </div>
+    </div>
+    <div class="panel">
+      <h2>批量导入账号</h2>
+      <p class="muted">一次给一个班发账号：填账号、姓名、角色，密码留空就自动生成。
+        先校验再导入——表里每一行都会告诉你「可导入 / 跳过 / 为什么错」。</p>
+      ${rosterIo().block('accounts')}
     </div>`;
   };
+
+  function rosterIo() {
+    return A.rosterIo || { block: () => '' };
+  }
 
   A.inputs['accounts-filter'] = input => { S().filter = input.value; load(); };
   A.inputs['accounts-query'] = input => { S().query = input.value; };

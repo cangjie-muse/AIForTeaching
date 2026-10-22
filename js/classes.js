@@ -197,6 +197,10 @@
     </div>`;
   }
 
+  function rosterIo() {
+    return A.rosterIo || { block: () => '' };
+  }
+
   function rosterPanel() {
     const currentClass = S().items.find(item => item.id === S().openClassId);
     if (!currentClass) return '';
@@ -207,6 +211,11 @@
         <h2>${e(currentClass.name)} · 名单</h2>
         <span class="muted small">${e(currentClass.course_title)} · ${e(currentClass.term)} · ${roster.items.length} 人</span>
       </div>
+      <div class="ri-toolbar">
+        <button class="btn small" data-action="roster-export" data-kind="students"
+                data-class="${e(currentClass.id)}">导出名单（${roster.items.length} 人）</button>
+      </div>
+      ${rosterIo().block('students', { classId: currentClass.id })}
       ${roster.error ? `<p class="cls-error">${e(roster.error)}</p>` : ''}
       <table class="ax-table">
         <thead><tr><th>学号</th><th>姓名</th><th>加入时间</th><th>由谁加入</th><th></th></tr></thead>
@@ -235,6 +244,10 @@
         <button class="btn primary" data-action="classes-create" ${S().saving ? 'disabled' : ''}>建班</button>
       </div>
       <p class="muted small">将建成：${e(termLabel(academicYear, termKind))}</p>
+      <h3>批量建班</h3>
+      <p class="muted small">一次建多个班：填课程、班级名称、学年、学期、任课教师。
+        同一课程同一学期同名的班会被跳过，不会重复建。</p>
+      ${rosterIo().block('classes')}
     </div>`;
   }
 
@@ -291,6 +304,12 @@
 
   A.actions['classes-refresh'] = () => load();
 
+  // 导入名单之后重取这一班的名单；不复用 classes-open，那个是开关，会把面板收起来。
+  A.actions['classes-roster-refresh'] = async () => {
+    if (!S().openClassId) return;
+    await Promise.all([loadRoster(), load()]);
+  };
+
   A.actions['classes-create'] = async function (button) {
     const form = S().form;
     const terms = currentTerm();
@@ -329,6 +348,7 @@
       return;
     }
     S().openClassId = id;
+    if (A.rosterIo) A.rosterIo.setClass('students', id);
     S().roster = { status: 'idle', error: '', items: [] };
     S().picker = { open: false, query: '', status: 'idle', error: '', items: [], selected: [] };
     await loadRoster();

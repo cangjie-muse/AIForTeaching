@@ -229,3 +229,20 @@
   .cls-form{flex-direction:column;align-items:stretch}
   .cls-picker-head input{min-width:0}
 }
+
+/* ---- Excel 导入 / 导出 ---- */
+.ri-block{border:1px dashed var(--line);border-radius:10px;padding:14px;margin-top:12px;background:#fcfdff}
+.ri-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.ri-toolbar label.btn{cursor:pointer}
+.ri-summary{font-size:12px;color:#38455c;margin:6px 0 10px}
+.ri-summary b{color:#1f3864}
+.ri-table{margin-bottom:12px}
+.ri-table td{vertical-align:top}
+.ri-table tr:nth-child(even) td{background:#fbfcfe}
+.ri-done{margin-top:12px;margin-bottom:10px}
+.ri-passwords{border:1px solid var(--line);border-radius:10px;padding:12px;margin:12px 0;background:#fffdf6}
+.ri-passwords h4{margin:0 0 6px}
+.ri-passwords code{background:#f2f5fb;padding:2px 6px;border-radius:5px;letter-spacing:.5px}
+@media(max-width:720px){
+  .ri-table{display:block;overflow-x:auto}
+}

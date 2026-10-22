@@ -1726,6 +1726,208 @@ def run() -> None:
               client.get("/api/v1/catalog", headers=STUDENT).status_code == 200,
               "目录被班级连带改动了")
 
+        # ---- 批量导入：账号 / 班级 / 名单 ----
+        # Excel 由前端解析成 JSON 行；这里直接打接口，验的是校验规则与写库后果。
+        print("\n批量导入：")
+        account_rows = [
+            {"line": 2, "cells": {"username": "imp-2023001", "display_name": "导入生一",
+                                  "role": "学生", "password": ""}},
+            {"line": 3, "cells": {"username": "imp-2023002", "display_name": "导入生二",
+                                  "role": "学生", "password": "Imp2026pass"}},
+            {"line": 4, "cells": {"username": "e2e-teacher", "display_name": "重复账号",
+                                  "role": "教师"}},
+            {"line": 5, "cells": {"username": "bad name!", "display_name": "非法账号",
+                                  "role": "学生"}},
+            {"line": 6, "cells": {"username": "imp-2023001", "display_name": "文件内重复",
+                                  "role": "学生"}},
+        ]
+        denied = client.post("/api/v1/accounts/import", headers=teacher_headers,
+                             json={"rows": account_rows, "dry_run": True})
+        check("教师不能批量建账号（账号是管理员的事）", denied.status_code == 403,
+              str(denied.status_code))
+        forbidden = client.post("/api/v1/accounts/import", headers=STUDENT,
+                                json={"rows": account_rows, "dry_run": True})
+        check("学生更不能批量建账号", forbidden.status_code == 403, str(forbidden.status_code))
+
+        preview = client.post("/api/v1/accounts/import", headers=ADMIN,
+                              json={"rows": account_rows, "dry_run": True})
+        check("账号导入预览可读", preview.status_code == 200, preview.text[:160])
+        preview_body = preview.json()
+        check("预览逐行给结论（5 行都在）", len(preview_body["results"]) == 5,
+              str(len(preview_body["results"])))
+        check("预览统计可导入 2 / 跳过 1 / 有问题 2",
+              preview_body["summary"]["ok"] == 2
+              and preview_body["summary"]["skip"] == 1
+              and preview_body["summary"]["error"] == 2,
+              str(preview_body["summary"]))
+        reasons = {row["line"]: row["reason"] for row in preview_body["results"]}
+        check("已有的账号算跳过，并说明原因", "已存在" in reasons.get(4, ""), reasons.get(4, ""))
+        check("非法账号名报错", "只能用字母" in reasons.get(5, ""), reasons.get(5, ""))
+        check("文件内重复报错并指出第几行", "第 2 行" in reasons.get(6, ""), reasons.get(6, ""))
+        check("预览没写库",
+              db.query_one("SELECT count(*)::int AS n FROM app_account "
+                           "WHERE username ~ '^imp-'")["n"] == 0, "预览就把账号建了")
+
+        imp = client.post("/api/v1/accounts/import", headers=ADMIN,
+                          json={"rows": account_rows, "dry_run": False})
+        check("确认后真导入", imp.status_code == 200, imp.text[:160])
+        imp_body = imp.json()
+        check("新建 2 个账号", imp_body["summary"]["created"] == 2,
+              str(imp_body["summary"]))
+        passwords = {row["username"]: row for row in imp_body["passwords"]}
+        check("新账号各给一个初始密码",
+              len(passwords) == 2 and all(row["password"] for row in passwords.values()),
+              str(sorted(passwords)))
+        check("没填密码就由系统生成（并标记 generated）",
+              passwords.get("imp-2023001", {}).get("generated") is True,
+              str(passwords.get("imp-2023001", {}).get("generated")))
+        check("填了密码就用填的（不改写）",
+              passwords.get("imp-2023002", {}).get("password") == "Imp2026pass"
+              and passwords.get("imp-2023002", {}).get("generated") is False,
+              str(passwords.get("imp-2023002")))
+        check("生成的账号要求首次登录改密",
+              db.query_one("SELECT must_change_password FROM app_account "
+                           "WHERE username = 'imp-2023001'")["must_change_password"] is True,
+              "首次登录不要求改密")
+        check("手填密码的账号不强制改密",
+              db.query_one("SELECT must_change_password FROM app_account "
+                           "WHERE username = 'imp-2023002'")["must_change_password"] is False)
+        check("重复的那行没把已有账号的姓名改掉",
+              db.query_one("SELECT display_name FROM app_account "
+                           "WHERE username = 'e2e-teacher'")["display_name"] == "端到端教师",
+              "批量导入顺手改了已有账号")
+        check("账号导入写了审计",
+              "account.import" in {row["action"] for row in db.query(
+                  "SELECT action FROM audit_log ORDER BY id DESC LIMIT 20")})
+
+        class_rows = [
+            {"line": 2, "cells": {"course": "端到端测试课", "name": "导入-01班",
+                                  "academic_year": "2026-2027", "term_kind": "秋季学期",
+                                  "teacher": "", "note": "Excel 导入"}},
+            {"line": 3, "cells": {"course": "e2e-course", "name": "导入-02班",
+                                  "academic_year": "2026-2027", "term_kind": "春",
+                                  "teacher": "e2e-teacher"}},
+            {"line": 4, "cells": {"course": "E2E-01班（改）", "name": "导入-03班",
+                                  "academic_year": "2026-2027", "term_kind": "秋"}},
+            {"line": 5, "cells": {"course": "端到端测试课", "name": "导入-01班",
+                                  "academic_year": "2027-2028", "term_kind": "秋"}},
+        ]
+        class_preview = client.post("/api/v1/classes/import", headers=teacher_headers,
+                                    json={"rows": class_rows, "dry_run": True})
+        check("班级导入预览可读", class_preview.status_code == 200,
+              class_preview.text[:160])
+        class_summary = class_preview.json()["summary"]
+        check("班级预览：3 行可建、1 行有问题（课程名对不上）",
+              class_summary["ok"] == 3 and class_summary["error"] == 1,
+              str(class_summary))
+        class_reasons = {row["line"]: row["reason"]
+                         for row in class_preview.json()["results"]}
+        check("课程名对不上时报错并提示填 id 或全名",
+              "没有这门课" in class_reasons.get(4, ""), class_reasons.get(4, ""))
+        check("学年跨学年写错时报错",
+              "2026-2027" in class_reasons.get(4, "") or class_reasons.get(5, "") != "",
+              f"{class_reasons.get(4, '')} / {class_reasons.get(5, '')}")
+        bad_year_rows = [{"line": 9, "cells": {"course": "端到端测试课", "name": "导入-坏学年",
+                                                "academic_year": "2026-2028",
+                                                "term_kind": "秋"}}]
+        bad_year = client.post("/api/v1/classes/import", headers=teacher_headers,
+                               json={"rows": bad_year_rows, "dry_run": True})
+        check("学年两个年份不连续会被拦下",
+              bad_year.json()["summary"]["error"] == 1
+              and "2026-2027" in bad_year.json()["results"][0]["reason"],
+              str(bad_year.json()["results"][0]["reason"]))
+        check("学生不能批量建班",
+              client.post("/api/v1/classes/import", headers=STUDENT,
+                          json={"rows": class_rows, "dry_run": True}).status_code == 403)
+
+        class_imp = client.post("/api/v1/classes/import", headers=teacher_headers,
+                                json={"rows": class_rows, "dry_run": False})
+        check("确认后真建班", class_imp.status_code == 200
+              and class_imp.json()["summary"]["created"] == 3, class_imp.text[:160])
+        made_classes = class_imp.json()["classes"]
+        listed_after = client.get("/api/v1/classes?course_id=e2e-course",
+                                  headers=teacher_headers).json()
+        names_after = {row["name"] for row in listed_after["items"]}
+        check("建出来的班能查到",
+              {"导入-01班", "导入-02班"} <= names_after, str(sorted(names_after)))
+        default_teacher = db.query(
+            "SELECT t.username FROM teaching_class c "
+            "JOIN app_account t ON t.id = c.teacher_id "
+            "WHERE c.name = '导入-01班' AND c.academic_year = '2026-2027'")
+        check("任课教师留空就是自己",
+              bool(default_teacher) and default_teacher[0]["username"] == "e2e-teacher",
+              str(default_teacher))
+        again_class = client.post("/api/v1/classes/import", headers=teacher_headers,
+                                  json={"rows": class_rows[:1], "dry_run": False})
+        check("同样的班再导一次算跳过，不重复建",
+              again_class.json()["summary"]["skip"] == 1
+              and again_class.json()["summary"]["created"] == 0,
+              str(again_class.json()["summary"]))
+
+        roster_class = made_classes[0]["class_id"] if made_classes else ""
+        roster_rows = [
+            {"line": 2, "cells": {"username": "e2e-student", "display_name": ""}},
+            {"line": 3, "cells": {"username": "imp-2023100", "display_name": "名单新同学",
+                                  "password": ""}},
+            {"line": 4, "cells": {"username": "imp-2023101", "display_name": "",
+                                  "password": ""}},
+            {"line": 5, "cells": {"username": "e2e-teacher", "display_name": "教师",
+                                  "password": ""}},
+        ]
+        roster_preview = client.post(
+            f"/api/v1/classes/{roster_class}/students/import", headers=teacher_headers,
+            json={"rows": roster_rows, "dry_run": True})
+        check("名单导入预览可读", roster_preview.status_code == 200,
+              roster_preview.text[:160])
+        roster_summary = roster_preview.json()["summary"]
+        check("名单预览：2 行可加、2 行有问题",
+              roster_summary["ok"] == 2 and roster_summary["error"] == 2,
+              str(roster_summary))
+        will_create = [row for row in roster_preview.json()["results"]
+                       if row.get("will_create_account")]
+        check("库里没有的学号会标出「将新建账号」", len(will_create) == 1,
+              str(len(will_create)))
+        roster_reasons = {row["line"]: row["reason"]
+                          for row in roster_preview.json()["results"]}
+        check("没姓名又不存在的学号建不了号",
+              "没填姓名" in roster_reasons.get(4, ""), roster_reasons.get(4, ""))
+        check("教师账号不能当学生拉进班",
+              "不是学生" in roster_reasons.get(5, ""), roster_reasons.get(5, ""))
+
+        roster_imp = client.post(
+            f"/api/v1/classes/{roster_class}/students/import", headers=teacher_headers,
+            json={"rows": roster_rows, "dry_run": False})
+        check("确认后真加进班", roster_imp.status_code == 200
+              and roster_imp.json()["added"] == 2, roster_imp.text[:160])
+        check("顺便建了一个学生账号",
+              roster_imp.json()["created_accounts"] == 1,
+              str(roster_imp.json().get("created_accounts")))
+        made_student = (roster_imp.json().get("passwords") or [{}])[0]
+        check("建号时给的初始密码只出现这一次", bool(made_student.get("password")),
+              str(made_student))
+        check("名单里能看到这两个人",
+              client.get(f"/api/v1/classes/{roster_class}/students",
+                         headers=teacher_headers).json()["total"] == 2,
+              "名单没落库")
+        roster_again = client.post(
+            f"/api/v1/classes/{roster_class}/students/import", headers=teacher_headers,
+            json={"rows": roster_rows[:2], "dry_run": False})
+        check("同一份名单再导一次：一个跳过、一个已在班里",
+              roster_again.json()["added"] == 0 and roster_again.json()["summary"]["skip"] == 2,
+              str(roster_again.json()["summary"]))
+        check("学生不能导名单",
+              client.post(f"/api/v1/classes/{roster_class}/students/import",
+                          headers=STUDENT,
+                          json={"rows": roster_rows, "dry_run": True}).status_code == 403)
+        check("名单导入写了审计",
+              "enrollment.import" in {row["action"] for row in db.query(
+                  "SELECT action FROM audit_log ORDER BY id DESC LIMIT 30")})
+        check("空表被 400 拒绝",
+              client.post(f"/api/v1/classes/{roster_class}/students/import",
+                          headers=teacher_headers,
+                          json={"rows": [{"line": 1, "cells": {"username": ""}}]})
+              .status_code == 400, "空行当成了有效数据")
+
         # --- 以下会产生真正的数据库错误，必须最后跑（见文件头说明）---
         print("\n数据库约束（放在最后：会让 PGlite 协议错位）：")
         dup = client.post(
