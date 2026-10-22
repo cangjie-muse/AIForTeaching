@@ -125,6 +125,7 @@ bash deploy/doctor.sh        # 随时体检：现在到第几步、下一步做�
 bash deploy/fix-permissions.sh  # 首页 403：让 www-data 读得到前端
 bash deploy/diagnose-http.sh    # 浏览器打不开：逐层定位是网络、nginx 还是后端
 bash deploy/show-domain-config.sh 你的域名   # 打印"换成域名要改哪几行"（只打印不写文件）
+bash deploy/fix-login-http.sh  # 登录成功却掉线 / 改密没反应：查并修 cookie 与静态数据
 ```
 
 - [标准资源包及改进建议](docs/标准资源包及改进建议.md)
