@@ -108,7 +108,7 @@ def run(apply: bool, courses: list[str], exercises_mode: str, actor: str,
         action = {"course_id": row["id"], "title": row["title"],
                   "nodes": before["nodes"], "exercises": before["exercises"],
                   "machine": before["machine"], "drafts": before["drafts"],
-                  "published": False, "bulk": 0}
+                  "published": False, "bulk": 0, "skipped": ""}
         if apply:
             targets = exc_targets(exercises_mode, before)
             if before["exercises"] == 0 and targets:
@@ -124,7 +124,12 @@ def run(apply: bool, courses: list[str], exercises_mode: str, actor: str,
                                 ensure_ascii=False)))
                 action["bulk"] = before["machine"] + (
                     before["drafts"] if "draft" in targets else 0)
-            outcome = catalog.publish(row["id"], actor, note or BULK_NOTE)
+            try:
+                outcome = catalog.publish(row["id"], actor, note or BULK_NOTE)
+            except Exception as error:  # HTTPException(400) 等：记下来，继续下一门
+                action["skipped"] = str(getattr(error, "detail", error))
+                results.append(action)
+                continue
             action["published"] = True
             action["exercises"] = outcome["exercises"]
         results.append(action)
@@ -155,8 +160,13 @@ def main() -> int:
 
     print(f"{'课程':34} {'知识点':>6} {'已发题':>6} {'机器校验':>8} {'待核':>5}  结果")
     print("-" * 78)
+    skipped = []
     for row in rows:
-        state = "已发布" if row["published"] else "待发布"
+        if row["skipped"]:
+            state = "跳过：" + row["skipped"].split("。")[0]
+            skipped.append(row)
+        else:
+            state = "已发布" if row["published"] else "待发布"
         bulk = f"，批量发布 {row['bulk']} 题" if row["bulk"] else ""
         print(f"{row['course_id']:34} {row['nodes']:>6} {row['exercises']:>6} "
               f"{row['machine']:>8} {row['drafts']:>5}  {state}{bulk}")
@@ -166,7 +176,22 @@ def main() -> int:
         return 0
 
     print(f"\n已完成，操作人：{actor}")
-    print("刷新浏览器（Ctrl+F5）即可看到课程。")
+    if skipped:
+        ready = [row for row in skipped if row["machine"] == 0]
+        other = [row for row in skipped if row["machine"] > 0]
+        print(f"\n有 {len(skipped)} 门课没发出去：")
+        for row in skipped:
+            print(f"  {row['course_id']:32} {row['skipped']}")
+        if ready:
+            print("\n这些课一道机器校验通过的题都没有，按设计不能发布（学生端会只有知识点）。")
+            print("要让它们上线，得先决定那批「待核」的题怎么办。两条路：")
+            print("  · 逐题人工过：登录 →「内容审核」→ 通过并发布；")
+            print("  · 接受未经人工确认（仅演示）：")
+            print("      .venv/bin/python scripts/publish_courses.py --apply --exercises auto \\")
+            print("        " + " ".join(f"--course {row['course_id']}" for row in ready))
+        if other:
+            print("\n其余是发布时报错，看上面的原因。")
+    print("\n刷新浏览器（Ctrl+F5）即可看到已发布的课程。")
     return 0
 
 

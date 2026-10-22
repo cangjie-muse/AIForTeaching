@@ -58,22 +58,33 @@ class FakeDb:
             pass
 
 
+class FakeHttpError(Exception):
+    """模拟 fastapi.HTTPException：脚本只关心 .detail。"""
+
+    def __init__(self, detail):
+        super().__init__(detail)
+        self.detail = detail
+
+
 class FakeCatalog:
-    def __init__(self):
+    def __init__(self, refuse=()):
         self.calls: list[tuple] = []
+        self.refuse = set(refuse)
 
     def publish(self, course_id, actor, note):
         self.calls.append((course_id, actor, note))
+        if course_id in self.refuse:
+            raise FakeHttpError("还没有任何题目被审核通过并发布。先在「内容审核」里逐题点发布")
         return {"course_id": course_id, "published": True, "nodes": 10,
                 "exercises": 100, "drafts_hidden": 0}
 
 
-def setup(counts):
+def setup(counts, refuse=()):
     fake_db = FakeDb(
         course_rows=[{"id": "course-a", "title": "A", "review_status": "draft"},
                      {"id": "course-b", "title": "B", "review_status": "draft"}],
         count_rows=counts)
-    fake_catalog = FakeCatalog()
+    fake_catalog = FakeCatalog(refuse)
     publish_courses.db = fake_db
     publish_courses.catalog = fake_catalog
     return fake_db, fake_catalog
@@ -124,6 +135,17 @@ fake_db, _ = setup(counts_all)
 publish_courses.run(True, [], "auto", "admin", None)
 auto_sql = [sql for sql, _ in fake_db.writes if "UPDATE exercise" in sql]
 check("auto 才包含 draft", all("'draft'" in sql for sql in auto_sql))
+
+print("\n一门课报错不能拖垮整批（正是用户遇到的情况）")
+counts_mixed = {"course-a": {"nodes": 159, "exercises": 0, "machine": 0, "drafts": 416},
+                "course-b": {"nodes": 136, "exercises": 0, "machine": 0, "drafts": 349}}
+fake_db, fake_catalog = setup(counts_mixed, refuse=("course-a",))
+rows = publish_courses.run(True, [], "machine", "admin", None)
+check("两门课都被尝试过", [c[0] for c in fake_catalog.calls] == ["course-a", "course-b"])
+check("失败的那门被记为 skipped 且带原因",
+      rows[0]["skipped"] and "题目被审核通过" in rows[0]["skipped"], rows[0]["skipped"][:18])
+check("后面那门照常发布", rows[1]["published"] is True)
+check("没有因为第一门失败就退出", len(rows) == 2)
 
 print("")
 if failures:
