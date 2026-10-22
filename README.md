@@ -107,6 +107,18 @@ npm run check
 
 可选的 HTTP 预览：`python3 scripts/serve.py`，访问 http://127.0.0.1:8765。服务器只监听本机，退出时 Ctrl+C。双击 index.html 不依赖这个服务器。
 
+### 部署到服务器
+
+单机部署（nginx + systemd + PostgreSQL/pgvector）看
+[服务器部署教程](docs/服务器部署教程.md)：一台空服务器从零到能登录，含验收清单、日常更新、
+备份恢复与"以后改东西改哪里"。脚本在 `deploy/`：
+
+```sh
+bash deploy/bootstrap.sh     # 系统包 + pgvector + venv + 依赖 + 生成 seed.sql
+bash deploy/update.sh        # 拉代码 → 依赖 → 迁移 → 重启 → 自检
+bash deploy/backup.sh        # pg_dump + 保留 30 天 + 校验可读
+```
+
 - [标准资源包及改进建议](docs/标准资源包及改进建议.md)
 - [接口约定](docs/接口约定.md)
 - [账号与权限](docs/账号与权限.md)
