@@ -109,14 +109,18 @@ npm run check
 
 ### 部署到服务器
 
-单机部署（nginx + systemd + PostgreSQL/pgvector）看
-[服务器部署教程](docs/服务器部署教程.md)：一台空服务器从零到能登录，含验收清单、日常更新、
-备份恢复与"以后改东西改哪里"。脚本在 `deploy/`：
+单机部署（nginx + systemd + PostgreSQL/pgvector）：
+
+- [从零开始部署（小白版）](docs/从零开始部署（小白版）.md)：没在 Linux 上装过东西就从这个开始，每步都有"看到什么算成功"
+- [服务器部署教程](docs/服务器部署教程.md)：精简版 + 验收清单 + 日常更新 + 备份恢复 + "以后改东西改哪里"
+
+脚本在 `deploy/`：
 
 ```sh
 bash deploy/bootstrap.sh     # 系统包 + pgvector + venv + 依赖 + 生成 seed.sql
 bash deploy/update.sh        # 拉代码 → 依赖 → 迁移 → 重启 → 自检
 bash deploy/backup.sh        # pg_dump + 保留 30 天 + 校验可读
+bash deploy/doctor.sh        # 随时体检：现在到第几步、下一步做什么
 ```
 
 - [标准资源包及改进建议](docs/标准资源包及改进建议.md)
