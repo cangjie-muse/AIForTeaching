@@ -150,6 +150,8 @@ bash deploy/check-static-data.sh  # 页面能开但没课程：查 data/courses.
 
 ## 代码位置
 
+代码托管在 **Gitee 私有仓库**（GitHub 在校园网经常连不上；迁移步骤见[从 GitHub 换到 Gitee](docs/迁移到Gitee.md)）。
+
 - `js/import-core.js`：浏览器与命令行共用的资源包解析和验证。
 - `js/xlsx-reader.js`：兼容带 SpreadsheetML 命名空间前缀的知识表，仅在内存中规范化。
 - `js/core.js`：统一导航、内容渲染和本地记录。

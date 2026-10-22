@@ -68,12 +68,15 @@ ok "PostgreSQL $PGVER"
 if sudo apt-get install -y -qq "postgresql-${PGVER}-pgvector" 2>/dev/null; then
   ok "pgvector 由系统包安装"
 else
-  warn "系统没有 postgresql-${PGVER}-pgvector，改从源码编译（需要联网到 GitHub）"
+  warn "系统没有 postgresql-${PGVER}-pgvector，改从源码编译（需要联网到代码托管站）"
   sudo apt-get install -y -qq "postgresql-server-dev-${PGVER}" git make gcc
   TMP="$(mktemp -d)"
   # 0.8.0 是 2026 年仍在维护的稳定分支；换版本只改这一行
-  git clone --branch v0.8.0 --depth 1 https://github.com/pgvector/pgvector.git "$TMP/pgvector" \
-    || die "拉取 pgvector 源码失败：服务器访问不了 GitHub。把仓库打成 zip 上传后手动编译，或让运维放通 github.com"
+  # 代码已经迁到 Gitee，但 pgvector 是第三方的，默认仍从 GitHub 拉。
+  # 校园网访问不了 GitHub 时，用 PGVECTOR_GIT 指向任何可达的镜像/压缩包仓库。
+  PGVECTOR_GIT="${PGVECTOR_GIT:-https://github.com/pgvector/pgvector.git}"
+  git clone --branch v0.8.0 --depth 1 "$PGVECTOR_GIT" "$TMP/pgvector" \
+    || die "拉取 pgvector 源码失败：访问不了 $PGVECTOR_GIT。用 PGVECTOR_GIT=<可达地址> 重跑，或把源码 zip 上传后手动 make install"
   ( cd "$TMP/pgvector" && make -s && sudo make -s install )
   rm -rf "$TMP"
   ok "pgvector 源码编译完成"
