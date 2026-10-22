@@ -41,7 +41,8 @@ APPROVED_HOSTS: frozenset[str] = frozenset(
     for h in os.environ.get(
         "MODEL_ALLOWED_HOSTS",
         "api.deepseek.com,api.moonshot.cn,platform.kimi.com,"
-        "dashscope.aliyuncs.com,dashscope-intl.aliyuncs.com,open.bigmodel.cn",
+        "dashscope.aliyuncs.com,dashscope-intl.aliyuncs.com,open.bigmodel.cn,"
+        "ark.cn-beijing.volces.com,ark.cn-shanghai.volces.com",
     ).split(",")
     if h.strip()
 )
