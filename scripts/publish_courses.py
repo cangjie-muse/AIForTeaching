@@ -145,7 +145,18 @@ def main() -> int:
                              "auto=连待核的 draft 一起发（等于替老师盖章，慎用）")
     parser.add_argument("--actor", help="审计记录里的操作人（默认第一个管理员）")
     parser.add_argument("--note", help="写进发布记录与审计日志的说明")
+    parser.add_argument("--yes", action="store_true", help="跳过确认（给脚本调用或确信时用）")
     args = parser.parse_args()
+
+    # auto 会把「待核」的题一起置为已发布，而这在库里是不可逆的（原状态不保留）。
+    # 所以真执行前问一次；--yes 或非交互环境（管道）不拦。
+    if args.apply and args.exercises == "auto" and not args.yes and sys.stdin.isatty():
+        print("注意：--exercises auto 会把标了「待核」的题一并置为已发布。")
+        print("这是不可逆的（原状态不入库），要还原只能从备份恢复。")
+        print("建议先备份：bash deploy/backup.sh")
+        if input("确实要继续？输入 y 继续，其它任意键取消：").strip().lower() not in ("y", "yes"):
+            print("已取消，什么都没写。")
+            return 1
 
     db.pool.open()
     try:
