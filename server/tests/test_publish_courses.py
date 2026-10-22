@@ -80,9 +80,9 @@ def setup(counts):
 
 
 print("默认（不 apply）：一行都不许写")
-counts_all = {cid: {"nodes": 10, "exercises": 0, "drafts": 100} for cid in ("course-a", "course-b")}
+counts_all = {cid: {"nodes": 10, "exercises": 0, "machine": 3711, "drafts": 1096} for cid in ("course-a", "course-b")}
 fake_db, fake_catalog = setup(counts_all)
-rows = publish_courses.run(False, [], "auto", "admin", None)
+rows = publish_courses.run(False, [], "machine", "admin", None)
 check("两门课都进了计划", len(rows) == 2)
 check("没有 UPDATE/INSERT", not fake_db.writes, f"{len(fake_db.writes)} 条写操作")
 check("没有调用 publish", not fake_catalog.calls)
@@ -97,24 +97,33 @@ check("两门课都调了 publish", len(fake_catalog.calls) == 2)
 check("审计说明必填（有默认文案）", all(note for _, _, note in fake_catalog.calls),
       str(fake_catalog.calls[0][2])[:24] + "…")
 
-print("\nauto：草稿题存在且已发题为 0 时，批量发布并留审计")
+print("\nmachine：只发机器校验过的题，待核的一律不碰")
 fake_db, fake_catalog = setup(counts_all)
-publish_courses.run(True, [], "auto", "admin", None)
+publish_courses.run(True, [], "machine", "admin", None)
 exercise_updates = [(sql, p) for sql, p in fake_db.writes if "UPDATE exercise" in sql]
 check("每门课各一次批量发布", len(exercise_updates) == 2)
-check("只动 draft / machine-checked",
-      all("review_status IN ('draft', 'machine-checked')" in sql for sql, _ in exercise_updates))
+check("只动 machine-checked",
+      all("review_status IN ('machine-checked')" in sql for sql, _ in exercise_updates),
+      exercise_updates[0][0].split("IN")[-1].strip())
+check("SQL 里不出现 draft（待核的不许盖章）",
+      not any("'draft'" in sql for sql, _ in exercise_updates))
 audits = [(sql, p) for sql, p in fake_db.writes if "audit_log" in sql]
 check("每次批量发布都写审计", len(audits) == 2)
 check("审计里写明未经人工审核", any("未经人工逐题审核" in str(p) for _, p in audits))
 
-print("\nauto：已经有已发布题的课不再批量发布")
-counts_partial = {"course-a": {"nodes": 10, "exercises": 50, "drafts": 30},
-                  "course-b": {"nodes": 10, "exercises": 0, "drafts": 30}}
+print("\n已经有一道已发题的课：不再批量发布")
+counts_partial = {"course-a": {"nodes": 10, "exercises": 50, "machine": 0, "drafts": 30},
+                  "course-b": {"nodes": 10, "exercises": 0, "machine": 30, "drafts": 0}}
 fake_db, _ = setup(counts_partial)
-publish_courses.run(True, [], "auto", "admin", None)
+publish_courses.run(True, [], "machine", "admin", None)
 targets = [p[0] for sql, p in fake_db.writes if "UPDATE exercise" in sql]
 check("只处理了没有已发题的 course-b", targets == ["course-b"], str(targets))
+
+print("\nauto：连「待核」的 draft 一起发（只在明确知道后果时用）")
+fake_db, _ = setup(counts_all)
+publish_courses.run(True, [], "auto", "admin", None)
+auto_sql = [sql for sql, _ in fake_db.writes if "UPDATE exercise" in sql]
+check("auto 才包含 draft", all("'draft'" in sql for sql in auto_sql))
 
 print("")
 if failures:

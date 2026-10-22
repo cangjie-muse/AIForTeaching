@@ -9,14 +9,16 @@
 默认只打印计划，不写库。要真发布必须显式 `--apply`。
 
     python scripts/publish_courses.py                      # 看看会做什么
-    python scripts/publish_courses.py --apply              # 全部课程 + 机器校验过的习题
-    python scripts/publish_courses.py --apply --exercises none   # 只发课程，题留给人审
+    python scripts/publish_courses.py --apply                    # 课程 + 机器校验过的题
+    python scripts/publish_courses.py --apply --exercises none   # 只发课程，题一道不动
+    python scripts/publish_courses.py --apply --exercises auto   # 连待核的 draft 也发（慎用）
     python scripts/publish_courses.py --apply --course course-analysis
 
-关于 `--exercises auto`：它把 `draft`/`machine-checked` 的题直接置为 `published`，
-**跳过了人工逐题审核**。这会让「内容审核」页里那些题不再有待审状态，也会让
-学生看到未经教师确认的题。只在"内部演示 / 首次把站跑起来"时用，
-并且如实写进 `audit_log`（actor、数量、说明都在里面）。
+发布范围默认只到 `machine-checked`（脚本验过公式与外键），**不碰 `draft`**：
+源数据里标了「待核 / 待教师审核」的那些题必须留给人看，替它们盖章等于把审核做成形式。
+
+`--exercises auto` 会连 `draft` 一起发，只在"内部演示、且明确知道后果"时用；
+两种情况都会写 `audit_log`（actor、状态范围、说明都在里面），事后查得到。
 """
 
 from __future__ import annotations
@@ -31,7 +33,7 @@ sys.path.insert(0, str(ROOT / "server"))
 
 from app import catalog, db  # noqa: E402
 
-BULK_NOTE = "批量发布（未经人工逐题审核）：机器校验通过，用于首次部署把站跑起来"
+BULK_NOTE = "批量发布（未经人工逐题审核）：仅机器校验通过的条目，用于首次部署把站跑起来"
 
 
 def find_actor(name: str | None) -> str:
@@ -59,9 +61,23 @@ def counts(course_id: str) -> dict:
              (SELECT count(*) FROM exercise
                WHERE course_id = %s AND review_status = 'published') AS exercises,
              (SELECT count(*) FROM exercise
-               WHERE course_id = %s
-                 AND review_status IN ('draft', 'machine-checked')) AS drafts""",
-        (course_id, course_id, course_id))
+               WHERE course_id = %s AND review_status = 'machine-checked') AS machine,
+             (SELECT count(*) FROM exercise
+               WHERE course_id = %s AND review_status = 'draft') AS drafts""",
+        (course_id, course_id, course_id, course_id))
+
+
+def exc_targets(mode: str, before: dict) -> str:
+    """决定批量发布哪些状态的题，返回 SQL 的 IN 列表（含引号）。空串表示一个都不动。
+
+    默认只发 `machine-checked`（脚本验过公式与外键），**不碰 `draft`**：
+    那些是源数据里标了「待核 / 待教师审核」的题，替它们盖章就是把审核变成表演。
+    """
+    if mode == "none":
+        return ""
+    if mode == "machine":
+        return "'machine-checked'"
+    return "'machine-checked', 'draft'"
 
 
 def courses_to_publish(only: list[str]) -> list[dict]:
@@ -87,21 +103,23 @@ def run(apply: bool, courses: list[str], exercises_mode: str, actor: str,
         before = counts(row["id"])
         action = {"course_id": row["id"], "title": row["title"],
                   "nodes": before["nodes"], "exercises": before["exercises"],
-                  "drafts": before["drafts"], "published": False, "bulk": 0}
+                  "machine": before["machine"], "drafts": before["drafts"],
+                  "published": False, "bulk": 0}
         if apply:
-            if exercises_mode == "auto" and before["exercises"] == 0 and before["drafts"] > 0:
+            targets = exc_targets(exercises_mode, before)
+            if before["exercises"] == 0 and targets:
                 db.execute(
-                    """UPDATE exercise SET review_status = 'published', updated_at = now()
-                        WHERE course_id = %s
-                          AND review_status IN ('draft', 'machine-checked')""",
+                    f"""UPDATE exercise SET review_status = 'published', updated_at = now()
+                         WHERE course_id = %s AND review_status IN ({targets})""",
                     (row["id"],))
                 db.execute(
                     """INSERT INTO audit_log (actor, action, entity, entity_key, detail)
                        VALUES (%s, 'exercise.bulk-publish', 'course', %s, %s::jsonb)""",
                     (actor, row["id"],
-                     json.dumps({"exercises": before["drafts"], "note": note or BULK_NOTE},
+                     json.dumps({"statuses": targets, "note": note or BULK_NOTE},
                                 ensure_ascii=False)))
-                action["bulk"] = before["drafts"]
+                action["bulk"] = before["machine"] + (
+                    before["drafts"] if "draft" in targets else 0)
             outcome = catalog.publish(row["id"], actor, note or BULK_NOTE)
             action["published"] = True
             action["exercises"] = outcome["exercises"]
@@ -113,8 +131,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="发布课程（默认只打印计划）")
     parser.add_argument("--apply", action="store_true", help="真的写库；不加只看计划")
     parser.add_argument("--course", action="append", default=[], help="只处理指定课程，可重复")
-    parser.add_argument("--exercises", choices=("auto", "none"), default="auto",
-                        help="auto=顺带批量发布机器校验过的题；none=只发课程")
+    parser.add_argument("--exercises", choices=("machine", "auto", "none"), default="machine",
+                        help="machine=只发机器校验通过的题（默认）；none=只发课程；"
+                             "auto=连待核的 draft 一起发（等于替老师盖章，慎用）")
     parser.add_argument("--actor", help="审计记录里的操作人（默认第一个管理员）")
     parser.add_argument("--note", help="写进发布记录与审计日志的说明")
     args = parser.parse_args()
@@ -130,13 +149,13 @@ def main() -> int:
         print("没有需要发布的课程（都已经是 published）。")
         return 0
 
-    print(f"{'课程':34} {'知识点':>6} {'已发题':>6} {'草稿题':>6}  结果")
+    print(f"{'课程':34} {'知识点':>6} {'已发题':>6} {'机器校验':>8} {'待核':>5}  结果")
     print("-" * 78)
     for row in rows:
         state = "已发布" if row["published"] else "待发布"
         bulk = f"，批量发布 {row['bulk']} 题" if row["bulk"] else ""
         print(f"{row['course_id']:34} {row['nodes']:>6} {row['exercises']:>6} "
-              f"{row['drafts']:>6}  {state}{bulk}")
+              f"{row['machine']:>8} {row['drafts']:>5}  {state}{bulk}")
 
     if not args.apply:
         print("\n以上是计划。确实要发布就加 --apply（会写 publish_event 与 audit_log）。")
