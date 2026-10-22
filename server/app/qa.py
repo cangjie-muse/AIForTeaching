@@ -55,7 +55,10 @@ DEV_FAKE_MODEL = os.environ.get("DEV_FAKE_MODEL") == "1"
 def fake_answer(mode: str, citations: list[dict[str, Any]]) -> str:
     first = citations[0] if citations else {}
     excerpt = (first.get("excerpt") or "")[:200]
-    hint = "先看定义里 ε 与 N 的关系" if mode == "guide" else "完整推导见下（演示）"
+    # 演示回答不猜内容，只把"引到的是哪一段"摆出来。以前这里写死了
+    # 「先看定义里 ε 与 N 的关系」，换到最小二乘、特征值那些课就变成答非所问。
+    hint = "先看引到的这一段怎么定义、条件是什么，再回到自己的问题" if mode == "guide" \
+        else "完整推导见引到的片段（演示）"
     page = first.get("page")
     where = f"第 {page} 页" if page else f"知识点「{first.get('node_title') or '课程材料'}」"
     return (
