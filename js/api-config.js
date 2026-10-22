@@ -10,19 +10,31 @@
 (function () {
   const A = App, e = A.escape;
 
-  A.state.apiConfig = A.state.apiConfig || { status: 'idle', items: [], me: null, error: '' };
+  A.state.apiConfig = A.state.apiConfig || {
+    status: 'idle', items: [], me: null, error: '',
+    // 问答语料：corpus 为 null 表示没读到（页面照常显示端点，不整页失败）
+    corpus: null, corpusError: '', corpusBusy: false, corpusNote: ''
+  };
 
   async function load() {
     const state = A.state.apiConfig;
     if (state.status === 'loading') return;
     state.status = 'loading'; state.error = '';
+    state.corpusBusy = false;
     A.render();
     try {
-      const [me, list] = await Promise.all([
+      const [me, list, corpus] = await Promise.all([
         A.api.get('/api/v1/admin/whoami'),
-        A.api.get('/api/v1/admin/model-endpoints')
+        A.api.get('/api/v1/admin/model-endpoints'),
+        // 语料读不到不该拖垮整页：端点配置本身是能用的
+        A.api.get('/api/v1/admin/qa-corpus').catch(error => ({ __error: error.message }))
       ]);
       state.me = me; state.items = list.items || []; state.status = 'ready';
+      if (corpus && !corpus.__error) {
+        state.corpus = corpus; state.corpusError = '';
+      } else {
+        state.corpus = null; state.corpusError = corpus?.__error || '';
+      }
     } catch (error) {
       // 失败后停在 error 状态。若这里置回 idle，A.after 会立刻重新请求，
       // 后端没起来时会变成死循环，页面也会一直闪。
@@ -111,6 +123,56 @@
     </div>`;
   }
 
+  function corpusRow(item) {
+    const ready = (item.chunks || 0) > 0;
+    return `<tr>
+      <td><b>${e(item.title || item.course_id)}</b><small>${e(item.course_id)}</small></td>
+      <td>${item.nodes_with_text} / ${item.nodes}</td>
+      <td>${ready ? item.chunks : '<span class="muted">0</span>'}</td>
+      <td>${ready ? A.badge('已入库', 'green') : A.badge('未入库', 'amber')}</td>
+    </tr>`;
+  }
+
+  /* 问答语料面板。
+   *
+   * 这段是 2026-10-22 "问答说没有知识片段"的直接产物：那一页会拒答，唯一原因
+   * 是 textbook_chunk 一行都没有，而界面上又看不到这件事。所以把"每门课切了
+   * 多少块"摆出来，并给管理员一个按钮——否则用户只能靠猜。 */
+  function corpusPanel() {
+    const state = A.state.apiConfig;
+    const corpus = state.corpus;
+    const disabled = canEdit() ? '' : 'disabled';
+    const head = `<div class="panel-heading">
+        <h2>问答语料</h2>
+        <div class="button-row">
+          ${A.button('全部重建', 'api-config-corpus-rebuild', 'refresh', state.corpusBusy ? 'disabled' : disabled, 'primary')}
+        </div>
+      </div>`;
+
+    if (!corpus) {
+      return `<section class="panel">${head}
+        <p class="muted">${state.corpusError
+          ? `读取语料状态失败：<code>${e(state.corpusError)}</code>（不影响上面的端点配置）`
+          : '正在读取语料状态…'}</p>
+      </section>`;
+    }
+
+    const items = corpus.items || [];
+    const note = state.corpusNote
+      ? `<p class="corpus-note">${e(state.corpusNote)}</p>`
+      : '';
+    return `<section class="panel">${head}
+      <p class="muted">问答只会引用这里切出来的片段：教材 PDF 切片带页码，知识点正文切成
+        「知识点」块（没有精确页码，引用只标知识点路径）。一门课一块都没有时，
+        问答会直接说"没有依据"，不猜。<b>当前 ${corpus.courses_ready} / ${items.length} 门课有语料，共 ${corpus.total_chunks} 块。</b></p>
+      ${note}
+      ${items.length ? `<div class="api-table-wrap"><table class="api-table">
+        <thead><tr><th>课程</th><th>有正文的知识点</th><th>片段</th><th>状态</th></tr></thead>
+        <tbody>${items.map(corpusRow).join('')}</tbody>
+      </table></div>` : A.empty('book', '还没有课程', '先在课程内容工作台导入课程，再回到这里切语料。')}
+    </section>`;
+  }
+
   A.views['api-config'] = function () {
     const state = A.state.apiConfig;
     const heading = A.sectionTitle(
@@ -141,6 +203,8 @@
         </table></div>` : A.empty('settings', '还没有登记任何端点', '先新增一个对话端点（如 DeepSeek），再新增一个向量端点（如百炼 qwen），填好密钥后点“自检”。')}
       </section>
 
+      ${corpusPanel()}
+
       <div class="settings-grid">
         <section class="panel">
           <h2>三条固定规则</h2>
@@ -165,6 +229,24 @@
   // ---- 权限切换（开发期用于验证只读分支）----
   A.actions['api-config-refresh'] = function () {
     reload();
+  };
+  A.actions['api-config-corpus-rebuild'] = async function () {
+    const state = A.state.apiConfig;
+    if (state.corpusBusy) return;
+    state.corpusBusy = true;
+    state.corpusNote = '正在切分全部课程（14 门课约 10 秒）…';
+    A.render();
+    try {
+      const result = await A.api.post('/api/v1/admin/qa-corpus/rebuild', {});
+      const failed = (result.failed || []).length;
+      state.corpusNote = `已重建 ${result.courses} 门课，共 ${result.chunks} 块`
+        + (failed ? `；${failed} 门失败：${(result.failed || []).map(item => item.course_id).join('、')}` : '。');
+      reload();
+    } catch (error) {
+      state.corpusBusy = false;
+      state.corpusNote = `重建失败：${error.message}`;
+      A.render();
+    }
   };
   A.actions['api-config-role'] = function (button) {
     A.local.actorRoles = button.dataset.roles ? button.dataset.roles.split(',') : [];

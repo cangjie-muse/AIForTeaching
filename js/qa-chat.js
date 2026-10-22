@@ -57,12 +57,26 @@
 
   A.qaResolveCourse = resolveCourse;
 
+  // 引用的位置有两种：教材切片的"第 N 页"，和知识点语料的"知识点：某节"。
+  // 知识点没有精确页（只有章节起页），所以显示成知识点路径，而不是编一个页码。
+  function citationLabel(citation) {
+    const path = (citation.section_path || []).join(' / ');
+    if (citation.page === null || citation.page === undefined) {
+      return {
+        icon: A.icon('graph'),
+        text: citation.node_title || path.split(' / ').pop() || '知识点',
+        title: path || citation.textbook || '课程知识点'
+      };
+    }
+    return { icon: A.icon('book'), text: `第 ${citation.page} 页`, title: path };
+  }
+
   function citationChips(citations) {
     if (!citations || !citations.length) return '';
-    return `<div class="qa-citations">${citations.map(citation => `
-      <span class="qa-cite" title="${e((citation.section_path || []).join(' / '))}">
-        ${A.icon('book')}第 ${e(citation.page)} 页
-      </span>`).join('')}</div>`;
+    return `<div class="qa-citations">${citations.map(citation => {
+      const label = citationLabel(citation);
+      return `<span class="qa-cite" title="${e(label.title)}">${label.icon}${e(label.text)}</span>`;
+    }).join('')}</div>`;
   }
 
   function bubble(message) {
@@ -88,7 +102,7 @@
     return `<div class="qa-welcome">
       <span class="qa-avatar large">${A.icon('ai')}</span>
       <h2>问一个具体的问题</h2>
-      <p>回答只依据课程教材片段，并标出页码。教材没有覆盖的内容，它会说没有依据，而不是编一个。</p>
+      <p>回答只依据课程材料（教材片段或知识点正文），并标出出处。材料没有覆盖的内容，它会说没有依据，而不是编一个。</p>
       <div class="qa-hints">
         <span>${A.icon('info')}默认是「引导思考」：先给思路，不直接给答案</span>
         <span>${A.icon('info')}「完整解答」要先提交自己的作答才能解锁</span>
@@ -146,7 +160,7 @@
     const heading = A.sectionTitle(
       'COURSE QA',
       'AI 问答',
-      '依据课程教材回答，并标出页码；没有依据时明说没有。',
+      '依据课程材料回答，并标出出处（教材页码或知识点）；没有依据时明说没有。',
       `<div class="button-row">
         ${modeSwitch()}
         ${A.button('换个话题', 'qa-reset', 'refresh', '', 'small text-btn')}

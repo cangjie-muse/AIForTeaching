@@ -99,6 +99,52 @@ App.state.apiConfig.items = [];
 html = App.views['api-config']();
 check('空列表给出操作引导', html.includes('还没有登记任何端点'));
 
+// 7. 问答语料面板：14 门课一片 0 块时，"为什么拒答"必须看得见
+App.state.apiConfig.corpus = {
+  courses_ready: 0,
+  total_chunks: 0,
+  items: [
+    { course_id: 'analysis', title: '数学分析 I', nodes: 12, nodes_with_text: 12, chunks: 0 },
+    { course_id: 'numerical-linear-algebra', title: '数值线性代数', nodes: 30, nodes_with_text: 28, chunks: 0 }
+  ]
+};
+html = App.views['api-config']();
+check('语料面板显示总块数与就绪课程数', html.includes('0 / 2 门课有语料') && html.includes('共 0 块'));
+check('每门课列出知识点数与片段数', html.includes('数学分析 I') && html.includes('12 / 12'));
+check('一块都没有时标未入库', html.includes('未入库'));
+check('说明没有语料时会拒答而不是乱答', html.includes('没有依据'));
+
+// 8. 切完之后：块数与状态跟着变，管理员能点重建
+App.state.apiConfig.corpus = {
+  courses_ready: 2,
+  total_chunks: 531,
+  items: [
+    { course_id: 'analysis', title: '数学分析 I', nodes: 12, nodes_with_text: 12, chunks: 159 },
+    { course_id: 'numerical-linear-algebra', title: '数值线性代数', nodes: 30, nodes_with_text: 28, chunks: 372 }
+  ]
+};
+App.state.apiConfig.me = { actor: '管-1', roles: ['admin'], can_view: true, can_edit: true };
+html = App.views['api-config']();
+check('切完显示真实块数', html.includes('2 / 2 门课有语料') && html.includes('共 531 块'));
+check('有语料的课标已入库', html.includes('已入库'));
+check('管理员可点「全部重建」', !/data-action="api-config-corpus-rebuild"[^>]*disabled/.test(html));
+
+// 9. 只读角色不能重建（前端置灰只是体验，后端仍是 403）
+App.state.apiConfig.me = { actor: '审-1', roles: ['reviewer'], can_view: true, can_edit: false };
+html = App.views['api-config']();
+check('只读角色下「全部重建」被禁用', /data-action="api-config-corpus-rebuild"[^>]*disabled/.test(html));
+
+// 10. 语料接口挂了也不能拖垮整页端点配置
+App.state.apiConfig.corpus = null;
+App.state.apiConfig.items = [{
+  name: 'deepseek-chat', kind: 'chat', base_url: 'https://api.deepseek.com', model: 'deepseek-flash',
+  data_scope: 'external', enabled: true, key_configured: true
+}];
+App.state.apiConfig.corpusError = '需要角色之一：reviewer/教师/管理员';
+html = App.views['api-config']();
+check('语料读失败时端点表照常显示', html.includes('deepseek-flash'));
+check('语料读失败时说明原因', html.includes('读取语料状态失败') && html.includes('不影响上面的端点配置'));
+
 console.log();
 if (failures.length) {
   console.log(`失败 ${failures.length} 项：${failures.join(', ')}`);

@@ -89,6 +89,24 @@ check('用户消息出现', html.includes('数列极限怎么定义'));
 check('回答经过 App.markdown', markdownCalls.some(text => String(text).includes('ε 的几何意义')));
 check('引用显示页码', html.includes('第 18 页') && html.includes('第 22 页'));
 check('引用带章节路径以便核对', html.includes('第一章 极限 / 数列极限'));
+
+// 知识点语料没有页码：不能显示"第 null 页"，要显示知识点名（2026-10-22 接入知识点语料）
+reset({
+  health: { status: 'ok', models: { chat: { name: 'deepseek', model: 'deepseek-chat', data_scope: 'approved' } } },
+  messages: [{
+    role: 'assistant',
+    content: '上极限的定义见知识点。',
+    citations: [
+      { ord: 1, page: null, kind: 'node', node_id: 'analysis-n9275661', node_title: '上极限',
+        section_path: ['数学分析I', '集合映射与极限连续理论', '上、下极限', '上极限'], excerpt: '数列上极限' }
+    ],
+    refused: false, mode: 'guide'
+  }]
+});
+html = App.views.qa();
+check('无页码的引用不显示「第 null 页」', !html.includes('第 null 页'));
+check('知识点引用显示知识点名', html.includes('上极限') && html.includes('qa-cite'));
+check('知识点引用的悬浮提示给完整路径', html.includes('数学分析I / 集合映射与极限连续理论'));
 check('显示后端连接状态', html.includes('已连接'));
 check('显示模型与数据流向', html.includes('deepseek-chat') && html.includes('已批准出校'));
 

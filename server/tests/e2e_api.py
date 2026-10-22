@@ -464,6 +464,107 @@ def run() -> None:
         _, zero_used, _ = qa.compose_context(rows, budget=50)
         check("剩余预算太小时整段丢弃", zero_used == 0, f"{zero_used} 字符")
 
+        QA_TEACHER = {"X-Actor": "teacher-qa", "X-Roles": "teacher"}
+        print("\n问答语料：知识点正文入库")
+
+        # n-1 原来的正文只有半句公式，检索不到；换成一小段教材式文字再入库
+        node_text = (
+            "**知识内容。** 数列极限的定义：若对任意 $\\varepsilon>0$，存在正整数 $N$，"
+            "当 $n>N$ 时恒有 $|a_n-a|<\\varepsilon$，则称数列 $\\{a_n\\}$ 收敛于 $a$。"
+            "\n\n**注记。** 上确界与上极限的关系见本节证明，收敛数列必有界。"
+        )
+        db.query(
+            "UPDATE knowledge_node SET content_md = %s WHERE course_id = %s AND id = %s",
+            (node_text, "e2e-course", "n-1"),
+        )
+
+        teacher_rebuild = client.post(
+            "/api/v1/admin/qa-corpus/rebuild", headers=QA_TEACHER, json={"course_id": "e2e-course"},
+        )
+        check("教师不能重建语料（403）", teacher_rebuild.status_code == 403, teacher_rebuild.text[:100])
+        student_status = client.get("/api/v1/admin/qa-corpus", headers=STUDENT)
+        check("学生不能看语料状态（403）", student_status.status_code == 403, student_status.text[:100])
+
+        rebuilt = client.post(
+            "/api/v1/admin/qa-corpus/rebuild", headers=ADMIN, json={"course_id": "e2e-course"},
+        )
+        check("管理员能重建语料", rebuilt.status_code == 200, rebuilt.text[:150])
+        rebuilt_body = rebuilt.json() if rebuilt.status_code == 200 else {}
+        check("切出了片段", rebuilt_body.get("chunks", 0) >= 1, f"{rebuilt_body.get('chunks')} 块")
+
+        again = client.post(
+            "/api/v1/admin/qa-corpus/rebuild", headers=ADMIN, json={"course_id": "e2e-course"},
+        )
+        check("重建幂等（连跑两次块数不变）",
+              again.json().get("chunks") == rebuilt_body.get("chunks"),
+              f"{again.json().get('chunks')} vs {rebuilt_body.get('chunks')}")
+
+        status_body = client.get("/api/v1/admin/qa-corpus", headers=QA_TEACHER).json()
+        status_row = next((item for item in status_body["items"] if item["course_id"] == "e2e-course"), {})
+        # 状态里的 chunks 是这门课**全部**片段（含教材切片），比"只有知识点"多
+        check("教师能看语料状态", status_row.get("chunks", 0) >= rebuilt_body.get("chunks", 0),
+              str(status_row)[:120])
+        check("状态里数的是有正文的知识点", status_row.get("nodes_with_text") == 1,
+              str(status_row.get("nodes_with_text")))
+        check("状态里标了这是知识点语料", status_row.get("corpus_id") == "nodes-e2e-course",
+              str(status_row.get("corpus_id")))
+
+        node_rows = [row for row in qa.retrieve("数列极限的定义", "e2e-course", allow_internal=True)
+                     if row.get("source_kind") == "node"]
+        check("检索能命中知识点片段", bool(node_rows),
+              str([row["textbook_id"] for row in node_rows]))
+        check("命中片段带 node_id", bool(node_rows) and node_rows[0]["node_id"] == "n-1",
+              str(node_rows[0]["node_id"]) if node_rows else "")
+
+        context, _, node_citations = qa.compose_context(node_rows)
+        check("上下文里标的是知识点而不是页码", "知识点「数列极限」" in context, context[:60])
+        check("知识点引用没有页码", all(item["page"] is None for item in node_citations),
+              str([item["page"] for item in node_citations]))
+        check("知识点引用带完整路径",
+              bool(node_citations) and node_citations[0]["section_path"] == ["第一章 极限", "数列极限"],
+              str(node_citations[0]["section_path"]) if node_citations else "")
+
+        llm.chat = fake_chat
+        try:
+            answered = client.post(
+                "/api/v1/qa/ask", headers=STUDENT,
+                json={"question": "数列极限的定义", "course_id": "e2e-course", "mode": "guide"},
+            )
+        finally:
+            llm.chat = real_chat
+        check("有知识点语料后不再拒答", answered.status_code == 200 and answered.json().get("refused") is False,
+              answered.text[:120])
+        answered_body = answered.json() if answered.status_code == 200 else {}
+        answered_nodes = [item for item in (answered_body.get("citations") or [])
+                          if item.get("kind") == "node"]
+        check("接口返回的引用标明来源是知识点", bool(answered_nodes),
+              str(answered_body.get("citations"))[:150])
+        check("接口返回的知识点引用没有页码",
+              bool(answered_nodes) and answered_nodes[0]["page"] is None,
+              str(answered_nodes[0]["page"]) if answered_nodes else "")
+
+        saved_citations = db.query(
+            "SELECT node_id, page FROM ai_citation WHERE message_id = %s",
+            (answered_body.get("message_id"),),
+        )
+        check("引用落库带 node_id",
+              any(row["node_id"] == "n-1" for row in saved_citations), str(saved_citations)[:120])
+
+        course_list = client.get("/api/v1/courses", headers=QA_TEACHER).json()["items"]
+        course_row = next((item for item in course_list if item["id"] == "e2e-course"), {})
+        check("课程列表的 chunk_count 反映真实语料", course_row.get("chunk_count", 0) >= 2,
+              str(course_row.get("chunk_count")))
+
+        audit_rows = db.query("SELECT action, entity_key FROM audit_log WHERE action = 'qa-corpus-rebuild'")
+        check("重建写了审计", len(audit_rows) >= 2, f"{len(audit_rows)} 条")
+        check("审计按课程记", any(row["entity_key"] == "e2e-course" for row in audit_rows),
+              str([row["entity_key"] for row in audit_rows])[:80])
+
+        missing = client.post(
+            "/api/v1/admin/qa-corpus/rebuild", headers=ADMIN, json={"course_id": "no-such-course"},
+        )
+        check("不存在的课程 404", missing.status_code == 404, missing.text[:100])
+
         print("\n作答提交：")
 
         first = client.post(

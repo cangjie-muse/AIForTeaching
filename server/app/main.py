@@ -31,6 +31,7 @@ from .content import router as content_router
 from .generation import router as generation_router
 from .imports import router as imports_router
 from .qa import router as qa_router
+from .qa_corpus import router as qa_corpus_router
 from .review import router as review_router
 from .review_nodes import router as review_nodes_router
 from .visibility import router as visibility_router
@@ -91,6 +92,7 @@ app.include_router(review_router)
 app.include_router(review_nodes_router)
 app.include_router(admin_router)
 app.include_router(qa_router)
+app.include_router(qa_corpus_router)
 app.include_router(attempts_router)
 app.include_router(generation_router)
 app.include_router(content_router)
