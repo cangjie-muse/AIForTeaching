@@ -306,6 +306,16 @@ def test_endpoint(name: str, actor: Actor = Depends(require("admin"))) -> dict:
         "LLM_API_KEY" if row["kind"] == "chat" else "EMBEDDING_API_KEY"
     ) or os.environ.get("MODEL_API_KEY")
 
+    # 没有密钥就不要发请求。发出去的结果是供应商回 401「missing or invalid」，
+    # 那句话听起来像"密钥填错了"，实际是"根本没带密钥"——排查方向会被带偏。
+    if not key:
+        raise HTTPException(
+            400,
+            f"端点 {name} 还没有可用密钥。先点「设置密钥」填 API Key"
+            f"（会存到 secrets/{name}.key）；"
+            "或者在 .env 里配 LLM_API_KEY / MODEL_API_KEY 并重启服务。",
+        )
+
     ok, note = False, ""
     try:
         if row["kind"] == "chat":

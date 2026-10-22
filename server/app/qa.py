@@ -361,6 +361,12 @@ def ask(body: AskIn, actor: Actor = Depends(require_login)) -> dict:
                      latency_ms=int((time.monotonic() - started) * 1000),
                      error=str(exc), context_chars=used)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except llm.MissingKey as exc:
+        # 配置问题（没配密钥）不是上游故障：回 400，别让人以为是模型服务挂了
+        _record_call(succeeded=False, provider=endpoint.name, model=endpoint.model,
+                     latency_ms=int((time.monotonic() - started) * 1000),
+                     error=str(exc)[:400], context_chars=used)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except TimeoutError as exc:
         _record_call(succeeded=False, provider=endpoint.name, model=endpoint.model,
                      latency_ms=int((time.monotonic() - started) * 1000),

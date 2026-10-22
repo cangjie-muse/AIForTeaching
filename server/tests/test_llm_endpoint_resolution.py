@@ -108,6 +108,29 @@ try:
         check("用 MODEL_API_KEY", llm._api_key(endpoint) == "sk-generic")
         os.environ.pop("MODEL_API_KEY", None)
         check("都没有时返回 None（调用方会报'没配密钥'）", llm._api_key(endpoint) is None)
+    print("\n没有密钥时：发请求前就拦住，别让供应商回 401")
+    os.environ.pop("LLM_API_KEY", None)
+    os.environ.pop("MODEL_API_KEY", None)
+    os.environ.pop("EMBEDDING_API_KEY", None)
+    db.query_one = lambda sql, params=(): {"name": "nokey", "base_url": "https://api.deepseek.com",
+                                           "model": "m", "dim": None}
+    sent = []
+    real_post = llm.post_json
+    llm.post_json = lambda *a, **k: sent.append(a) or {"choices": [{"message": {"content": "x"}}]}
+    try:
+        llm.chat([{"role": "user", "content": "hi"}])
+        check("应该抛 MissingKey", False, "居然发出去了")
+        message = ""
+    except llm.MissingKey as error:
+        message = str(error)
+        check("抛的是 MissingKey", True)
+    except Exception as error:
+        check("抛的是 MissingKey", False, repr(error))
+        message = ""
+    llm.post_json = real_post
+    check("请求根本没发出去", sent == [], str(len(sent)))
+    check("提示里指出该去哪里配", "secrets/nokey.key" in message and "设置密钥" in message, message[:40])
+
 finally:
     db.query_one = real_query_one
     keystore.SECRETS_DIR = real_secrets

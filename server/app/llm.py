@@ -53,6 +53,10 @@ EGRESS_MODE = os.environ.get("MODEL_EGRESS", "allowlist").lower()
 VALID_MODES = {"allowlist", "any", "internal-only"}
 
 
+class MissingKey(RuntimeError):
+    """端点没有可用密钥。这属于配置问题，不该发出去再让供应商回 401。"""
+
+
 class EgressViolation(RuntimeError):
     """目标供应商未被批准接收校内内容。"""
 
@@ -253,6 +257,23 @@ def _api_key(endpoint: Endpoint) -> str | None:
     return os.environ.get(specific) or os.environ.get("MODEL_API_KEY")
 
 
+def require_key(endpoint: Endpoint) -> str:
+    """发请求前确认密钥存在。
+
+    供应商的 401 会写 "API key ... is missing or invalid"——"missing" 和 "invalid"
+    混在一句里，人只会去怀疑密钥填错，实际往往是根本没带上密钥（文件不存在、权限不对）。
+    这里提前拦下来，把话说清楚。
+    """
+    key = _api_key(endpoint)
+    if key:
+        return key
+    raise MissingKey(
+        f"端点 {endpoint.name} 没有可用密钥：secrets/{endpoint.name}.key 不存在或读不到，"
+        f"环境变量 {('LLM_API_KEY' if endpoint.kind == 'chat' else 'EMBEDDING_API_KEY')}"
+        " 与 MODEL_API_KEY 也没有配。先到「模型配置」里点「设置密钥」。"
+    )
+
+
 def post_json(url: str, payload: dict, api_key: str | None = None, timeout: int = 120) -> dict:
     data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     headers = {"Content-Type": "application/json"}
@@ -275,7 +296,7 @@ def chat(messages: list[dict], temperature: float = 0.2) -> dict:
     result = post_json(
         f"{endpoint.base_url.rstrip('/')}/chat/completions",
         payload,
-        api_key=_api_key(endpoint),
+        api_key=require_key(endpoint),
     )
     return {
         "provider": endpoint.name,
@@ -294,7 +315,7 @@ def embed(texts: list[str]) -> list[list[float]]:
     result = post_json(
         f"{endpoint.base_url.rstrip('/')}/embeddings",
         payload,
-        api_key=_api_key(endpoint),
+        api_key=require_key(endpoint),
         timeout=300,
     )
     vectors = [item["embedding"] for item in result["data"]]
