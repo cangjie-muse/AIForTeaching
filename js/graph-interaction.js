@@ -1,5 +1,9 @@
 (function () {
   const A = App, G = A.network;
+  // 编辑模式下，拖动知识点 = 改归属，而不是自由摆放。
+  function editing() {
+    return Boolean(A.state.networkEdit && A.state.networkEdit.on && A.auth && A.auth.can('review'));
+  }
   function position(svg, event) {
     return new DOMPoint(event.clientX, event.clientY).matrixTransform(svg.getScreenCTM().inverse());
   }
@@ -16,10 +20,39 @@
     const node = G.current.nodes.find(item => item.id === nodeId);
     const point = position(svg, event);
     const edgeIndex = event.target.closest('[data-edge-index]')?.dataset.edgeIndex;
+    if (editing() && node && node.kind === 'knowledge') {
+      G.reparent = { pointer: event.pointerId, nodeId, target: null, moved: false };
+      svg.setPointerCapture(event.pointerId);
+      return;
+    }
     G.drag = { pointer: event.pointerId, point, moved: false, nodeId, edgeIndex, node: node && !node.isRoot ? node : null, original: node && !node.isRoot ? { x: node.x, y: node.y } : { x: G.camera.x, y: G.camera.y } };
     svg.setPointerCapture(event.pointerId);
   }
+  function moveReparent(svg, event) {
+    const drag = G.reparent;
+    if (!drag || drag.pointer !== event.pointerId) return;
+    const point = G.scenePoint(svg, event);
+    const target = G.containerAt(point);
+    if (target && target.id === drag.nodeId) return;
+    drag.moved = true;
+    drag.target = target ? target.id : null;
+    G.showDropTarget(drag.target);
+    svg.classList.add('is-reparenting');
+  }
+  function finishReparent(svg, event) {
+    const drag = G.reparent;
+    if (!drag || drag.pointer !== event.pointerId) return;
+    G.reparent = null;
+    G.showDropTarget(null);
+    svg.classList.remove('is-reparenting');
+    if (svg.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId);
+    G.suppressClick = Date.now() + 250;
+    if (event.type !== 'pointerup' || !drag.target) return;
+    G.draftMove(drag.nodeId, drag.target);
+    A.toast('已记下新的归属，点「提交改动」才真正生效');
+  }
   function moveDrag(svg, event) {
+    if (G.reparent) { moveReparent(svg, event); return; }
     if (!G.drag || G.drag.pointer !== event.pointerId) return;
     const point = position(svg, event), dx = point.x - G.drag.point.x, dy = point.y - G.drag.point.y;
     if (Math.hypot(dx, dy) < 4 && !G.drag.moved) return;
@@ -33,6 +66,7 @@
     }
   }
   function finishDrag(svg, event) {
+    if (G.reparent) { finishReparent(svg, event); return; }
     if (!G.drag || G.drag.pointer !== event.pointerId) return;
     const drag = G.drag;
     G.suppressClick = Date.now() + 250;
@@ -58,7 +92,7 @@
   }
   G.bindInteractions = function () {
     const svg = document.getElementById('network-svg');
-    G.drag = null;
+    G.drag = null; G.reparent = null;
     svg.addEventListener('pointerdown', event => startDrag(svg, event));
     svg.addEventListener('pointermove', event => moveDrag(svg, event));
     svg.addEventListener('pointerup', event => finishDrag(svg, event));
@@ -66,7 +100,10 @@
     svg.addEventListener('click', activate);
     svg.addEventListener('dblclick', event => {
       const id = event.target.closest('[data-node-id]')?.dataset.nodeId;
-      if (id && !A.node(id).children.length) A.actions['read-node']({ dataset: { id } });
+      if (!id || A.node(id).children.length) return;
+      // 编辑模式下双击 = 就地改名（改名不落库，先攒着）。
+      if (editing()) { A.actions['network-rename']({ dataset: { id } }); return; }
+      A.actions['read-node']({ dataset: { id } });
     });
     svg.addEventListener('pointerover', event => {
       const id = event.target.closest('[data-node-id]')?.dataset.nodeId;

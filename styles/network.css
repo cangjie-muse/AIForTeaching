@@ -164,9 +164,33 @@
 .net-state.todo{background:#fdf3e2;color:#8a5a10;border:1px solid #f0d9a8}
 .network-detail .net-state{margin:0 0 8px}
 .network-edit-entry{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
-.network-edit{margin-top:18px;border:1px solid var(--line);border-radius:12px;background:#fbfcfe;padding:14px}
 .network-edit-head{font-size:12px;color:#4a5568;margin-bottom:10px}
-.network-edit .rv-node-panel{border:none;background:transparent;padding:0;margin:0}
 .rv-node-move{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0;padding:10px;border:1px dashed var(--line);border-radius:9px;background:#fff}
 .rv-node-move select{min-width:240px;max-width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:7px;font-size:12px}
 @media(max-width:720px){.rv-node-move select{min-width:0;width:100%}}
+
+/* ---- 画布上直接改结构（编辑模式） ---- */
+.net-edit-toggle.active{background:#1f3864;border-color:#1f3864;color:#fff}
+.net-edit-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 20px;border-bottom:1px solid #f0e2c4;background:#fdf8ec;font-size:12px;color:#7a5a12}
+.net-edit-bar .btn{font-size:11px;padding:5px 10px}
+.net-edit-hint{flex:1;min-width:220px;line-height:1.5}
+.net-edit-count{font-weight:600;color:#8a5a10;white-space:nowrap}
+.net-edit-error{flex-basis:100%;color:#b42318;font-size:11px;line-height:1.5}
+.net-rename{position:absolute;z-index:6;transform:translate(-50%,-50%);display:flex;flex-direction:column;gap:4px;
+  background:#fff;border:1px solid #1f3864;border-radius:9px;padding:7px 8px;box-shadow:0 12px 28px #1f38642e;min-width:200px}
+.net-rename-input{border:1px solid #dbe6f5;border-radius:6px;padding:5px 8px;font-size:12px;min-width:180px}
+.net-rename-input:focus{outline:2px solid #9db8e0;outline-offset:1px}
+.net-rename-hint{font-size:10px;color:#8a97ab;white-space:nowrap}
+.net-drafts{pointer-events:none}
+.net-draft-edge{fill:none;stroke:#c98a1c;stroke-width:2.5;stroke-dasharray:7 6;opacity:.9}
+.net-node.is-draft .net-dot{stroke:#c98a1c;stroke-width:3;stroke-dasharray:5 4}
+.net-node.is-draft .net-label{fill:#8a5a10}
+.net-node.is-drop-hint .net-halo{fill:#f6e2b8;opacity:.65}
+.net-node.is-drop-target .net-halo{fill:#f3cf8a;opacity:.85;stroke:#c98a1c;stroke-width:2;stroke-dasharray:6 5}
+.net-node.is-drop-target .net-label{fill:#7a4a06;font-weight:600}
+.network-canvas svg.is-reparenting{cursor:crosshair}
+.network-detail .network-edit-head{font-size:11px;line-height:1.55;color:#7a5a12;background:#fdf8ec;border:1px solid #f0e2c4;border-radius:8px;padding:8px 10px;margin:0 0 12px}
+.network-detail .rv-node-panel{border:none;background:transparent;padding:0;margin:0}
+.network-detail .rv-node-panel-head{margin-bottom:10px}
+.network-detail .rv-node-panel h4{margin-top:14px}
+@media(max-width:960px){.net-edit-bar{padding:9px 12px}.net-rename{min-width:150px}.net-rename-input{min-width:130px}}

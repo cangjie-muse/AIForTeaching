@@ -4,7 +4,8 @@
  * 解绑、删节点、换父节点这五件事都会让挂着的题退回未核，必须放在同一个视野里，
  * 改之前能看见代价；而"审核"这个动作本身要干净，"顺手改一下"会让留痕说不清。
  *
- * 面板由 js/graph-view.js 注入 #network-edit；审核页只给一个「去图谱里改」的深链。
+ * 面板由 js/graph-view.js 画进右栏 #network-detail（编辑模式下点节点就开）；
+ * 审核页只给一个「去图谱里改」的深链。
  * 删除是这里唯一不可逆的动作：有子节点或挂着题时接口先回 409 报数，
  * 这里把数字摆进确认框，确认后带 cascade 重发。
  */
@@ -15,6 +16,10 @@
   // 图谱页没有"审核课程筛选"这一层，所以由调用方把课程 id 记下来（nodeCourse），
   // 审核页仍然回落到筛选框的值。两处共用一份面板，不能各写一个课程来源。
   const courseId = () => S().nodeCourse || S().filters.course_id;
+  // 画布是内存模型画的：改完结构要通知图谱页，否则画布上还是旧标题、旧位置。
+  const localChange = (kind, payload) => {
+    if (A.networkLocalChange) A.networkLocalChange(kind, payload);
+  };
 
   function summaryLine(detail) {
     const node = detail.node;
@@ -156,7 +161,7 @@
 
   A.reviewNode = { panelFor, loadDetail, refreshGraph };
 
-  // 兼容旧链接与返校对：真正打开面板的入口是图谱页的 network-edit。
+  // 兼容旧链接与返校对：真正打开面板的入口是图谱页的 network-edit / network-edit-toggle。
   A.actions['node-manage'] = function (button) {
     if (S().nodePanel === button.dataset.node) {
       S().nodePanel = '';
@@ -281,6 +286,7 @@
       const result = await A.api.deleteNode(courseId(), nodeId, false);
       A.toast(`已删除 ${result.deleted} 个节点${result.detached_exercises
         ? `，${result.detached_exercises} 道题失去挂载并退回未核` : ''}`);
+      localChange('delete', { id: nodeId });
       S().nodePanel = '';
       S().nodeDetail = null;
       refreshGraph();
@@ -298,6 +304,7 @@
         try {
           const result = await A.api.deleteNode(courseId(), nodeId, true);
           A.toast(`已删除 ${result.deleted} 个节点，${result.detached_exercises} 道题退回未核`);
+          localChange('delete', { id: nodeId });
           S().nodePanel = '';
           S().nodeDetail = null;
           refreshGraph();
