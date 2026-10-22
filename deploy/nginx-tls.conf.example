@@ -9,6 +9,15 @@
 #   sudo certbot certonly --manual --preferred-challenges dns -d ai.math.example.edu.cn
 # 或者用 acme.sh + 域名商的 API 自动续期。
 
+# 可选：让地址栏永远不显示 IP。用 IP 访问时 301 到域名。
+# 启用前必须确认 `dig +short 你的域名` 有输出，否则会跳到不存在的主机，整站锁死。
+#
+# server {
+#     listen 80 default_server;
+#     server_name _;
+#     return 301 https://ai.math.example.edu.cn$request_uri;
+# }
+
 upstream whu_teaching_api {
     server 127.0.0.1:8000 fail_timeout=0;
 }
