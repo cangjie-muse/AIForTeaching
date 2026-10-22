@@ -934,6 +934,12 @@ def run() -> None:
         check("题目的知识点关联存下来了", body["node_ids"] == ["kp-01"], str(body["node_ids"]))
         check("溯源按规则解析（书页）", body["source_page"] == 12, str(body["source_page"]))
         check("溯源判为教材原题", body["provenance"] == "textbook", body["provenance"])
+        # 三维组合标签是派生值：难度 3 → 中等，教材页 → 教材原题，没审过 → 未核。
+        check("内容接口的题带三维标签",
+              body.get("tags", {}).get("text") == "中等 · 教材原题 · 未核", str(body.get("tags")))
+        check("标签代码可直接用于筛选",
+              body.get("tags", {}).get("codes") == {"difficulty": "medium", "origin": "textbook", "trust": "none"},
+              str(body.get("tags", {}).get("codes")))
 
         exported = client.get("/api/v1/courses/e2e-content/content/export", headers=ADMIN)
         check("导出接口可用", exported.status_code == 200, exported.text[:120])
@@ -1075,6 +1081,13 @@ def run() -> None:
         check("前端需要的字段都在",
               {"schemaVersion", "relationships", "stats", "files"} <= set(payload),
               str(sorted({"schemaVersion", "relationships", "stats", "files"} - set(payload))))
+        pub_a = next(item for item in payload["exercises"] if item["id"] == "pub-a")
+        check("学生端习题带三维标签",
+              pub_a.get("tags", {}).get("labels") == ["基础", "教材原题", "人工已核"],
+              str(pub_a.get("tags")))
+        check("学生端标签代码与徽标同源",
+              pub_a.get("tags", {}).get("codes") == {"difficulty": "basic", "origin": "textbook", "trust": "human"},
+              str(pub_a.get("tags", {}).get("codes")))
         anchor_node = next(node for node in payload["nodes"] if node["id"] == "kp-pub")
         check("锚点可用", anchor_node["exerciseAnchor"] == "kp-pub", anchor_node["exerciseAnchor"])
         check("章节归属传下来了", anchor_node["chapterId"] == "ch-pub", str(anchor_node["chapterId"]))

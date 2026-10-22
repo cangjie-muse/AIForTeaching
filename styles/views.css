@@ -136,7 +136,12 @@
 
 .exercise-context{margin-bottom:20px}
 .exercise-context>.btn{margin-left:auto}
-.exercise-filters{display:grid;grid-template-columns:minmax(200px,1fr) 230px 155px;gap:12px;margin-bottom:18px}
+.exercise-filters{display:grid;grid-template-columns:minmax(200px,1fr) 230px 155px 150px 150px;gap:12px;margin-bottom:18px}
+.exercise-tags{display:inline-flex;gap:5px}
+.ex-tag{font-style:normal;font-size:10px;padding:2px 7px;border-radius:999px;border:1px solid var(--line);color:#7b8aa3;background:#f7f9fc;letter-spacing:.2px}
+.ex-tag-origin{border-color:#dbe6f5;background:#eef4fc;color:#5d7fae}
+.ex-tag-trust{border-color:#e2e7dc;background:#f2f6ee;color:#6d8257}
+.ex-tag-trust:only-child{color:#a2aaba}
 .exercise-filters select{font-size:12px;padding:9px}
 .exercise-result-label{font-size:11px;color:#93a1b4;margin:0 0 18px}
 .exercise-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:25px 28px;margin-bottom:20px}

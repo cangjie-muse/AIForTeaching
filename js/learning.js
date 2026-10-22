@@ -29,6 +29,35 @@
   function graphOptions(nodes, selected) {
     return nodes.map(node => `<option value="${e(node.id)}" ${selected === node.id ? 'selected' : ''}>${e(node.title)}</option>`).join('');
   }
+  /* 三个维度里，难度沿用 1–5 的细粒度筛选（三档徽标仍显示在卡上），
+   * 来源与可信度是枚举，选项从当前课程的题里收集——数据里没有的档位不出现，
+   * 避免出现"选了必然 0 条"的死选项。空值一律不传代码：老数据没有 tags 时
+   * 这两个下拉不显示，页面退化成原来的样子。 */
+  function facetOptions(exercises, facet) {
+    const counts = new Map();
+    (exercises || []).forEach(ex => {
+      const codes = ex.tags?.codes;
+      if (!codes) return;
+      const code = codes[facet];
+      const label = ex.tags.labels[facet === 'origin' ? 1 : 2];
+      const row = counts.get(code) || { code, label, count: 0 };
+      row.count += 1;
+      counts.set(code, row);
+    });
+    return [...counts.values()].sort((a, b) => b.count - a.count);
+  }
+  function facetSelect(facet, aria, selected) {
+    const options = facetOptions(A.course.exercises, facet);
+    if (!options.length) return '';
+    const head = facet === 'origin' ? '全部来源' : '全部可信度';
+    return `<select id="exercise-${facet}" data-input="exercise-filter" aria-label="${aria}"><option value="">${head}</option>${options.map(row => `<option value="${e(row.code)}" ${selected === row.code ? 'selected' : ''}>${e(row.label)}（${row.count}）</option>`).join('')}</select>`;
+  }
+  function tagChips(ex) {
+    if (!ex.tags?.labels) return '';
+    const facets = ['band', 'origin', 'trust'];
+    return `<span class="exercise-tags">${ex.tags.labels.map((label, index) => `<i class="ex-tag ex-tag-${facets[index]}">${e(label)}</i>`).join('')}</span>`;
+  }
+
   A.views.exercises = function () {
     const c = A.course;
     if (!c.exercises) return A.sectionTitle('EXERCISE LIBRARY', '习题与测验', e(c.title)) + A.empty('pen', '题库等待接入', '导入后支持章节筛选、难度筛选、作答与解答查看。', A.link('导入课程资源', 'import', null, 'upload', 'primary'));
@@ -38,7 +67,7 @@
     const memory = A.courseMemory(c.id);
     A.state.exercisePage = selected ? 1 : (memory.exercisePage || 1);
     const context = selected ? `<div class="notice exercise-context">${A.icon('pen')}<span>正在查看所选习题，可在这里作答并按需展开参考简解与来源。</span>${A.link('查看全部习题', 'exercises', c.id, '', 'text-btn')}</div>` : node ? `<div class="notice exercise-context">${A.icon('graph')}<span>正在查看：<b>${e(node.title)}</b> 的关联习题</span>${A.link('查看全部', 'exercises', c.id, '', 'text-btn')}</div>` : '';
-    const filters = `<div class="exercise-filters"><div class="search-input">${A.icon('search')}<input id="exercise-search" data-input="exercise-filter" value="${e(memory.exerciseQuery || '')}" placeholder="搜索题干、来源或关键词…" aria-label="搜索习题"></div><select id="exercise-chapter" data-input="exercise-filter" aria-label="按章节筛选"><option value="">全部章节与附录</option>${graphOptions(c.nodes.filter(n => n.level === 2), memory.exerciseChapter || '')}</select><select id="exercise-difficulty" data-input="exercise-filter" aria-label="按难度筛选"><option value="">全部难度</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}" ${memory.exerciseDifficulty === String(n) ? 'selected' : ''}>难度 ${n} / 5</option>`).join('')}</select></div>`;
+    const filters = `<div class="exercise-filters"><div class="search-input">${A.icon('search')}<input id="exercise-search" data-input="exercise-filter" value="${e(memory.exerciseQuery || '')}" placeholder="搜索题干、来源、标签或关键词…" aria-label="搜索习题"></div><select id="exercise-chapter" data-input="exercise-filter" aria-label="按章节筛选"><option value="">全部章节与附录</option>${graphOptions(c.nodes.filter(n => n.level === 2), memory.exerciseChapter || '')}</select><select id="exercise-difficulty" data-input="exercise-filter" aria-label="按难度筛选"><option value="">全部难度</option>${[1, 2, 3, 4, 5].map(n => `<option value="${n}" ${memory.exerciseDifficulty === String(n) ? 'selected' : ''}>难度 ${n} / 5</option>`).join('')}</select>${facetSelect('origin', '按来源筛选', memory.exerciseOrigin)}${facetSelect('trust', '按可信度筛选', memory.exerciseTrust)}</div>`;
     return A.sectionTitle('EXERCISE LIBRARY', '习题与测验', `${c.stats.exercises} 道不同习题 · ${c.stats.associations} 条知识点关联 · 简解与来源均予保留`, A.button('导出练习记录', 'export-records', 'download')) + context + (selected ? '' : filters) + '<div class="exercise-result-label" id="exercise-count"></div><div id="exercise-results"></div><div id="exercise-pagination"></div>';
   };
   function filteredExercises() {
@@ -47,12 +76,17 @@
     if (selected) return [selected];
     const q = document.getElementById('exercise-search').value.trim().toLowerCase();
     const chapter = document.getElementById('exercise-chapter').value, difficulty = document.getElementById('exercise-difficulty').value;
+    const origin = document.getElementById('exercise-origin')?.value || '';
+    const trust = document.getElementById('exercise-trust')?.value || '';
     const contextNode = A.route.params.get('node');
     return A.course.exercises.filter(ex => {
       if (contextNode && !ex.nodeIds.includes(contextNode)) return false;
       if (difficulty && !(ex.variants || [ex]).some(variant => variant.difficulty === Number(difficulty))) return false;
       if (chapter && !ex.nodeIds.some(id => A.node(id)?.chapterId === chapter)) return false;
-      return !q || (ex.variants || [ex]).some(variant => (variant.prompt + variant.source).toLowerCase().includes(q));
+      if (origin && ex.tags?.codes.origin !== origin) return false;
+      if (trust && ex.tags?.codes.trust !== trust) return false;
+      // 标签文字也参与搜索：搜"人工已核"能筛出人核过的题
+      return !q || (ex.variants || [ex]).some(variant => (variant.prompt + variant.source + (ex.tags?.text || '')).toLowerCase().includes(q));
     });
   }
   function exerciseVariant(ex) {
@@ -97,7 +131,7 @@
   function exerciseCard(ex, index) {
     const key = A.record('answer', ex.id), assessment = A.local[A.record('assessment', ex.id)], variant = exerciseVariant(ex);
     const saved = answerOf(ex), unlocked = isUnlocked(ex), revealedOnly = unlocked && !saved;
-    return `<article class="exercise-card"><div class="exercise-card-head"><span class="exercise-number">${String(index + 1).padStart(2, '0')}</span><span class="difficulty">${Array.from({ length: 5 }, (_, n) => `<i class="${n < variant.difficulty ? 'filled' : ''}"></i>`).join('')}<small>难度 ${variant.difficulty}/5</small></span><span class="exercise-id">${e(ex.id)}</span></div><div class="exercise-prompt">${A.markdown(variant.prompt)}</div><div class="exercise-nodes">${ex.nodeIds.map(id => `<button data-action="read-node" data-id="${e(id)}">${A.icon('graph')}${e(A.node(id)?.title)}</button>`).join('')}</div>${guideBlock(ex, variant)}<details class="exercise-answer"><summary>${A.icon('pen')} 我的作答 ${saved ? A.badge('已保存', 'green') : ''}<span>${A.icon('chevron')}</span></summary><div class="answer-editor"><textarea id="answer-${e(ex.id)}" placeholder="写下你的思路，支持输入 LaTeX 源码…">${e(A.local[key] || '')}</textarea><div class="button-row">${A.button('保存作答', 'save-answer', 'check', `data-id="${e(ex.id)}"`, 'small')}${A.button('预览公式', 'preview-answer', 'book', `data-id="${e(ex.id)}"`, 'small')}</div></div></details>${unlocked ? solutionBlock(variant, revealedOnly) : lockedBlock(ex)}${otherVariants(ex, variant)}<div class="exercise-bottom"><span>学习自评：<button class="assessment ${assessment === 'review' ? 'active' : ''}" data-action="assess" data-id="${e(ex.id)}" data-value="review">待巩固</button><button class="assessment ${assessment === 'understood' ? 'active' : ''}" data-action="assess" data-id="${e(ex.id)}" data-value="understood">已理解</button></span>${A.link('问这道题', 'qa', A.course.id, 'ai', 'text-btn', { exercise: ex.id })}</div></article>`;
+    return `<article class="exercise-card"><div class="exercise-card-head"><span class="exercise-number">${String(index + 1).padStart(2, '0')}</span><span class="difficulty">${Array.from({ length: 5 }, (_, n) => `<i class="${n < variant.difficulty ? 'filled' : ''}"></i>`).join('')}<small>难度 ${variant.difficulty}/5</small></span>${tagChips(ex)}<span class="exercise-id">${e(ex.id)}</span></div><div class="exercise-prompt">${A.markdown(variant.prompt)}</div><div class="exercise-nodes">${ex.nodeIds.map(id => `<button data-action="read-node" data-id="${e(id)}">${A.icon('graph')}${e(A.node(id)?.title)}</button>`).join('')}</div>${guideBlock(ex, variant)}<details class="exercise-answer"><summary>${A.icon('pen')} 我的作答 ${saved ? A.badge('已保存', 'green') : ''}<span>${A.icon('chevron')}</span></summary><div class="answer-editor"><textarea id="answer-${e(ex.id)}" placeholder="写下你的思路，支持输入 LaTeX 源码…">${e(A.local[key] || '')}</textarea><div class="button-row">${A.button('保存作答', 'save-answer', 'check', `data-id="${e(ex.id)}"`, 'small')}${A.button('预览公式', 'preview-answer', 'book', `data-id="${e(ex.id)}"`, 'small')}</div></div></details>${unlocked ? solutionBlock(variant, revealedOnly) : lockedBlock(ex)}${otherVariants(ex, variant)}<div class="exercise-bottom"><span>学习自评：<button class="assessment ${assessment === 'review' ? 'active' : ''}" data-action="assess" data-id="${e(ex.id)}" data-value="review">待巩固</button><button class="assessment ${assessment === 'understood' ? 'active' : ''}" data-action="assess" data-id="${e(ex.id)}" data-value="understood">已理解</button></span>${A.link('问这道题', 'qa', A.course.id, 'ai', 'text-btn', { exercise: ex.id })}</div></article>`;
   }
   function renderExercises() {
     const found = filteredExercises(), size = 8, pages = Math.max(1, Math.ceil(found.length / size));
@@ -140,6 +174,8 @@
     memory.exerciseQuery = document.getElementById('exercise-search').value;
     memory.exerciseChapter = document.getElementById('exercise-chapter').value;
     memory.exerciseDifficulty = document.getElementById('exercise-difficulty').value;
+    memory.exerciseOrigin = document.getElementById('exercise-origin')?.value || '';
+    memory.exerciseTrust = document.getElementById('exercise-trust')?.value || '';
     memory.exercisePage = 1;
     A.state.exercisePage = 1;
     renderExercises();

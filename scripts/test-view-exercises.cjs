@@ -204,6 +204,63 @@ console.log('\n提交成功的提示文案：');
   check('换回来时难度回填', wideHtml.includes('value="1" selected'), '');
   check('另一门课的记忆不受影响', App.courseMemory('demo').exerciseDifficulty === undefined, '');
 
+  console.log('\n三维标签：难度档 / 来源 / 可信度');
+  // 老数据没有 tags 时不显示徽标、不出现筛选——不能因为升级把老课程弄成空白页。
+  const legacy = {
+    id: 'legacy', title: '老课', status: 'ready', stats: { exercises: 1, associations: 1 },
+    nodes: [{ id: 'l-ch', title: '第一章', level: 2, chapterId: 'l-ch', path: ['老课'], children: [], exerciseIds: [] }],
+    exercises: [{ id: 'l-1', prompt: '老题', answer: '老答案', difficulty: 3, source: '自拟', nodeIds: ['l-ch'] }]
+  };
+  App.course = legacy;
+  App.route = { page: 'exercises', params: new URLSearchParams() };
+  App.state = {};
+  let legacyHtml = App.views.exercises();
+  check('没有标签数据时不渲染徽标', !legacyHtml.includes('exercise-tags'), '');
+  check('没有标签数据时不出现来源筛选', !legacyHtml.includes('exercise-origin'), '');
+  check('没有标签数据时不出现可信度筛选', !legacyHtml.includes('exercise-trust'), '');
+
+  const tagged = {
+    id: 'tagged', title: '标签课', status: 'ready', stats: { exercises: 3, associations: 3 },
+    nodes: [{ id: 't-ch', title: '第一章', level: 2, chapterId: 't-ch', path: ['标签课'], children: [], exerciseIds: [] }],
+    exercises: [
+      { id: 't-1', prompt: '教材题', answer: '答案一', difficulty: 2, source: '教材', nodeIds: ['t-ch'],
+        tags: { labels: ['基础', '教材原题', '人工已核'], codes: { difficulty: 'basic', origin: 'textbook', trust: 'human' }, text: '基础 · 教材原题 · 人工已核' } },
+      { id: 't-2', prompt: '自拟题', answer: '答案二', difficulty: 5, source: '自拟', nodeIds: ['t-ch'],
+        tags: { labels: ['挑战', '平台自拟', '未核'], codes: { difficulty: 'challenge', origin: 'self-authored', trust: 'none' }, text: '挑战 · 平台自拟 · 未核' } },
+      { id: 't-3', prompt: '导出题', answer: '答案三', difficulty: 3, source: '导出', nodeIds: ['t-ch'],
+        tags: { labels: ['中等', '同事导出', '未核'], codes: { difficulty: 'medium', origin: 'colleague-export', trust: 'none' }, text: '中等 · 同事导出 · 未核' } }
+    ]
+  };
+  App.course = tagged;
+  App.state = {};
+  // 下拉框在视图函数返回的 string 里，卡片在 render() 写进的结果区里：两处都要看。
+  const taggedView = App.views.exercises();
+  element('exercise-search').value = '';
+  element('exercise-difficulty').value = '';
+  element('exercise-origin').value = '';
+  element('exercise-trust').value = '';
+  let taggedHtml = render();
+  check('卡上显示三枚组合标签', taggedHtml.includes('基础') && taggedHtml.includes('教材原题') && taggedHtml.includes('人工已核'), '');
+  check('三枚标签用不同色系区分', taggedHtml.includes('ex-tag-band') && taggedHtml.includes('ex-tag-origin') && taggedHtml.includes('ex-tag-trust'), '');
+  check('来源下拉按出现次数列出', /教材原题（1）/.test(taggedView) && /平台自拟（1）/.test(taggedView), '');
+  check('可信度下拉带计数', /未核（2）/.test(taggedView), '');
+
+  element('exercise-origin').value = 'textbook';
+  let filtered = render();
+  check('按来源筛选只剩教材原题', filtered.includes('教材题') && !filtered.includes('自拟题'), '');
+  check('筛选结果数正确', element('exercise-count').textContent.includes('1 道'), element('exercise-count').textContent);
+
+  element('exercise-origin').value = '';
+  element('exercise-trust').value = 'none';
+  filtered = render();
+  check('按可信度筛选排除已核的题', !filtered.includes('教材题') && filtered.includes('自拟题'), '');
+  check('未核题数量为 2', element('exercise-count').textContent.includes('2 道'), element('exercise-count').textContent);
+
+  element('exercise-trust').value = '';
+  element('exercise-search').value = '人工已核';
+  filtered = render();
+  check('标签文字能当搜索词', filtered.includes('教材题') && !filtered.includes('自拟题'), '');
+
   console.log('');
   if (failures.length) {
     console.log(`失败 ${failures.length} 项：${failures.join(', ')}`);

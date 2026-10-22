@@ -28,7 +28,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from . import db, visibility
+from . import db, exercise_tags, visibility
 from .auth import Actor, require
 
 router = APIRouter(prefix="/api/v1", tags=["catalog"])
@@ -88,6 +88,9 @@ def build_course(course: dict, nodes: list[dict], exercises: list[dict],
             "difficulty": exercise.get("difficulty"),
             "source": exercise.get("source_raw") or "",
             "nodeIds": sorted(set(by_exercise.get(exercise["id"], []))),
+            # 三维组合标签（难度档 / 来源 / 可信度），派生而非落库，
+            # 规则见 exercise_tags.py。前端拿 codes 做筛选、labels 做徽标。
+            "tags": exercise_tags.tags_for(exercise),
         })
 
     relationships = [
@@ -158,7 +161,7 @@ SELECT n.id, n.chapter_id, n.parent_id, n.title, n.level, n.kind, n.path, n.cont
 """
 
 PUBLISHED_EXERCISES_SQL = """
-SELECT e.id, e.prompt_md, e.answer_md, e.difficulty, e.source_raw, v.tier
+SELECT e.id, e.prompt_md, e.answer_md, e.difficulty, e.source_raw, e.provenance, v.tier
   FROM exercise e
   JOIN v_exercise_verification v ON v.course_id = e.course_id AND v.id = e.id
  WHERE e.course_id = %s AND e.review_status = 'published'

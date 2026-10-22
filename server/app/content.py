@@ -26,7 +26,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from . import db
+from . import db, exercise_tags
 from .auth import Actor, require
 
 # 溯源解析规则只写一份：db/build_seed.py 里的 parse_source 是导入既有 4807 道题时
@@ -395,6 +395,7 @@ def read_content(course_id: str, include_retired: bool = False) -> dict:
         by_exercise.setdefault(link["exercise_id"], []).append(link["node_id"])
     for ex in exercises:
         ex["node_ids"] = by_exercise.get(ex["id"], [])
+        ex["tags"] = exercise_tags.tags_for(ex)
 
     return {"course": course, "nodes": nodes, "exercises": exercises}
 
