@@ -23,11 +23,14 @@
       variantGroups: ready.reduce((sum, course) => sum + (course.stats?.variantGroups || 0), 0),
       duplicatePaths: ready.reduce((sum, course) => sum + duplicatePathGroups(course.nodes), 0)
     };
-    const phase = ['phase-1', 'phase-2'].map(id => ({
-      id, total: planned.filter(course => course.groupId === id).length,
+    // 按方向统计接入进度：批次（一期/二期）不再出现在页面上
+    const directions = [...new Set(planned.map(course => course.groupId))].map(id => ({
+      id,
+      label: planned.find(course => course.groupId === id)?.categoryLabel || id,
+      total: planned.filter(course => course.groupId === id).length,
       ready: ready.filter(course => course.catalogPlanned && course.groupId === id).length
     }));
-    return { plannedTotal: planned.length, plannedReady: ready.filter(course => course.catalogPlanned).length, ready, pending: planned.filter(course => course.status !== 'ready'), additionalReady: ready.filter(course => !course.catalogPlanned).length, phase, totals };
+    return { plannedTotal: planned.length, plannedReady: ready.filter(course => course.catalogPlanned).length, ready, pending: planned.filter(course => course.status !== 'ready'), additionalReady: ready.filter(course => !course.catalogPlanned).length, directions, totals };
   }
   const api = { summarize };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

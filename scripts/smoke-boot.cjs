@@ -45,7 +45,7 @@ sandbox.window = sandbox;
 sandbox.window.addEventListener = () => {};
 sandbox.window.COURSE_DATA = [{
   id: 'legacy-static-only', title: '只在静态包里的旧课', status: 'ready',
-  subject: '专业课程', categoryLabel: '基础课程', stage: '一期核心课程',
+  subject: '专业课程', categoryLabel: '基础课程', direction: '分析',
   description: '旧', audience: '本科', stats: { sections: 1, knowledge: 1, exercises: 1 },
   nodes: [{ id: 'legacy-static-only', title: '旧节点', level: 1, path: ['旧'], children: [] }],
   exercises: [], relationships: [], files: [], warnings: [], attachments: []

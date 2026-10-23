@@ -1,8 +1,27 @@
 (function (root) {
   'use strict';
+  /* 课程中心按学科方向组织，不按建设批次。
+   *
+   * 一期/二期是项目管理的口径：学生找课时它不提供任何信息，而且"二期重点课程"
+   * 这种说法会让一门已经上线的课看起来像半成品。主流慕课平台与 LMS 的做法也是
+   * 按学科门类分组（并可选按学期），批次不出现在目录里。
+   *
+   * 方向定在课程上，不靠顺序推断：原来按数组下标前 10 门归一组，加一门课就会
+   * 把分组整体挤错位。
+   */
   const groups = [
-    { id: 'phase-1', label: '基础课程（一期核心课程）', shortLabel: '基础课程', stage: '一期核心课程', number: '01' },
-    { id: 'phase-2', label: '专业课程（二期重点课程）', shortLabel: '专业课程', stage: '二期重点课程', number: '02' }
+    { id: 'analysis', label: '分析', number: '01', theme: 'analysis',
+      description: '极限、连续、微分与积分，以及测度与泛函' },
+    { id: 'algebra', label: '代数与数论', number: '02', theme: 'algebra',
+      description: '线性结构、群环域与数论' },
+    { id: 'geometry', label: '几何与拓扑', number: '03', theme: 'geometry',
+      description: '空间、流形与不变量' },
+    { id: 'pde', label: '微分方程', number: '04', theme: 'pde',
+      description: '常微分方程、偏微分方程与数学建模' },
+    { id: 'probability', label: '概率统计', number: '05', theme: 'probability',
+      description: '随机现象、统计推断与金融应用' },
+    { id: 'computing', label: '计算与应用', number: '06', theme: 'algebra',
+      description: '数值方法、机器学习与运筹' }
   ];
   const rows = [
     ['algebra', '高等代数', 'algebra'],
@@ -18,8 +37,8 @@
     ['real-analysis', '实变函数', 'analysis'],
     ['functional-analysis', '泛函分析', 'analysis'],
     ['pde', '偏微分方程', 'pde'],
-    ['harmonic-analysis', '调和分析', 'pde'],
-    ['course-symplectic-math-physics', '辛几何与数学物理', 'symplectic'],
+    ['harmonic-analysis', '调和分析', 'analysis'],
+    ['course-symplectic-math-physics', '辛几何与数学物理', 'geometry'],
     ['homology', '同调论', 'geometry'],
     ['geometry', '微分几何', 'geometry'],
     ['riemannian-geometry', '黎曼几何', 'geometry'],
@@ -31,21 +50,28 @@
     ['groups-representations', '群与表示', 'algebra'],
     ['mathematical-modeling', '数学模型', 'pde'],
     ['financial-mathematics', '金融数学', 'probability'],
-    ['operations-research', '运筹学', 'algebra'],
+    ['operations-research', '运筹学', 'computing'],
     ['stochastic-processes', '随机过程', 'probability'],
     ['mathematical-statistics', '数理统计', 'probability'],
     ['risk-management', '风险管理', 'probability'],
     ['stochastic-analysis', '随机分析', 'probability'],
     ['high-dimensional-probability', '高维概率', 'probability'],
-    ['numerical-linear-algebra', '数值线代', 'algebra', ['数值线性代数']],
-    ['numerical-analysis', '数值分析', 'analysis'],
-    ['machine-learning', '机器学习', 'algebra'],
-    ['neural-networks', '神经网络', 'pde', ['神经网络与深度学习']]
+    ['numerical-linear-algebra', '数值线代', 'computing', ['数值线性代数']],
+    ['numerical-analysis', '数值分析', 'computing'],
+    ['machine-learning', '机器学习', 'computing'],
+    ['neural-networks', '神经网络', 'computing', ['神经网络与深度学习']]
   ];
+  const byId = new Map(groups.map(group => [group.id, group]));
   const normalize = title => String(title || '').normalize('NFKC').replace(/[\s()（）]/g, '');
-  const entries = rows.map(([id, title, theme, aliases = []], index) => {
-    const group = groups[index < 10 ? 0 : 1];
-    return { id, catalogId: id, title, aliases, theme, groupId: group.id, subject: group.label, categoryLabel: group.shortLabel, stage: group.stage, order: index + 1, catalogPlanned: true, audience: '本科课程', status: 'planned', description: '课程框架已建立，待接入知识图谱、知识内容与题库。' };
+  const entries = rows.map(([id, title, groupId, aliases = []], index) => {
+    const group = byId.get(groupId) || groups[0];
+    return {
+      id, catalogId: id, title, aliases, groupId: group.id,
+      subject: group.label, categoryLabel: group.label, theme: group.theme,
+      direction: group.label, order: index + 1, catalogPlanned: true,
+      audience: '本科课程', status: 'planned',
+      description: '课程框架已建立，待接入知识图谱、知识内容与题库。'
+    };
   });
   function merge(imported) {
     const used = new Set();
@@ -54,9 +80,14 @@
       const course = imported.find(item => item.id === entry.id || titles.includes(normalize(item.title)));
       if (!course) return { ...entry };
       used.add(course.id);
-      return { ...entry, ...course, catalogId: entry.id, catalogPlanned: true, order: entry.order, groupId: entry.groupId, subject: entry.subject, categoryLabel: entry.categoryLabel, stage: entry.stage, theme: entry.theme };
+      return { ...entry, ...course, catalogId: entry.id, catalogPlanned: true, order: entry.order,
+        groupId: entry.groupId, subject: entry.subject, categoryLabel: entry.categoryLabel,
+        direction: entry.direction, theme: entry.theme };
     });
-    const additional = imported.filter(course => !used.has(course.id)).map((course, index) => ({ ...course, catalogPlanned: false, groupId: 'imported', categoryLabel: '新导入课程', stage: '待归类', order: entries.length + index + 1 }));
+    const additional = imported.filter(course => !used.has(course.id)).map((course, index) => ({
+      ...course, catalogPlanned: false, groupId: 'imported', categoryLabel: '新导入课程',
+      direction: '待归类', order: entries.length + index + 1
+    }));
     return [...planned, ...additional];
   }
   const api = { groups, entries, normalize, merge };

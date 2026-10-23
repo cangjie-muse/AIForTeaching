@@ -55,7 +55,7 @@ sandbox.window.addEventListener = () => {};
 
 const course = (id, title, extra = {}) => ({
   id, title, status: 'ready', subject: '专业课程', categoryLabel: '基础课程',
-  stage: '一期核心课程', description: '简介', audience: '本科',
+  direction: '分析', description: '简介', audience: '本科',
   stats: { sections: 10, knowledge: 90, exercises: 349 },
   nodes: [{ id, title, level: 1, path: [title], children: [] }],
   exercises: [], relationships: [], files: [], warnings: [], attachments: [], ...extra
@@ -71,6 +71,8 @@ const files = ['js/course-catalog.js', 'js/course-cover-art.js', 'js/core.js',
 vm.runInContext(files.map(file => read(file)).join('\n;\n'), sandbox, { filename: 'catalog.js' });
 
 const App = sandbox.window.App;
+const CourseCatalog = sandbox.window.CourseCatalog;
+const CourseGroupIdOf = label => (CourseCatalog.groups.find(group => group.label === label) || {}).id;
 const failures = [];
 const check = (name, ok, detail = '') => {
   console.log(`  ${ok ? '✓' : '✗'} ${name}${detail ? ' — ' + detail : ''}`);
@@ -108,6 +110,21 @@ App.state.auth = { status: 'ready', actor: { id: 'acc-s', role: 'student', displ
 console.log('\n学生端目录：');
 html = App.views.catalog();
 check('学生看不到"建设中"区块', !html.includes('建设中（未发布）'), '');
+
+console.log('\n目录按学科方向组织：');
+App.dataSource = 'db';
+App.state.auth = { status: 'ready', actor: { id: 'acc-s', role: 'student', display_name: '小明' } };
+html = App.views.catalog();
+check('不再出现建设批次', !/一期|二期/.test(html), '');
+check('统计条写"个学科方向"', html.includes('个学科方向'), '');
+check('六个方向分组都在',
+  ['分析', '代数与数论', '几何与拓扑', '微分方程', '概率统计', '计算与应用']
+    .every(label => html.includes(`data-group="${CourseGroupIdOf(label)}"`)), CourseCatalog.groups.map(g => g.label).join('、'));
+check('每门课都归到某个方向',
+  CourseCatalog.entries.every(entry => CourseCatalog.groups.some(group => group.id === entry.groupId)), '');
+check('卡片显示方向而不是阶段', html.includes('card-category') && !html.includes('待归类段'));
+check('36 门课不重不漏',
+  new Set(CourseCatalog.entries.map(entry => entry.id)).size === 36 && CourseCatalog.entries.length === 36);
 
 console.log('\n后端连不上时：');
 App.dataSource = 'offline';

@@ -85,7 +85,7 @@
       <span class="pick-mark">${A.icon(ready ? entry(want).icon : 'clock')}</span>
       <span class="pick-body">
         <b>${e(course.title)}</b>
-        <small>${e(course.categoryLabel || course.subject || '')}${course.stage ? ` · ${e(course.stage)}` : ''}</small>
+        <small>${e(course.categoryLabel || course.subject || '')}${course.direction ? ` · ${e(course.direction)}` : ''}</small>
         ${counts(course)}
       </span>
       <span class="pick-go">${ready ? entry(want).action : '查看状态'}${A.icon('arrow')}</span>

@@ -73,7 +73,7 @@ sandbox.window.scrollTo = (x, y) => { windowScrollY = y; };
 Object.defineProperty(sandbox, 'scrollY', { get: () => windowScrollY });
 sandbox.COURSE_DATA = [{
   id: 'analysis', title: '数学分析', status: 'ready', subject: '专业课程',
-  categoryLabel: '基础课程', stage: '一期核心课程', description: '',
+  categoryLabel: '基础课程', direction: '分析', description: '',
   audience: '本科', stats: { sections: 8, knowledge: 159, exercises: 416 },
   nodes: [{ id: 'analysis', title: '数学分析', level: 1, path: ['数学分析'], children: [] }],
   exercises: [], relationships: [], files: [], warnings: [], attachments: []

@@ -34,13 +34,13 @@ sandbox.window = sandbox;
 sandbox.window.COURSE_DATA = [
   {
     id: 'analysis-ii', title: '数学分析II', status: 'ready', subject: '专业课程',
-    categoryLabel: '基础课程', stage: '一期核心课程', description: '不定积分与级数',
+    categoryLabel: '基础课程', direction: '分析', description: '不定积分与级数',
     stats: { sections: 10, knowledge: 90, exercises: 349 },
     nodes: [], exercises: [], files: []
   },
   {
     id: 'analysis', title: '数学分析I', status: 'ready', subject: '专业课程',
-    categoryLabel: '基础课程', stage: '一期核心课程', description: '极限与连续',
+    categoryLabel: '基础课程', direction: '分析', description: '极限与连续',
     stats: { sections: 8, knowledge: 70, exercises: 300 },
     nodes: [], exercises: [], files: []
   }

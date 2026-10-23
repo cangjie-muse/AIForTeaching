@@ -16,13 +16,23 @@ Catalog.entries.forEach(item => {
   const graphic = Covers.render(item);
   assert(graphic.includes('<svg') && !/NaN|undefined/.test(graphic), `封面图形无效：${item.title}`);
 });
-assert.equal(all.filter(item => item.groupId === 'phase-1').length, 10);
-assert.equal(all.filter(item => item.groupId === 'phase-2').length, 26);
+// 按学科方向分组：一门课的方向写在课程上，不靠数组下标推
+assert.equal(all.length, 36);
+assert.deepEqual(Catalog.groups.map(group => group.id),
+  ['analysis', 'algebra', 'geometry', 'pde', 'probability', 'computing']);
+assert.equal(all.filter(item => item.groupId === 'analysis').length, 7);
+assert.equal(all.filter(item => item.groupId === 'algebra').length, 6);
+assert.equal(all.filter(item => item.groupId === 'geometry').length, 8);
+assert.equal(all.filter(item => item.groupId === 'pde').length, 3);
+assert.equal(all.filter(item => item.groupId === 'probability').length, 7);
+assert.equal(all.filter(item => item.groupId === 'computing').length, 5);
+assert(!all.some(item => /一期|二期/.test(`${item.subject}${item.categoryLabel}${item.direction}`)),
+  '课程分类里还残留建设批次');
 assert.deepEqual(all.filter(item => item.status === 'ready').map(item => item.id), [course.id]);
-assert.equal(all[14].groupId, 'phase-2');
+assert.equal(all[14].groupId, 'geometry');  // 辛几何与数学物理
 const alias = Catalog.merge([{ id: 'imported-analysis', title: '数学分析 Ⅰ', status: 'ready', subject: '错误旧分类' }]);
 assert.equal(alias[1].id, 'imported-analysis');
-assert.equal(alias[1].subject, '基础课程（一期核心课程）');
+assert.equal(alias[1].subject, '分析');
 const extra = Catalog.merge([{ id: 'extra', title: '另一个已导入课程', status: 'ready' }]);
 assert.equal(extra.length, 37); assert.equal(extra.at(-1).catalogPlanned, false);
 assert.equal(extra.at(-1).groupId, 'imported');
@@ -61,12 +71,12 @@ assert.equal(active.length, 36 + active.filter(item => !item.catalogPlanned).len
 assert.equal(active.filter(item => item.status === 'ready').length, imported.length);
 assert.equal(summary.plannedTotal, Catalog.entries.length);
 assert.equal(summary.ready.length, imported.length);
-assert.equal(summary.phase.reduce((sum, item) => sum + item.ready, 0) + summary.additionalReady, summary.ready.length);
+assert.equal(summary.directions.reduce((sum, item) => sum + item.ready, 0) + summary.additionalReady, summary.ready.length);
 assert.equal(summary.totals.knowledge, imported.flatMap(item => item.nodes.filter(node => node.kind === 'knowledge')).length);
 assert.equal(summary.totals.exercises, imported.reduce((sum, item) => sum + item.exercises.length, 0));
 assert(summary.totals.coveredKnowledge <= summary.totals.knowledge);
-assert.equal(active.filter(item => item.groupId === 'phase-1').length, 10);
-assert.equal(active.filter(item => item.groupId === 'phase-2').length, 26);
+assert.equal(active.filter(item => item.groupId === 'analysis').length, 7);
+assert.equal(active.filter(item => item.groupId === 'computing').length, 5);
 imported.forEach(item => {
   const root = item.nodes.find(node => node.level === 1);
   const descendants = Graph.subtree(item, root.id);

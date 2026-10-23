@@ -77,7 +77,7 @@ sandbox.window = sandbox;
 sandbox.window.addEventListener = () => {};
 sandbox.window.COURSE_DATA = [{
   id: 'analysis-ii', title: '数学分析II', status: 'ready', subject: '专业课程',
-  categoryLabel: '基础课程', stage: '一期核心课程', description: '',
+  categoryLabel: '基础课程', direction: '分析', description: '',
   audience: '本科', stats: { sections: 10, knowledge: 90, exercises: 349 },
   nodes: [], exercises: [], relationships: [], files: [], warnings: [], attachments: []
 }];
