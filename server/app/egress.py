@@ -111,22 +111,41 @@ def validate_host(raw: str) -> tuple[str, str]:
     return host, ""
 
 
-def is_approved(base_url: str, extra: "frozenset[str] | set[str] | tuple[str, ...]" = ()) -> bool:
+Hosts = "frozenset[str] | set[str] | tuple[str, ...]"
+
+
+def matches(host: str, items: Hosts) -> bool:
+    """域名相同或是其子域。按域名边界匹配：evil-sophnet.com 不算 sophnet.com。"""
+    return any(host == item or host.endswith("." + item) for item in items)
+
+
+def is_blocked(base_url: str, blocked: Hosts = ()) -> bool:
+    """被管理员屏蔽。子域一起算——屏蔽 sophnet.com 却放过 www.sophnet.com
+    等于没屏蔽，而人不会记得两个都填。"""
+    host = _host(base_url)
+    return bool(host) and matches(host, blocked)
+
+
+def is_approved(base_url: str, extra: Hosts = (), blocked: Hosts = ()) -> bool:
     """已批准：域名相同或是其子域。`extra` 是库里管理员加的域名。"""
     host = _host(base_url)
-    if not host:
+    if not host or matches(host, blocked):
         return False
-    allowed = set(APPROVED_HOSTS) | set(extra)
-    # 匹配按域名边界：evil-sophnet.com 不能因为结尾像就被放行
-    return any(host == item or host.endswith("." + item) for item in allowed)
+    return matches(host, set(APPROVED_HOSTS) | set(extra))
 
 
-def classify(base_url: str, extra: "frozenset[str] | set[str] | tuple[str, ...]" = ()) -> str:
-    """返回 internal / approved / unapproved / invalid。"""
+def classify(base_url: str, extra: Hosts = (), blocked: Hosts = ()) -> str:
+    """返回 internal / blocked / approved / unapproved / invalid。
+
+    blocked 单独一档而不是并进 unapproved：排查时要能一眼看出是
+    "没人批准过这家" 还是 "有人主动屏蔽了这家"，两者该做的事完全不同。
+    """
     if not _host(base_url):
         return "invalid"
     if is_internal_url(base_url):
         return "internal"
-    if is_approved(base_url, extra):
+    if is_blocked(base_url, blocked):
+        return "blocked"
+    if matches(_host(base_url), set(APPROVED_HOSTS) | set(extra)):
         return "approved"
     return "unapproved"

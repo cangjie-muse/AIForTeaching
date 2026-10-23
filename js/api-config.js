@@ -162,6 +162,49 @@
    * 所以搬到页面上，配一句必须填的理由，写进 audit_log。
    *
    * 内置白名单单独列、且不给撤销按钮：它来自 .env，页面上假装能撤只是骗人。 */
+  /* 三种提示各占一行：拆出来既是为了复杂度，也是为了"什么情况下说什么话"能单独看。 */
+  function hostsNotice(state) {
+    if (!state.hostsNote) return '';
+    return `<p class="${state.hostsBusy ? 'muted' : 'api-note'}">${e(state.hostsNote)}</p>`;
+  }
+
+  function hostsLock(data) {
+    return data.can_edit ? '' : `<p class="api-warn">${e(data.reason)}</p>`;
+  }
+
+  function hostsAffected(data, hasBlocked) {
+    const names = data.affected || [];
+    if (!hasBlocked || !names.length) return '';
+    return `<p class="api-warn">⚠️ 正在使用的端点被屏蔽了：${names.map(e).join('、')}。
+      问答与自检会立刻报「供应商已被管理员屏蔽」，恢复后才可用。</p>`;
+  }
+
+  /* 一张"域名 / 理由 / 操作人 / 时间 / 按钮"的表。两处用它，只差按钮文案。 */
+  function hostRows(items, action, label, enabled, actorField = 'added_by') {
+    if (!items.length) {
+      return `<tr><td colspan="5" class="muted">还没有在页面上加过域名。下面内置的可用，换新供应商时才需要加。</td></tr>`;
+    }
+    return items.map(item => `<tr>
+      <td><code>${e(item.host)}</code></td>
+      <td>${e(item.note || '（没写理由）')}</td>
+      <td class="muted">${e(item[actorField] || '')}</td>
+      <td class="muted">${item.created_at ? e(String(item.created_at).slice(0, 10)) : ''}</td>
+      <td><button class="btn small text-btn" data-action="${action}"
+                  data-host="${e(item.host)}" ${enabled ? '' : 'disabled'}>${label}</button></td>
+    </tr>`).join('');
+  }
+
+  /* 内置域名来自 .env，页面改不了文件，但可以屏蔽——把它当成"临时撤掉"。
+     按钮写"屏蔽"而不是"删除"，是因为文件里那一行还在，说删除是骗人的。 */
+  function builtinRows(hosts, enabled) {
+    if (!hosts.length) return '<tr><td colspan="2" class="muted">空</td></tr>';
+    return hosts.map(host => `<tr>
+      <td><code>${e(host)}</code></td>
+      <td><button class="btn small text-btn" data-action="api-config-host-prefill"
+                  data-host="${e(host)}" ${enabled ? '' : 'disabled'}>屏蔽</button></td>
+    </tr>`).join('');
+  }
+
   function hostsPanel() {
     const state = A.state.apiConfig;
     const data = state.hosts;
@@ -181,22 +224,16 @@
     }
 
     const editable = canEdit() && data.can_edit && !state.hostsBusy;
-    const added = data.added || [];
-    const rows = added.length
-      ? added.map(item => `<tr>
-          <td><code>${e(item.host)}</code></td>
-          <td>${e(item.note || '（没写理由）')}</td>
-          <td class="muted">${e(item.added_by || '')}</td>
-          <td class="muted">${item.created_at ? e(String(item.created_at).slice(0, 10)) : ''}</td>
-          <td><button class="btn small text-btn" data-action="api-config-host-remove"
-                      data-host="${e(item.host)}" ${editable ? '' : 'disabled'}>撤销</button></td>
-        </tr>`).join('')
-      : `<tr><td colspan="5" class="muted">还没有在页面上加过域名。下面内置的可用，换新供应商时才需要加。</td></tr>`;
+    // 屏蔽只会让数据少发出去，所以它不受 internal-only 限制
+    const canBlock = canEdit() && !state.hostsBusy;
+    const blockedRows = data.blocked?.length
+      ? hostRows(data.blocked, 'api-config-host-unblock', '恢复', canBlock, 'blocked_by')
+      : '';
 
     return `<section class="panel">${head}
       <p class="muted">换一家模型供应商时，先把它的域名加进来，不用登服务器也不用重启。
-      加完立刻能用；撤销也是立刻生效。</p>
-      ${data.can_edit ? '' : `<p class="api-warn">${e(data.reason)}</p>`}
+      加完立刻能用；撤销、屏蔽也都是立刻生效。</p>
+      ${hostsLock(data)}
 
       <div class="api-base-row">
         <label for="host-input">新域名</label>
@@ -206,19 +243,31 @@
         <input id="host-note" data-input="approved-host-note" placeholder="例：SophNet，替代火山方舟"
                autocomplete="off" value="${e(state.draftNote || '')}" ${editable ? '' : 'disabled'}>
         <button class="btn primary" data-action="api-config-host-add" ${editable ? '' : 'disabled'}>添加</button>
+        <button class="btn" data-action="api-config-host-block" ${canBlock ? '' : 'disabled'}>屏蔽</button>
       </div>
       <p class="muted small">只填域名（<code>api.example.com</code>）。粘整条地址也行，会自动去掉
       <code>https://</code> 和后面的路径。通配符、IP、校内域名会被拒绝。</p>
-      ${state.hostsNote ? `<p class="${state.hostsBusy ? 'muted' : 'api-note'}">${e(state.hostsNote)}</p>` : ''}
+      ${hostsNotice(state)}
 
       <h3 class="api-subhead">页面上加的</h3>
       <div class="api-table-wrap"><table class="api-table">
         <thead><tr><th>域名</th><th>理由</th><th>添加人</th><th>时间</th><th></th></tr></thead>
-        <tbody>${rows}</tbody>
+        <tbody>${hostRows(data.added || [], 'api-config-host-remove', '撤销', editable)}</tbody>
       </table></div>
 
-      <h3 class="api-subhead">内置（来自服务器 .env，页面上撤不掉）</h3>
-      <p class="muted small">${(data.builtin || []).map(host => `<code>${e(host)}</code>`).join(' ')}</p>
+      ${blockedRows ? `<h3 class="api-subhead">已屏蔽（优先于上面的一切）</h3>
+      <div class="api-table-wrap"><table class="api-table">
+        <thead><tr><th>域名</th><th>理由</th><th>操作人</th><th>时间</th><th></th></tr></thead>
+        <tbody>${blockedRows}</tbody>
+      </table></div>
+      ${hostsAffected(data, true)}` : ''}
+
+      <h3 class="api-subhead">内置（来自服务器 .env）</h3>
+      <p class="muted small">这些改不了 .env，但可以屏蔽：屏蔽后立刻失效，需要时再恢复。</p>
+      <div class="api-table-wrap"><table class="api-table">
+        <thead><tr><th>域名</th><th></th></tr></thead>
+        <tbody>${builtinRows(data.builtin || [], canBlock)}</tbody>
+      </table></div>
     </section>`;
   }
 
@@ -404,6 +453,50 @@
       state.hostsNote = `${host} 已加入，立刻生效`;
     } catch (error) {
       state.hostsNote = `添加失败：${error.message}`;
+    }
+    state.hostsBusy = false;
+    A.render();
+  };
+
+  A.actions['api-config-host-prefill'] = function (button) {
+    const state = A.state.apiConfig;
+    state.draftHost = button.dataset.host;
+    state.hostsNote = `已填入 ${button.dataset.host}，写一句理由后点「屏蔽」`;
+    A.render();
+    document.getElementById('host-note')?.focus();
+  };
+
+  A.actions['api-config-host-block'] = async function () {
+    const state = A.state.apiConfig;
+    if (state.hostsBusy) return;
+    const host = (state.draftHost || '').trim();
+    const note = (state.draftNote || '').trim();
+    if (!host) { state.hostsNote = '先填域名'; A.render(); return; }
+    if (!note) { state.hostsNote = '屏蔽要写理由：以后有人要恢复，得先知道为什么屏蔽'; A.render(); return; }
+    state.hostsBusy = true; state.hostsNote = '正在屏蔽…';
+    A.render();
+    try {
+      state.hosts = await A.api.post('/api/v1/admin/settings/blocked-hosts', { host, note });
+      state.draftHost = ''; state.draftNote = '';
+      state.hostsNote = `${host} 已屏蔽，立刻生效`;
+    } catch (error) {
+      state.hostsNote = `屏蔽失败：${error.message}`;
+    }
+    state.hostsBusy = false;
+    A.render();
+  };
+
+  A.actions['api-config-host-unblock'] = async function (button) {
+    const state = A.state.apiConfig;
+    if (state.hostsBusy) return;
+    const host = button.dataset.host;
+    state.hostsBusy = true; state.hostsNote = `正在恢复 ${host}…`;
+    A.render();
+    try {
+      state.hosts = await A.api.del(`/api/v1/admin/settings/blocked-hosts/${encodeURIComponent(host)}`);
+      state.hostsNote = `${host} 已恢复`;
+    } catch (error) {
+      state.hostsNote = `恢复失败：${error.message}`;
     }
     state.hostsBusy = false;
     A.render();

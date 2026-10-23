@@ -404,9 +404,18 @@ def list_approved_hosts(actor: Actor = Depends(require("admin"))) -> dict:
     混在一个列表里，人会去撤销一个撤不掉的东西。
     """
     state = settings.mode()
+    blocked = settings.blocked_host_set()
+    # 屏蔽了正在用的域名会立刻让问答 400，所以要把受影响的端点当场点名
+    affected = [
+        row["name"]
+        for row in (db.query("SELECT name, base_url FROM model_endpoint") or [])
+        if llm.is_blocked(row.get("base_url") or "", blocked)
+    ]
     return {
-        "builtin": sorted(llm.APPROVED_HOSTS),
-        "added": settings.approved_hosts(),
+        "builtin": [host for host in sorted(llm.APPROVED_HOSTS) if host not in blocked],
+        "added": [row for row in settings.approved_hosts() if row["host"] not in blocked],
+        "blocked": settings.blocked_hosts(),
+        "affected": affected,
         "mode": state["mode"],
         "can_edit": state["can_edit"],
         "reason": state["reason"],
@@ -439,4 +448,35 @@ def delete_approved_host(host: str, actor: Actor = Depends(require("admin"))) ->
         raise HTTPException(409, str(error)) from error
     if not removed:
         raise HTTPException(404, f"{host} 不在列表里")
+    return list_approved_hosts(actor)
+
+
+class BlockedHostIn(BaseModel):
+    host: str = Field(min_length=1, max_length=255)
+    note: str = Field(default="", max_length=500)
+
+
+@router.post("/settings/blocked-hosts")
+def block_host(body: BlockedHostIn, actor: Actor = Depends(require("admin"))) -> dict:
+    """屏蔽一个域名——包括内置白名单里的。
+
+    屏蔽比放开安全：它只会让数据少发出去，所以 internal-only 模式下也允许。
+    """
+    if not body.note.strip():
+        raise HTTPException(400, "请写一句为什么屏蔽（以后有人要恢复，得先知道原因）")
+    try:
+        settings.block_host(body.host, body.note, actor.id)
+    except ValueError as error:
+        raise HTTPException(409, str(error)) from error
+    return list_approved_hosts(actor)
+
+
+@router.delete("/settings/blocked-hosts/{host}")
+def unblock_host(host: str, actor: Actor = Depends(require("admin"))) -> dict:
+    try:
+        removed = settings.unblock_host(llm.normalize_host(host), actor.id)
+    except ValueError as error:
+        raise HTTPException(409, str(error)) from error
+    if not removed:
+        raise HTTPException(404, f"{host} 不在屏蔽列表里")
     return list_approved_hosts(actor)

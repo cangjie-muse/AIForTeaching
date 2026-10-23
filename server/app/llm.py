@@ -43,6 +43,7 @@ from .egress import (  # noqa: E402  （放在策略段，与原来的位置对�
     VALID_MODES,
     _host,
     classify as _classify,
+    is_blocked,
     is_approved as _is_approved,
     is_internal_host,
     is_internal_url,
@@ -60,12 +61,21 @@ def db_hosts() -> frozenset[str]:
         return frozenset()
 
 
+def db_blocked() -> frozenset[str]:
+    """管理员屏蔽的域名，优先于一切白名单。"""
+    try:
+        from . import settings
+        return settings.blocked_host_set()
+    except Exception:
+        return frozenset()
+
+
 def is_approved(base_url: str) -> bool:
-    return _is_approved(base_url, db_hosts())
+    return _is_approved(base_url, db_hosts(), db_blocked())
 
 
 def classify(base_url: str) -> str:
-    return _classify(base_url, db_hosts())
+    return _classify(base_url, db_hosts(), db_blocked())
 
 
 class MissingKey(RuntimeError):
@@ -106,6 +116,13 @@ def assert_egress_allowed(endpoint: Endpoint) -> None:
     if EGRESS_MODE == "internal-only":
         raise EgressViolation(
             f"当前模式为 internal-only，拒绝调用外部模型：{endpoint.name} → {endpoint.base_url}"
+        )
+
+    if category == "blocked":
+        # 修的是"谁把它放进来"，不是"再批准一次"——所以文案完全不同
+        raise EgressViolation(
+            f"供应商已被管理员屏蔽：{endpoint.name} → {endpoint.base_url}\n"
+            f"这属于主动决策，不是配置漏填。要恢复请到「模型配置 → 出校域名」撤销屏蔽。"
         )
 
     if category == "approved":

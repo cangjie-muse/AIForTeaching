@@ -176,3 +176,56 @@ def remove_host(host: str, actor_id: str) -> bool:
         (actor_id, host),
     )
     return True
+
+
+# ---- 黑名单：把 .env 基线里的域名也拿掉 ----
+
+def blocked_hosts() -> list[dict[str, Any]]:
+    try:
+        rows = db.query(
+            """SELECT host, note, blocked_by, created_at
+                 FROM blocked_host ORDER BY created_at DESC, host"""
+        )
+    except Exception:
+        return []
+    return [dict(row) for row in rows or []]
+
+
+def blocked_host_set() -> frozenset[str]:
+    return frozenset(row["host"] for row in blocked_hosts())
+
+
+def block_host(raw: str, note: str, actor_id: str) -> dict[str, Any]:
+    """屏蔽一个域名。屏蔽永远安全（少发数据），所以 internal-only 下也允许。"""
+    host, problem = egress.validate_host(raw)
+    if problem:
+        raise ValueError(problem)
+    existing = db.query_one("SELECT host FROM blocked_host WHERE host = %s", (host,))
+    if existing:
+        raise ValueError(f"{host} 已经在屏蔽列表里了")
+    db.query(
+        """INSERT INTO blocked_host (host, note, blocked_by)
+                VALUES (%s, %s, %s)
+           ON CONFLICT (host) DO NOTHING""",
+        (host, (note or "").strip(), actor_id),
+    )
+    db.query(
+        """INSERT INTO audit_log (actor, action, entity, entity_key, detail)
+           VALUES (%s, 'host.block', 'blocked_host', %s,
+                   jsonb_build_object('note', %s::text))""",
+        (actor_id, host, (note or "").strip()),
+    )
+    return {"host": host, "note": (note or "").strip(), "blocked_by": actor_id}
+
+
+def unblock_host(host: str, actor_id: str) -> bool:
+    row = db.query_one("SELECT host FROM blocked_host WHERE host = %s", (host,))
+    if not row:
+        return False
+    db.query("DELETE FROM blocked_host WHERE host = %s", (host,))
+    db.query(
+        """INSERT INTO audit_log (actor, action, entity, entity_key, detail)
+           VALUES (%s, 'host.unblock', 'blocked_host', %s, '{}'::jsonb)""",
+        (actor_id, host),
+    )
+    return True

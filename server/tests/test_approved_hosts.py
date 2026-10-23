@@ -134,6 +134,66 @@ finally:
     db.query = saved_query
     db.query_one = saved_one
 
+print("\n屏蔽：连 .env 基线也能拿掉（前端唯一能撤掉内置域名的方式）")
+saved_query = db.query
+saved_one = db.query_one
+try:
+    # 黑名单优先于白名单，且子域一起挡——屏蔽 sophnet.com 却放过 www.sophnet.com
+    # 等于没屏蔽，而人不会记得两个都填
+    blocked = {"sophnet.com"}
+    db.query = lambda sql, params=None: (
+        [{"host": "sophnet.com", "note": "合规", "blocked_by": "admin", "created_at": None}]
+        if "FROM blocked_host" in sql else []
+    )
+    db.query_one = lambda sql, params=None: None
+    check("基线域名被屏蔽后为 blocked", llm.classify("https://sophnet.com/api") == "blocked")
+    check("子域一起挡", llm.classify("https://www.sophnet.com/api") == "blocked")
+    check("没屏蔽的基线照常", llm.classify("https://api.deepseek.com") == "approved")
+
+    # 屏蔽优先于"页面上加的"，否则加一遍再屏蔽一遍就成了拉锯
+    db.query = lambda sql, params=None: (
+        [{"host": "sophnet.com", "note": "", "blocked_by": "admin", "created_at": None}]
+        if "FROM blocked_host" in sql
+        else [{"host": "sophnet.com", "note": "", "added_by": "admin", "created_at": None}]
+        if "FROM approved_host" in sql
+        else []
+    )
+    check("屏蔽压过白名单", llm.classify("https://sophnet.com/api") == "blocked")
+
+    print("\n屏蔽的写入、审计与恢复")
+    seen: list[tuple[str, tuple | None]] = []
+    db.query = lambda sql, params=None: seen.append((sql, params)) or []
+    settings.block_host("https://WWW.Sophnet.com/x", "该厂商出了合规问题", "admin-1")
+    check("写进 blocked_host",
+          any("INSERT INTO blocked_host" in sql for sql, _ in seen))
+    check("写审计 host.block",
+          any("host.block" in sql for sql, _ in seen))
+    host_param = next(params[0] for sql, params in seen if "INSERT INTO blocked_host" in sql)
+    check("存规范化域名", host_param == "www.sophnet.com", str(host_param))
+
+    seen.clear()
+    db.query_one = lambda sql, params=None: {"host": "www.sophnet.com"}
+    check("恢复返回 True", settings.unblock_host("www.sophnet.com", "admin-1") is True)
+    check("恢复留痕 host.unblock", any("host.unblock" in sql for sql, _ in seen))
+
+    db.query_one = lambda sql, params=None: None
+    check("恢复不存在的返回 False",
+          settings.unblock_host("gone.example.com", "admin-1") is False)
+
+    print("\n屏蔽不受 internal-only 限制（它只会少发数据）")
+    saved_mode = egress.EGRESS_MODE
+    egress.EGRESS_MODE = "internal-only"
+    seen.clear()
+    db.query = lambda sql, params=None: seen.append((sql, params)) or []
+    db.query_one = lambda sql, params=None: None
+    settings.block_host("api.deepseek.com", "临时全禁", "admin-1")
+    check("internal-only 下仍可屏蔽",
+          any("INSERT INTO blocked_host" in sql for sql, _ in seen))
+    egress.EGRESS_MODE = saved_mode
+finally:
+    db.query = saved_query
+    db.query_one = saved_one
+
 print("")
 if failures:
     print(f"失败 {len(failures)} 项：{', '.join(failures)}")
