@@ -51,18 +51,31 @@
   A.views.catalog = function () {
     A.state.catalogCategory = 'all';
     const all = A.allCourses(), ready = all.filter(course => course.status === 'ready').length;
-    const filters = [{ id: 'all', label: '全部课程', count: all.length }, ...CourseCatalog.groups.map(group => ({ ...group, count: all.filter(c => c.groupId === group.id).length })), { id: 'ready', label: '已接入', count: ready }];
+    // 建设中：库里有、还没发布给学生的课。单独一档，老师不用滚到页面最底下找。
+    const drafts = (A.dataSource === 'db' && A.draftCourses) ? A.draftCourses : [];
+    const faculty = A.auth && A.auth.is('teacher', 'admin');
+    const filters = [
+      { id: 'all', label: '全部课程', count: all.length },
+      ...CourseCatalog.groups.map(group => ({ ...group, count: all.filter(c => c.groupId === group.id).length })),
+      { id: 'ready', label: '已接入', count: ready },
+      ...(drafts.length && faculty ? [{ id: 'draft', label: '正在建设', count: drafts.length }] : [])
+    ];
     const imported = all.filter(course => course.groupId === 'imported');
     const displayGroups = imported.length ? [...CourseCatalog.groups, { id: 'imported', label: '新导入课程（待归类）', number: '03' }] : CourseCatalog.groups;
     return `<div class="catalog-hero"><div class="hero-copy"><div class="eyebrow">WUHAN UNIVERSITY · MATHEMATICS</div><h1>数学课程中心</h1><p>沿着定义、定理与习题，梳理数学的来龙去脉。</p><div class="hero-actions">${A.link('探索示范课程', 'overview', A.featuredCourse()?.id, 'arrow', 'primary')}${A.link('查看建设概览', 'construction', null, '', 'light')}</div><div class="hero-caption"><span class="tiny-dot"></span>数学与统计学院 · 智慧课程建设</div></div><div class="hero-photo" role="img" aria-label="武汉大学老图书馆"></div><div class="hero-corner">珞珈 · 求知</div></div>
       <div class="catalog-stats"><div><strong>${CourseCatalog.entries.length}</strong><span>门课程</span></div><div><strong>${CourseCatalog.groups.length}</strong><span>个学科方向</span></div><div><strong>${String(ready).padStart(2, '0')}</strong><span>门已接入内容</span></div><div><strong>${String(CourseCatalog.entries.length - ready).padStart(2, '0')}</strong><span>门待接入</span></div></div>
-      <section class="catalog-section"><div class="section-heading"><div><h2>发现课程</h2><p>按学科方向组织；新导入、还没归类的课程单列在末尾。</p></div><div class="search-input">${A.icon('search')}<input id="catalog-search" data-input="filter-catalog" aria-label="搜索课程" placeholder="搜索课程名称…"></div></div><div class="catalog-filters" role="group" aria-label="课程分类">${filters.map((filter, i) => `<button class="filter-chip ${i === 0 ? 'active' : ''}" data-action="catalog-filter" data-filter="${filter.id}">${filter.label}<span>${filter.count}</span></button>`).join('')}</div><div id="course-groups">${displayGroups.map(group => catalogGroup(group, all)).join('')}${draftSection()}</div><div id="catalog-empty" hidden>${A.empty('search', '没有找到课程', '试试其他关键词，或查看全部课程。')}</div></section>${studySequence()}<footer class="page-footer"><span>智慧武大 · 数学课程平台</span><button data-action="credits">代码与资料来源 ${A.icon('link')}</button></footer>`;
+      <section class="catalog-section"><div class="section-heading"><div><h2>发现课程</h2><p>按学科方向组织；新导入、还没归类的课程单列在末尾。</p></div></div>
+      <div class="catalog-toolbar"><div class="catalog-filters" role="group" aria-label="课程分类">${filters.map((filter, i) => `<button class="filter-chip ${i === 0 ? 'active' : ''}" data-action="catalog-filter" data-filter="${filter.id}">${filter.label}<span>${filter.count}</span></button>`).join('')}</div><div class="search-input">${A.icon('search')}<input id="catalog-search" data-input="filter-catalog" aria-label="搜索课程" placeholder="搜索课程名称…"></div></div>
+      <div id="course-groups">${displayGroups.map(group => catalogGroup(group, all)).join('')}${draftSection()}</div><div id="catalog-empty" hidden>${A.empty('search', '没有找到课程', '试试其他关键词，或查看全部课程。')}</div></section>${studySequence()}<footer class="page-footer"><span>智慧武大 · 数学课程平台</span><button data-action="credits">代码与资料来源 ${A.icon('link')}</button></footer>`;
   };
   function filterCatalog() {
     const query = CourseCatalog.normalize(document.getElementById('catalog-search').value).toLowerCase();
     const category = A.state.catalogCategory || 'all';
     const courses = new Map(A.allCourses().map(course => [course.id, course]));
-    (A.draftCourses || []).forEach(row => courses.set(row.id, { ...row, description: '' }));
+    // 建设中的课单独归到 draft 档：它们不在 allCourses 里，得自己标注分组
+    (A.draftCourses || []).forEach(row => courses.set(row.id, {
+      ...row, description: '', groupId: 'draft', status: 'draft'
+    }));
     let count = 0;
     document.querySelectorAll('.course-card').forEach(card => {
       const course = courses.get(card.dataset.courseId);
@@ -82,5 +95,16 @@
     A.state.catalogCategory = button.dataset.filter;
     document.querySelectorAll('.filter-chip').forEach(el => el.classList.toggle('active', el === button));
     filterCatalog();
+    scrollToCategory(A.state.catalogCategory);
   };
+
+  /* 点分类就跳到那一组：让人自己往下滚，滚着滚着就不知道在看哪一档了。
+     「全部」「已接入」这种跨组的档回到列表开头。 */
+  function scrollToCategory(category) {
+    const group = ['all', 'ready'].includes(category)
+      ? document.getElementById('course-groups')
+      : document.querySelector(`.catalog-group[data-group="${category}"]`);
+    if (!group || group.hidden) return;
+    group.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 })();

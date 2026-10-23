@@ -112,6 +112,11 @@ check('点卡片直接打开这门课', App.state.content.courseId === 'real-ana
 check('点卡片直接停在「修改与导出」', App.state.content.tab === 'edit', App.state.content.tab);
 check('点卡片跳到内容页', sandbox.location.hash === '#/content', sandbox.location.hash);
 
+check('筛选条里有「正在建设」一档', html.includes('data-filter="draft"'), '');
+check('「正在建设」写清有几门', /data-filter="draft">正在建设<span>1</.test(html), '');
+check('搜索与标签在同一个吸顶工具条里',
+  /catalog-toolbar[^>]*>[\s\S]{0,300}catalog-filters[\s\S]{0,3000}search-input/.test(html), '');
+
 check('建设中卡片带上这门课的 id', /data-action="course-open-content" data-id="real-analysis"/.test(html),
   '');
 

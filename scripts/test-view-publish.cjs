@@ -40,7 +40,7 @@ vm.createContext(sandbox);
 
 const bundle = [
   'js/course-catalog.js', 'js/core.js', 'js/visual-identity.js',
-  'js/api-client.js', 'js/generate.js', 'js/content.js'
+  'js/api-client.js', 'js/generate.js', 'js/publish-panel.js', 'js/content.js'
 ].map(file => fs.readFileSync(path.join(root, file), 'utf8')).join('\n;\n');
 vm.runInContext(bundle, sandbox, { filename: 'bundle.js' });
 
@@ -81,53 +81,90 @@ check('null 元素被跳过', App.mergePublishedCourses([null, undefined]) === 0
 
 console.log('\n发布面板：');
 
-function reset(publish) {
-  App.state.content = {
-    tab: 'edit', courses: [{ id: 'analysis-ii', title: '数学分析 II' }], loaded: true,
-    courseId: 'analysis-ii', preview: null, importError: '', importing: false,
-    importResult: null, mode: 'replace', editKey: '', editDraft: null, saving: false,
-    error: '', notice: '', publish,
-    content: {
-      course: { id: 'analysis-ii', title: '数学分析 II' },
-      nodes: [{ id: 'kp-1', title: '确界原理', level: 3, tags: [], content_md: '正文', review_status: 'draft' }],
-      exercises: [{ id: 'ex-1', prompt_md: '题干', answer_md: '答', difficulty: 2, source_raw: '', review_status: 'published', node_ids: ['kp-1'] }]
-    }
+function resetPublish(status) {
+  App.state.publish = {
+    courseId: 'analysis-ii', status, loading: false, saving: false, error: '', notice: ''
   };
+  App.state.review = {
+    courses: [{ id: 'analysis-ii', title: '数学分析 II' }],
+    filters: { course_id: 'analysis-ii' }
+  };
+  App.state.content = { courses: [{ id: 'analysis-ii', title: '数学分析 II' }], courseId: 'analysis-ii' };
 }
 
-reset({ nodes: 3, published: 0, hidden: 5, published_at: null });
-let html = App.views.content();
-check('未发布时显示未发布徽标', html.includes('未发布'));
-check('没有已发布题时发布按钮禁用', /data-action="content-publish"[^>]*disabled/.test(html), '');
-check('并提示去审核队列', html.includes('内容审核'));
+resetPublish(null);
+let html = App.publishPanel('');
+check('没选课先说去选课', html.includes('先选一门课'));
 
-reset({ nodes: 3, published: 2, hidden: 5, published_at: '2026-10-21T04:00:00Z' });
-html = App.views.content();
+resetPublish({ nodes: 3, published: 0, hidden: 5, published_at: null });
+html = App.publishPanel('analysis-ii');
+check('未发布时显示未发布徽标', html.includes('未发布'));
+check('未发布时给两个动作',
+  html.includes('publish-to-students') && html.includes('publish-all'));
+check('说明发布只管已审的题', html.includes('「人工已审」的题一起放出'));
+check('指路「批量通过」', html.includes('批量通过'));
+
+resetPublish({ nodes: 3, published: 2, hidden: 5, published_at: '2026-10-21T04:00:00Z' });
+html = App.publishPanel('analysis-ii');
 check('已发布时显示已发布徽标', html.includes('已发布'));
-check('已发布时能撤回', html.includes('content-unpublish'));
-check('已发布时不再显示重复的发布按钮', !html.includes('重新发布'));
+check('已发布时能撤回', html.includes('publish-retract'));
+check('已发布时不出现发布按钮', !html.includes('publish-to-students'));
 check('给出发布时间', html.includes('2026-10-21 04:00'), '');
 check('说明改动即时生效（发布是闸门不是快照）', html.includes('立刻生效'));
+
+// 课程内容页不再管发布，只留一句指路
+App.state.content = {
+  tab: 'edit', courses: [{ id: 'analysis-ii', title: '数学分析 II' }], loaded: true,
+  courseId: 'analysis-ii', preview: null, importError: '', importing: false,
+  importResult: null, mode: 'replace', editKey: '', editDraft: null, saving: false,
+  error: '', notice: '', publish: null,
+  content: {
+    course: { id: 'analysis-ii', title: '数学分析 II' },
+    nodes: [{ id: 'kp-1', title: '确界原理', level: 3, tags: [], content_md: '正文', review_status: 'draft' }],
+    exercises: []
+  }
+};
+html = App.views.content();
+check('内容页不再有发布按钮', !html.includes('data-action="content-publish"'));
+check('内容页指向审核页发布', html.includes('去审核页发布'));
 
 (async () => {
   console.log('\n发布动作：');
   const calls = [];
   sandbox.window.fetch = (url, options) => {
     calls.push({ url: String(url), options });
-    const body = JSON.stringify({ nodes: 3, published: 2, hidden: 5, published_at: '2026-10-21T04:00:00Z', exercises: 2, drafts_hidden: 5 });
-    return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(body), json: () => Promise.resolve(JSON.parse(body)) });
+    const body = JSON.stringify({
+      nodes: 3, published: 2, hidden: 5, published_at: null,
+      exercises: 2, drafts_hidden: 5, course_id: 'analysis-ii'
+    });
+    return Promise.resolve({
+      ok: true, status: 200,
+      text: () => Promise.resolve(body), json: () => Promise.resolve(JSON.parse(body))
+    });
   };
-  reset({ nodes: 3, published: 2, hidden: 5, published_at: null });
-  await App.actions['content-publish']();
+
+  resetPublish({ nodes: 3, published: 2, hidden: 5, published_at: null });
+  await App.actions['publish-to-students']();
   check('发布打到 /publish',
     calls.some(call => /\/courses\/analysis-ii\/publish$/.test(call.url)),
     calls.map(call => call.url.split('/api/v1')[1] || call.url).join(' '));
-  check('发布后提示里说明藏了多少题', String(App.state.content.notice).includes('5'),
-    String(App.state.content.notice));
+  check('发布后提示里说明藏了多少题', String(App.state.publish.notice).includes('5'),
+    String(App.state.publish.notice));
 
   calls.length = 0;
-  reset({ nodes: 3, published: 2, hidden: 5, published_at: '2026-10-21T04:00:00Z' });
-  await App.actions['content-unpublish']();
+  resetPublish({ nodes: 3, published: 0, hidden: 269, published_at: null });
+  await App.actions['publish-all']();
+  check('整课放出先打 publish-all',
+    calls.some(call => /\/exercises\/publish-all$/.test(call.url)),
+    calls.map(call => call.url.split('/api/v1')[1] || call.url).join(' '));
+  check('整课放出顺带把课程发布',
+    calls.some(call => /\/courses\/analysis-ii\/publish$/.test(call.url)));
+  check('整课放出提示里说明跳过审核',
+    String(App.state.publish.notice).includes('没有人工校验标记'), String(App.state.publish.notice));
+
+  calls.length = 0;
+  resetPublish({ nodes: 3, published: 2, hidden: 5, published_at: '2026-10-21T04:00:00Z' });
+  await App.actions['publish-retract']();
   check('撤回打到 /unpublish', calls.some(call => /\/unpublish$/.test(call.url)),
     calls.map(call => call.url.split('/api/v1')[1] || call.url).join(' '));
 

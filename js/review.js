@@ -489,8 +489,12 @@
     const openId = state.open;
     const detail = openId ? state.items.find(item => String(item.task_id) === String(openId)) : null;
 
+    // 发布放在审核页：审完一批题，就地决定放不放出去。
+    const publishBlock = state.tab === 'exercises' || !state.tab
+      ? A.publishPanel(state.filters.course_id) : '';
     return heading + tabs() + statsPanel()
       + `<div class="rv-filters">${courseFilter()}${issueSummary()}</div>`
+      + publishBlock
       + A.reviewScopeOf().lookupBar() + A.reviewScopeOf().ledgerPanel() + `
       <div class="rv-layout ${detail ? 'has-detail' : ''}">
         ${listPanel()}
@@ -500,6 +504,9 @@
 
   A.after.review = function () {
     if (S().status === 'idle') load();
+    if (S().filters.course_id && !A.state.publish.status) {
+      A.loadPublish(S().filters.course_id).then(() => A.render());
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -517,6 +524,8 @@
     S().filters.course_id = select.value;
     S().graph = null;
     S().editingNode = '';
+    // 发布状态跟着选的课走：选了课才谈得上发布
+    if (select.value) A.loadPublish(select.value).then(() => A.render());
     reload();
   };
 

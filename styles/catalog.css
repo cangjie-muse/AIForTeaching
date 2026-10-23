@@ -4,6 +4,15 @@
 .phase-number{font:italic 28px Georgia,serif;color:#a9bbd6;min-width:42px}
 .catalog-group-heading h3{font-size:19px;font-weight:600;color:#38567e}
 .catalog-group-heading p{font-size:11px;color:#8f9fb5;margin-top:5px}
+/* 筛选条吸顶：课程多起来以后，翻到下面想换个分类得滚回最上面，
+   于是"换个分类看看"这件事就没发生过。标签与搜索固定在一起，随时能点。 */
+.catalog-toolbar{position:sticky;top:0;z-index:6;display:flex;align-items:center;gap:14px;
+  justify-content:space-between;padding:10px 0;background:var(--paper);
+  box-shadow:0 10px 14px -12px #14326940}
+.catalog-toolbar .catalog-filters{margin:0;flex:1;min-width:0}
+.catalog-toolbar .search-input{flex:0 0 auto}
+/* 跳转过去时别让分组标题被吸顶条盖住 */
+.catalog-group{scroll-margin-top:92px}
 .catalog-filters{flex-wrap:wrap}
 .filter-chip[data-filter="ready"]{border-color:#dbe6f5;color:#4b78ae}
 .filter-chip[data-filter="ready"].active{background:#2854a0;color:white;border-color:#2854a0}

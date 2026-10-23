@@ -386,35 +386,21 @@
       ${S().error ? `<p class="small">${e(S().error)}</p>` : ''}
     </div>`;
     if (!content) return heading;
-    return heading + publishPanel() + nodeList(content) + exerciseList(content);
+    return heading + publishHint() + nodeList(content) + exerciseList(content);
   }
 
   // 发布是"课程级"开关：条目级发布（审核页逐题点）只决定单条能不能露出来，
   // 这一层决定整门课在学生端存不存在。没发布时公开目录里根本不出现这门课。
-  function publishPanel() {
-    const state = S().publish;
-    if (!state) return `<div class="panel"><p class="muted small">读取发布状态…</p></div>`;
-    const published = Boolean(state.published_at);
-    return `<div class="panel">
-      <div class="panel-heading"><h2>学生端发布</h2>
-        ${published ? A.badge('已发布', 'green') : A.badge('未发布', 'amber')}</div>
-      <table class="data-table"><tbody>
-        <tr><th>知识点（学生可见）</th><td>${Number(state.nodes) || 0}</td></tr>
-        <tr><th>已审核发布的题</th><td>${Number(state.published) || 0}</td></tr>
-        <tr><th>不会出现的题（草稿/待审/停用）</th><td>${Number(state.hidden) || 0}</td></tr>
-        ${published && state.published_at ? `<tr><th>发布时间</th><td>${e(String(state.published_at).slice(0, 19).replace('T', ' '))}</td></tr>` : ''}
-      </tbody></table>
-      <p class="muted small">${published
-        ? '学生端直接读库里的内容：改知识点正文、标签或题干会立刻生效（题目本身仍须是「已发布」状态）。新导入的题要等它被发布才会出现。'
-        : '发布 = 把「人工已审」的题一起放出，其余仍然隐藏。审核是逐题的动作（「内容审核」里通过或批量通过），发布是整门课的开关。'}</p>
-      <div class="button-row">
-        ${published
-          ? `<button class="btn" data-action="content-unpublish" ${S().saving ? 'disabled' : ''}>撤回发布</button>`
-          : `<button class="btn primary" data-action="content-publish" ${S().saving ? 'disabled' : ''}>发布到学生端</button>
-             <button class="btn" data-action="content-publish-all" ${S().saving ? 'disabled' : ''}>放出全部题目并发布</button>`}
-      </div>
-      ${published ? '' : `<p class="muted small">还没有题被发布时，两条路：① 去「内容审核」勾选后批量通过，再回来点发布（已审的题会在这一步一起放出）；② 点「放出全部题目并发布」——跳过逐题审核，可信度仍显示「未经人工校验」，审计日志记下是你做的。</p>`}
-    </div>`;
+  /* 发布挪到审核页了：上传只管把内容放进库。这里只留一句去哪儿点，
+     免得人在这一页上找不到"发布"以为没有这个功能。 */
+  function publishHint() {
+    const status = (A.state.publish && A.state.publish.courseId === S().courseId)
+      ? A.state.publish.status : null;
+    return `<div class="panel"><div class="panel-heading"><h2>发布</h2>
+      ${status && status.published_at ? A.badge('已发布给学生', 'green') : A.badge('未发布', 'amber')}</div>
+      <p class="muted small">上传只把内容写进库，发布在「内容审核」里做：审完可以一键发给学生。
+        ${status ? `当前这门课：${Number(status.published) || 0} 道题已发布，${Number(status.nodes) || 0} 个知识点。` : ''}</p>
+      <div class="button-row">${A.link('去审核页发布', 'review', null, '', 'primary')}</div></div>`;
   }
 
   function nodeList(content) {
@@ -711,61 +697,10 @@
     A.render();
   }
 
-  A.actions['content-publish'] = async () => {
-    S().saving = true;
-    try {
-      const result = await A.api.publishCourse(S().courseId);
-      const hiddenNote = result.drafts_hidden ? `；${result.drafts_hidden} 道未审核发布的题仍然隐藏` : '';
-      S().notice = `已发布：学生端可见 ${result.exercises} 道题、${result.nodes} 个知识点`
-        + hiddenNote + '。' + (result.warning ? `注意：${result.warning}` : '');
-      S().publish = await A.api.publishStatus(S().courseId);
-      if (A.loadCatalog) A.loadCatalog();  // 目录里的「建设中」要跟着消失
-    } catch (error) {
-      S().error = error.message;
-    } finally {
-      S().saving = false;
-      A.render();
-    }
-  };
 
   /* 整本书的题一次放出。可信度不会因此变成"已人工校验"——
      发布与验证是两件事，替 486 道题盖章只会让"人工已审"这个标记变得不可信。 */
-  A.actions['content-publish-all'] = async () => {
-    const hidden = Number((S().publish || {}).hidden) || 0;
-    const nodes = Number((S().publish || {}).nodes) || 0;  // 确认框里要写清会放出什么
-    const answer = window.confirm(`把本课 ${hidden} 道题全部标为「已发布」，并把这门课发布到学生端？\n\n`
-      + `· 学生将看到 ${nodes} 个知识点与 ${hidden} 道题；\n`
-      + '· 这会跳过逐题审核，可信度仍显示「未经人工校验」；\n'
-      + '· 审计日志会记下是你做的，事后查得到。');
-    if (!answer) return;
-    S().saving = true;
-    try {
-      const result = await A.api.publishAllExercises(S().courseId, '整课放出（跳过逐题审核）');
-      const published = await A.api.publishCourse(S().courseId, '整课放出后发布');
-      S().notice = `已放出 ${result.published} 道题，课程已发布：`
-        + `学生端可见 ${published.nodes} 个知识点、${published.exercises} 道题。`
-        + (result.published
-          ? '这些题没有人工校验标记，可见范围若设成「仅人工审核」仍不会放出来。'
-          : '这门课一道题都没有，学生只能看知识点。');
-      S().publish = await A.api.publishStatus(S().courseId);
-      if (A.loadCatalog) A.loadCatalog();
-    } catch (error) { S().error = error.message; } finally { S().saving = false; A.render(); }
-  };
 
-  A.actions['content-unpublish'] = async () => {
-    if (!window.confirm('撤回发布？学生端将立刻看不到这门课。')) return;
-    S().saving = true;
-    try {
-      await A.api.unpublishCourse(S().courseId);
-      S().notice = '已撤回发布，学生端不再出现这门课。';
-      S().publish = await A.api.publishStatus(S().courseId);
-    } catch (error) {
-      S().error = error.message;
-    } finally {
-      S().saving = false;
-      A.render();
-    }
-  };
 
   A.actions['content-export'] = async () => {
     try { await exportBundle(); }

@@ -163,21 +163,6 @@ check('导入结果给批次号', html.includes('abc123'));
 check('导入结果说清停用了多少题', html.includes('4') && html.includes('习题停用'));
 check('导入结果能跳到图谱与审核', html.includes('#/course/analysis-ii/graph') || html.includes('/graph'));
 
-// 4b. 发布面板：导入完 0 题发布也要能走下去，别只给一个灰按钮
-reset({ tab: 'edit', courseId: 'analysis-ii', publish: { nodes: 44, published: 0, hidden: 269 },
-  content: { course: { id: 'analysis-ii', title: 'x' }, nodes: [], exercises: [] } });
-html = App.views.content();
-check('未发布时两条路都写着', html.includes('批量通过') && html.includes('放出全部题目并发布'), '');
-check('发布按钮不因为 0 题而禁用',
-  !/data-action="content-publish"[^>]*disabled/.test(html), '');
-check('说清放出全部题目不改成人工校验', html.includes('未经人工校验'), '');
-
-reset({ tab: 'edit', courseId: 'analysis-ii',
-  publish: { nodes: 44, published: 269, hidden: 0, published_at: '2026-10-20T10:00:00' },
-  content: { course: { id: 'analysis-ii', title: 'x' }, nodes: [], exercises: [] } });
-html = App.views.content();
-check('已发布时给撤回发布', html.includes('撤回发布') && !html.includes('放出全部题目并发布'), '');
-
 // 5. 修改与导出：知识点、习题都能改，停用走 retired
 reset({ tab: 'edit', content: {
   course: { id: 'analysis-ii', title: '数学分析 II' },
