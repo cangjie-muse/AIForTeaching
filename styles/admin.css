@@ -246,3 +246,24 @@
 @media(max-width:720px){
   .ri-table{display:block;overflow-x:auto}
 }
+
+/* 出校域名面板：两处提示文字要能区分"警告"和"刚做完什么" */
+.api-warn {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #b4543f;
+}
+
+.api-note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #467b64;
+}
+
+.api-subhead {
+  margin: 20px 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  font-weight: 600;
+}

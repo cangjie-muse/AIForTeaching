@@ -155,6 +155,12 @@ check("sophnet.com.example.org 也不能冒充",
 saved = os.environ.get("MODEL_ALLOWED_HOSTS")
 os.environ["MODEL_ALLOWED_HOSTS"] = "only.example.com"
 import importlib
+
+from app import egress as egress_mod  # noqa: E402
+
+# 环境变量只在模块加载时读一次（= 进程启动时）。所以这里要先重载 egress
+# 再重载 llm，模拟"改完 .env 重启服务"；只重载 llm 不会重新读 env。
+importlib.reload(egress_mod)
 fresh = importlib.reload(llm)
 check("MODEL_ALLOWED_HOSTS 设了就完全接管默认列表",
       fresh.classify("https://only.example.com/v1") == "approved")
@@ -164,6 +170,7 @@ if saved is None:
     os.environ.pop("MODEL_ALLOWED_HOSTS", None)
 else:
     os.environ["MODEL_ALLOWED_HOSTS"] = saved
+importlib.reload(egress_mod)
 importlib.reload(llm)
 
 print("")

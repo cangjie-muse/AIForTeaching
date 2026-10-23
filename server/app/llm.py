@@ -22,7 +22,6 @@
 
 from __future__ import annotations
 
-import ipaddress
 import json
 import os
 import urllib.error
@@ -35,23 +34,38 @@ from typing import Any
 # 策略
 # ---------------------------------------------------------------------------
 
-# 已批准可用于含校内内容请求的供应商域名（含子域）
-APPROVED_HOSTS: frozenset[str] = frozenset(
-    h.strip().lower()
-    for h in os.environ.get(
-        "MODEL_ALLOWED_HOSTS",
-        "api.deepseek.com,api.moonshot.cn,platform.kimi.com,"
-        "dashscope.aliyuncs.com,dashscope-intl.aliyuncs.com,open.bigmodel.cn,"
-        "ark.cn-beijing.volces.com,ark.cn-shanghai.volces.com,"
-        "sophnet.com,www.sophnet.com",
-    ).split(",")
-    if h.strip()
+# 出校策略在 egress.py：默认白名单、校内判定、域名规范化都在那里。
+# 这里把它们接到"库里的域名"上——管理员可以在前端加，不必登服务器改 .env。
+from .egress import (  # noqa: E402  （放在策略段，与原来的位置对应）
+    APPROVED_HOSTS,
+    EGRESS_MODE,
+    INTERNAL_SUFFIXES,
+    VALID_MODES,
+    _host,
+    classify as _classify,
+    is_approved as _is_approved,
+    is_internal_host,
+    is_internal_url,
+    normalize_host,
+    validate_host,
 )
 
-INTERNAL_SUFFIXES = (".edu.cn", ".local", ".internal", ".lan")
 
-EGRESS_MODE = os.environ.get("MODEL_EGRESS", "allowlist").lower()
-VALID_MODES = {"allowlist", "any", "internal-only"}
+def db_hosts() -> frozenset[str]:
+    """管理员在页面上加的出校域名。库不可用就当没有，不影响 .env 那条路。"""
+    try:
+        from . import settings
+        return settings.approved_host_set()
+    except Exception:
+        return frozenset()
+
+
+def is_approved(base_url: str) -> bool:
+    return _is_approved(base_url, db_hosts())
+
+
+def classify(base_url: str) -> str:
+    return _classify(base_url, db_hosts())
 
 
 class MissingKey(RuntimeError):
@@ -69,48 +83,6 @@ class Endpoint:
     model: str
     kind: str           # chat | embedding
     dim: int | None = None   # embedding 维度
-
-
-def _host(base_url: str) -> str:
-    try:
-        return (urllib.parse.urlparse(base_url).hostname or "").lower().rstrip(".")
-    except ValueError:
-        return ""
-
-
-def is_internal_url(base_url: str) -> bool:
-    """校内地址：本机、私网、校内域名。无法判断时返回 False。"""
-    host = _host(base_url)
-    if not host:
-        return False
-    if host in ("localhost", "127.0.0.1", "::1"):
-        return True
-    if host.endswith(INTERNAL_SUFFIXES):
-        return True
-    try:
-        ip = ipaddress.ip_address(host)
-    except ValueError:
-        return False
-    return ip.is_private or ip.is_loopback or ip.is_link_local
-
-
-def is_approved(base_url: str) -> bool:
-    """已批准的供应商：域名相同或是其子域。"""
-    host = _host(base_url)
-    if not host:
-        return False
-    return any(host == allowed or host.endswith("." + allowed) for allowed in APPROVED_HOSTS)
-
-
-def classify(base_url: str) -> str:
-    """返回 internal / approved / unapproved / invalid。"""
-    if not _host(base_url):
-        return "invalid"
-    if is_internal_url(base_url):
-        return "internal"
-    if is_approved(base_url):
-        return "approved"
-    return "unapproved"
 
 
 def assert_egress_allowed(endpoint: Endpoint) -> None:
@@ -145,7 +117,8 @@ def assert_egress_allowed(endpoint: Endpoint) -> None:
     raise EgressViolation(
         f"供应商未批准：{endpoint.name} → {endpoint.base_url}\n"
         f"请求会包含校内教材片段与题目内容，必须先确认该供应商可接收。\n"
-        f"确认后加入白名单：MODEL_ALLOWED_HOSTS={','.join(sorted(APPROVED_HOSTS))},<新域名>\n"
+        f"处理办法：「模型配置 → 出校域名」里加一行（管理员可操作，立即生效），\n"
+        f"或者改 .env 的 MODEL_ALLOWED_HOSTS={','.join(sorted(APPROVED_HOSTS)[:4])},... 后重启。\n"
         f"临时调试可用 MODEL_EGRESS=any（生产禁止）。"
     )
 

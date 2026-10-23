@@ -85,6 +85,11 @@ class QaFallbackIn(BaseModel):
     enabled: bool
 
 
+class ApprovedHostIn(BaseModel):
+    host: str = Field(min_length=1, max_length=255)
+    note: str = Field(default="", max_length=500)
+
+
 # ---------------------------------------------------------------------------
 # 校验与密钥文件
 # ---------------------------------------------------------------------------
@@ -385,3 +390,53 @@ def set_qa_fallback(body: QaFallbackIn, actor: Actor = Depends(require("admin"))
                        note="知识库无依据时使用通用模型回答" if body.enabled
                        else "严格模式：无依据即拒答")
     return get_qa_fallback(actor)
+
+
+# ---------------------------------------------------------------------------
+# 出校域名（管理员在前端加，不必登服务器改 .env）
+# ---------------------------------------------------------------------------
+
+@router.get("/settings/approved-hosts")
+def list_approved_hosts(actor: Actor = Depends(require("admin"))) -> dict:
+    """内置白名单 + 页面上加过的，分开返回。
+
+    分开是因为两者撤销方式不同：内置的要改 .env 重启，页面上加的可以一键撤销。
+    混在一个列表里，人会去撤销一个撤不掉的东西。
+    """
+    state = settings.mode()
+    return {
+        "builtin": sorted(llm.APPROVED_HOSTS),
+        "added": settings.approved_hosts(),
+        "mode": state["mode"],
+        "can_edit": state["can_edit"],
+        "reason": state["reason"],
+    }
+
+
+@router.post("/settings/approved-hosts")
+def add_approved_host(body: ApprovedHostIn, actor: Actor = Depends(require("admin"))) -> dict:
+    """批准一个域名。立刻生效——不用重启，下次调用模型时就会读到。"""
+    host, problem = llm.validate_host(body.host)
+    if problem:
+        raise HTTPException(400, problem)
+    if settings.get_host(host):
+        raise HTTPException(409, f"{host} 已经在列表里了")
+    if not body.note.strip():
+        # 出校放行是要事后能被解释的决定，空备注等于没留证据
+        raise HTTPException(400, "请写一句为什么允许它接收课程内容（审计要能看懂）")
+    try:
+        settings.add_host(body.host, body.note, actor.id)
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from error
+    return list_approved_hosts(actor)
+
+
+@router.delete("/settings/approved-hosts/{host}")
+def delete_approved_host(host: str, actor: Actor = Depends(require("admin"))) -> dict:
+    try:
+        removed = settings.remove_host(llm.normalize_host(host), actor.id)
+    except ValueError as error:
+        raise HTTPException(409, str(error)) from error
+    if not removed:
+        raise HTTPException(404, f"{host} 不在列表里")
+    return list_approved_hosts(actor)

@@ -15,7 +15,9 @@
     // 问答语料：corpus 为 null 表示没读到（页面照常显示端点，不整页失败）
     corpus: null, corpusError: '', corpusBusy: false, corpusNote: '',
     // 平台开关：null 表示没读到；forced=true 表示被 .env 一票否决
-    qaFallback: null, qaFallbackError: '', qaFallbackBusy: false
+    qaFallback: null, qaFallbackError: '', qaFallbackBusy: false,
+    // 出校域名：added 是页面上加的（可撤销），builtin 是 .env/默认的（改不了）
+    hosts: null, hostsError: '', hostsBusy: false, hostsNote: '' 
   };
 
   async function load() {
@@ -25,12 +27,13 @@
     state.corpusBusy = false;
     A.render();
     try {
-      const [me, list, corpus, fallback] = await Promise.all([
+      const [me, list, corpus, fallback, hosts] = await Promise.all([
         A.api.get('/api/v1/admin/whoami'),
         A.api.get('/api/v1/admin/model-endpoints'),
         // 语料读不到不该拖垮整页：端点配置本身是能用的
         A.api.get('/api/v1/admin/qa-corpus').catch(error => ({ __error: error.message })),
-        A.api.get('/api/v1/admin/settings/qa-fallback').catch(error => ({ __error: error.message }))
+        A.api.get('/api/v1/admin/settings/qa-fallback').catch(error => ({ __error: error.message })),
+        A.api.get('/api/v1/admin/settings/approved-hosts').catch(error => ({ __error: error.message }))
       ]);
       state.me = me; state.items = list.items || []; state.status = 'ready';
       if (corpus && !corpus.__error) {
@@ -42,6 +45,11 @@
         state.qaFallback = fallback; state.qaFallbackError = '';
       } else {
         state.qaFallback = null; state.qaFallbackError = fallback?.__error || '';
+      }
+      if (hosts && !hosts.__error) {
+        state.hosts = hosts; state.hostsError = '';
+      } else {
+        state.hosts = null; state.hostsError = hosts?.__error || '';
       }
     } catch (error) {
       // 失败后停在 error 状态。若这里置回 idle，A.after 会立刻重新请求，
@@ -146,6 +154,74 @@
    * 这段是 2026-10-22 "问答说没有知识片段"的直接产物：那一页会拒答，唯一原因
    * 是 textbook_chunk 一行都没有，而界面上又看不到这件事。所以把"每门课切了
    * 多少块"摆出来，并给管理员一个按钮——否则用户只能靠猜。 */
+
+  /* 出校域名：为什么它要出现在这里。
+   *
+   * 每换一家模型供应商就要登服务器改 .env 再重启，这一步以前完全卡在运维身上。
+   * 但"允许谁接收课程内容"本身是个教学决定，该由管理员当场拍板；
+   * 所以搬到页面上，配一句必须填的理由，写进 audit_log。
+   *
+   * 内置白名单单独列、且不给撤销按钮：它来自 .env，页面上假装能撤只是骗人。 */
+  function hostsPanel() {
+    const state = A.state.apiConfig;
+    const data = state.hosts;
+    const head = `<div class="panel-heading">
+        <h2>出校域名</h2>
+        <div class="button-row">
+          ${data ? A.badge(data.mode === 'allowlist' ? '白名单模式' : data.mode, data.can_edit ? '' : 'amber') : ''}
+        </div>
+      </div>`;
+
+    if (state.hostsError || !data) {
+      return `<section class="panel">${head}
+        <p class="muted">${state.hostsError
+          ? `读取失败：<code>${e(state.hostsError)}</code>（不影响上面的端点配置）`
+          : '正在读取白名单…'}</p>
+      </section>`;
+    }
+
+    const editable = canEdit() && data.can_edit && !state.hostsBusy;
+    const added = data.added || [];
+    const rows = added.length
+      ? added.map(item => `<tr>
+          <td><code>${e(item.host)}</code></td>
+          <td>${e(item.note || '（没写理由）')}</td>
+          <td class="muted">${e(item.added_by || '')}</td>
+          <td class="muted">${item.created_at ? e(String(item.created_at).slice(0, 10)) : ''}</td>
+          <td><button class="btn small text-btn" data-action="api-config-host-remove"
+                      data-host="${e(item.host)}" ${editable ? '' : 'disabled'}>撤销</button></td>
+        </tr>`).join('')
+      : `<tr><td colspan="5" class="muted">还没有在页面上加过域名。下面内置的可用，换新供应商时才需要加。</td></tr>`;
+
+    return `<section class="panel">${head}
+      <p class="muted">换一家模型供应商时，先把它的域名加进来，不用登服务器也不用重启。
+      加完立刻能用；撤销也是立刻生效。</p>
+      ${data.can_edit ? '' : `<p class="api-warn">${e(data.reason)}</p>`}
+
+      <div class="api-base-row">
+        <label for="host-input">新域名</label>
+        <input id="host-input" data-input="approved-host" placeholder="api.example.com"
+               autocomplete="off" value="${e(state.draftHost || '')}" ${editable ? '' : 'disabled'}>
+        <label for="host-note">理由</label>
+        <input id="host-note" data-input="approved-host-note" placeholder="例：SophNet，替代火山方舟"
+               autocomplete="off" value="${e(state.draftNote || '')}" ${editable ? '' : 'disabled'}>
+        <button class="btn primary" data-action="api-config-host-add" ${editable ? '' : 'disabled'}>添加</button>
+      </div>
+      <p class="muted small">只填域名（<code>api.example.com</code>）。粘整条地址也行，会自动去掉
+      <code>https://</code> 和后面的路径。通配符、IP、校内域名会被拒绝。</p>
+      ${state.hostsNote ? `<p class="${state.hostsBusy ? 'muted' : 'api-note'}">${e(state.hostsNote)}</p>` : ''}
+
+      <h3 class="api-subhead">页面上加的</h3>
+      <div class="api-table-wrap"><table class="api-table">
+        <thead><tr><th>域名</th><th>理由</th><th>添加人</th><th>时间</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+
+      <h3 class="api-subhead">内置（来自服务器 .env，页面上撤不掉）</h3>
+      <p class="muted small">${(data.builtin || []).map(host => `<code>${e(host)}</code>`).join(' ')}</p>
+    </section>`;
+  }
+
   function corpusPanel() {
     const state = A.state.apiConfig;
     const corpus = state.corpus;
@@ -246,7 +322,7 @@
       return heading + connectPanel(state.error);
     }
 
-    return heading + identityPanel() + policyPanel() + `
+    return heading + identityPanel() + policyPanel() + hostsPanel() + `
       <section class="panel">
         <div class="panel-heading">
           <h2>已登记的端点</h2>
@@ -305,6 +381,50 @@
       A.render();
     }
   };
+
+  A.inputs['approved-host'] = function (input) {
+    A.state.apiConfig.draftHost = input.value;
+  };
+  A.inputs['approved-host-note'] = function (input) {
+    A.state.apiConfig.draftNote = input.value;
+  };
+
+  A.actions['api-config-host-add'] = async function () {
+    const state = A.state.apiConfig;
+    if (state.hostsBusy) return;
+    const host = (A.state.apiConfig.draftHost || '').trim();
+    const note = (A.state.apiConfig.draftNote || '').trim();
+    if (!host) { state.hostsNote = '先填域名'; A.render(); return; }
+    if (!note) { state.hostsNote = '理由要写一句：以后审计会问"为什么放行它"'; A.render(); return; }
+    state.hostsBusy = true; state.hostsNote = '正在添加…';
+    A.render();
+    try {
+      state.hosts = await A.api.post('/api/v1/admin/settings/approved-hosts', { host, note });
+      state.draftHost = ''; state.draftNote = '';
+      state.hostsNote = `${host} 已加入，立刻生效`;
+    } catch (error) {
+      state.hostsNote = `添加失败：${error.message}`;
+    }
+    state.hostsBusy = false;
+    A.render();
+  };
+
+  A.actions['api-config-host-remove'] = async function (button) {
+    const state = A.state.apiConfig;
+    if (state.hostsBusy) return;
+    const host = button.dataset.host;
+    state.hostsBusy = true; state.hostsNote = `正在撤销 ${host}…`;
+    A.render();
+    try {
+      state.hosts = await A.api.del(`/api/v1/admin/settings/approved-hosts/${encodeURIComponent(host)}`);
+      state.hostsNote = `${host} 已撤销，立刻生效`;
+    } catch (error) {
+      state.hostsNote = `撤销失败：${error.message}`;
+    }
+    state.hostsBusy = false;
+    A.render();
+  };
+
   A.actions['api-config-role'] = function (button) {
     A.local.actorRoles = button.dataset.roles ? button.dataset.roles.split(',') : [];
     A.save();
