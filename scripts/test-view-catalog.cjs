@@ -114,6 +114,12 @@ check('点卡片跳到内容页', sandbox.location.hash === '#/content', sandbox
 
 check('筛选条里有「正在建设」一档', html.includes('data-filter="draft"'), '');
 check('「正在建设」写清有几门', /data-filter="draft">正在建设<span>1</.test(html), '');
+// 吸顶的偏移必须让开顶栏：.topbar 也是 sticky(top:0)，工具条写 top:0 会吸在它后面
+const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'styles/catalog.css'), 'utf8');
+check('吸顶条让开 76px 高的顶栏', /\.catalog-toolbar\{[^}]*position:sticky[^}]*top:76px/.test(css), '');
+check('窄屏让开 64px 高的顶栏', /@media\(max-width:720px\)\{[^@]*\.catalog-toolbar\{top:64px/.test(css), '');
+check('跳转落点留出吸顶条高度', /\.catalog-group\{scroll-margin-top:138px\}/.test(css), '');
+
 check('搜索与标签在同一个吸顶工具条里',
   /catalog-toolbar[^>]*>[\s\S]{0,300}catalog-filters[\s\S]{0,3000}search-input/.test(html), '');
 
