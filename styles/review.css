@@ -140,7 +140,7 @@
 .rv-policy{margin-bottom:18px}
 .rv-policy-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .rv-policy-head h2{margin:0 0 6px}
-.rv-policy-head p{margin:0;max-width:64ch;font-size:13px}
+.rv-policy-head p{margin:0;font-size:13px}
 .rv-policy-row{display:flex;flex-wrap:wrap;gap:16px;margin:14px 0 10px}
 .rv-policy-row .rv-select{display:flex;flex-direction:column;gap:5px}
 .rv-policy-row select{min-width:260px}
@@ -155,6 +155,13 @@
 .rv-policy-scope p{margin:0}
 
 /* 知识图谱审核：按章通过。表格沿用审核页的紧凑行高。 */
+/* 统计与提示：能并排的并排一行，窄屏放不下再换行，不各占一行 */
+.rv-stats{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 24px;margin:0 0 14px}
+.rv-stat{display:inline-flex;align-items:baseline;gap:6px}
+.rv-stat b{font-size:15px}
+.rv-stat span{color:var(--muted,#6b7686);font-size:12px}
+.rv-graph-start{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:12px 0 4px}
+.rv-graph-start p{margin:0}
 .rv-graph{margin-bottom:18px}
 .rv-graph table{width:100%;border-collapse:collapse;margin-top:10px}
 .rv-graph th{text-align:left;font-size:12px;font-weight:600;color:var(--muted);

@@ -169,8 +169,10 @@
     </div>`;
     if (!course) {
       return `<div class="panel rv-graph">${heading}
-        <p class="muted">先在上面选一门课。图谱审核按课程进行——一次只审一棵树，才看得清结构。</p>
-        ${coursePicker()}</div>`;
+        <div class="rv-graph-start">
+          <p class="muted">先在上面选一门课——图谱审核按课程进行，一次只审一棵树，才看得清结构。</p>
+          ${coursePicker()}
+        </div></div>`;
     }
     if (!facts) {
       return `<div class="panel rv-graph">${heading}
