@@ -223,7 +223,11 @@
     S().importResult = null;
     const files = [...fileList];
     if (!files.length) return;
+    // 分步记下"做到哪一步失败"。原来只有一句 "Cannot read properties of undefined"，
+    // 既不知道是哪个文件，也不知道是我们的代码还是解析库内部——排查全靠猜。
+    let stage = '读取文件列表';
     try {
+      stage = '识别资源包结构';
       const entries = relativePaths(files);
       const get = name => entries.find(item => item.path === name)?.file;
       if (!get('知识节点.xlsx')) {
@@ -251,17 +255,29 @@
       for (const name of ['知识节点.xlsx', '知识点.md', '习题.md']) {
         if (!get(name)) throw new Error(`缺少根目录文件：${name}`);
       }
-      const rows = await CourseXlsx.readRows(await get('知识节点.xlsx').arrayBuffer());
+      stage = '读取 知识节点.xlsx';
+      let rows;
+      try {
+        rows = await CourseXlsx.readRows(await get('知识节点.xlsx').arrayBuffer());
+      } catch (error) {
+        // WPS / 程序生成的 xlsx 会在这里报一句看不懂的错（例如 reading 'name'）。
+        // 说清楚"换 Excel 另存一次"比把库的异常原样抛给老师有用。
+        throw new Error(`知识节点.xlsx 读不出来：${error.message}。`
+          + '如果是 WPS 或其他工具生成的，用 Excel 打开后「另存为」一次再上传。');
+      }
+      stage = '读取 course.json';
       const metadata = get('course.json') ? JSON.parse(await get('course.json').text()) : {};
-      const pkg = CourseImport.parsePackage(rows, await get('知识点.md').text(),
-        await get('习题.md').text(), metadata);
+      stage = '解析 知识点.md / 习题.md';
+      const knowledgeFile = get('知识点.md'), exerciseFile = get('习题.md');
+      const pkg = CourseImport.parsePackage(rows, await knowledgeFile.text(),
+        await exerciseFile.text(), metadata);
       S().preview = pkg;
-      S().previewFiles = { knowledge: get('知识点.md').name, exercises: get('习题.md').name };
+      S().previewFiles = { knowledge: knowledgeFile.name, exercises: exerciseFile.name };
       if (!S().courseId || S().courseId === '__new__') S().courseId = pkg.id;
       A.toast(`解析完成：${pkg.nodes.length} 个知识点、${pkg.exercises.length} 道题`);
     } catch (error) {
       S().preview = null;
-      S().importError = error.message;
+      S().importError = `${stage}时失败：${error.message}`;
     }
     A.render();
   }
@@ -274,14 +290,15 @@
   }
 
   function relativePaths(files) {
-    const workbook = files.filter(file => file.name === '知识节点.xlsx')
+    const named = files.filter(file => file && typeof file.name === 'string');
+    const workbook = named.filter(file => file.name === '知识节点.xlsx')
       .sort((a, b) => (a.webkitRelativePath || a.name).length - (b.webkitRelativePath || b.name).length)[0];
     // 没有 xlsx 时只可能是单个 md：根目录就取选择器给的相对路径前缀
     const root = workbook
       ? workbook.webkitRelativePath?.slice(0, -workbook.name.length) || ''
-      : (files.find(file => file.webkitRelativePath)?.webkitRelativePath
-        ?.split('/').slice(0, -1).join('/') + '/' || '');
-    return files.map(file => ({
+      : (named.find(file => file.webkitRelativePath)?.webkitRelativePath
+        ?.split('/')?.slice(0, -1).join('/') + '/' || '');
+    return named.map(file => ({
       file,
       path: file.webkitRelativePath?.startsWith(root) ? file.webkitRelativePath.slice(root.length) : file.name
     })).filter(item => !item.path.includes('..') && item.path !== '.DS_Store');
