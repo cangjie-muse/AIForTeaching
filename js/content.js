@@ -39,6 +39,9 @@
     // 导入
     preview: null,       // 解析出来的资源包（还没提交）
     previewFiles: null,  // 三件套原文，提交后仍可回显缺什么
+    docPreview: null,    // 单文件增量导入的预览报告（还没提交）
+    docFiles: null,      // 这次上传了哪几个 md
+    docResult: null,     // 单文件导入落库后的结果
     importError: '',
     importing: false,
     importResult: null,
@@ -84,7 +87,7 @@
         <h2>${preview ? '核对资源包' : '选择一个课程资源包'}</h2>
         <p>${preview
           ? `已解析：${preview.nodes.length} 个知识点、${preview.exercises.length} 道题。确认目标课程后提交。`
-          : '选择文件夹或三件套文件；平台先在浏览器里校验锚点、层级与题目关联，再提交到服务器。'}</p>
+          : '选择文件夹或三件套文件；也可以只选 知识点.md 或 习题.md，按锚点增量改一门已有的课。'}</p>
         <div class="button-row">
           <label for="content-folder" class="btn ${preview ? '' : 'primary'}">${A.icon('folder')}选择资源包文件夹</label>
           <label for="content-files" class="btn">选择标准文件</label>
@@ -98,6 +101,8 @@
       ${S().importError ? `<div class="panel"><p class="small">${e(S().importError)}</p></div>` : ''}
       ${preview ? previewPanel(preview) : ''}
       ${S().importResult ? importResultPanel(S().importResult) : ''}
+      ${S().docPreview ? docPreviewPanel(S().docPreview) : ''}
+      ${S().docResult ? docResultPanel(S().docResult) : ''}
     </section><aside>
       <section class="panel import-format">
         <div class="panel-heading"><h2>沿用当前交付格式</h2>${A.badge('资源包 v1', 'blue')}</div>
@@ -115,6 +120,53 @@
           .map(([n, title, desc]) => `<div class="assistant-step"><span>${n}</span><div><b>${title}</b><p>${desc}</p></div></div>`).join('')}
       </section>
     </aside></div>`;
+  }
+
+  /* 单文件导入的预览：数字比文字重要，老师扫一眼就知道会不会动到别处 */
+  function docPreviewPanel(report) {
+    const rows = [];
+    if (report.knowledge) {
+      rows.push(['知识点正文更新', report.knowledge.changed]);
+      rows.push(['正文没变', report.knowledge.unchanged]);
+    }
+    if (report.exercises) {
+      rows.push(['题目新增', report.exercises.added]);
+      rows.push(['题目改写', report.exercises.updated]);
+      rows.push(['题目没变', report.exercises.unchanged]);
+      rows.push(['从知识点上摘下的题', report.exercises.unlinked]);
+    }
+    const warnings = report.warnings || [];
+    return `<div class="panel">
+      <div class="panel-heading"><h2>核对这次改动</h2>${A.badge(e(report.course_id), 'blue')}</div>
+      <p class="muted small">只改上传文件里出现的锚点，其他知识点一个字不动；结构（层级、父子）不变。</p>
+      <table class="data-table"><tbody>${rows.map(([label, value]) =>
+        `<tr><th>${label}</th><td>${Number(value) || 0}</td></tr>`).join('')}</tbody></table>
+      ${warnings.length ? `<details class="panel"><summary>${warnings.length} 条提示</summary>
+        <ul class="muted small">${warnings.map(text => `<li>${e(text)}</li>`).join('')}</ul></details>` : ''}
+      <div class="button-row">
+        <button class="btn primary" data-action="content-apply-docs" ${S().importing ? 'disabled' : ''}>
+          ${S().importing ? '正在写入…' : '确认写入'}</button>
+        <button class="btn" data-action="content-clear">取消</button>
+      </div>
+    </div>`;
+  }
+
+  function docResultPanel(result) {
+    const rows = [
+      ['知识点正文更新', result.applied?.content_updated],
+      ['解除的题目关联', result.applied?.unlinked],
+      ['停用的孤儿题', result.applied?.retired]
+    ];
+    return `<div class="panel">
+      <div class="panel-heading"><h2>已写入</h2>${A.badge('单文件增量导入', 'green')}</div>
+      <table class="data-table"><tbody>${rows.map(([label, value]) =>
+        `<tr><th>${label}</th><td>${Number(value) || 0}</td></tr>`).join('')}</tbody></table>
+      <p class="muted small">被摘下来的题如果不再属于任何知识点，会标为「已停用」而不是删除——学生作答记录还在。</p>
+      <div class="button-row">
+        ${A.link('看知识图谱', 'graph', result.course_id)}
+        ${A.link('去审核', 'review', null)}
+      </div>
+    </div>`;
   }
 
   function previewPanel(preview) {
@@ -174,6 +226,28 @@
     try {
       const entries = relativePaths(files);
       const get = name => entries.find(item => item.path === name)?.file;
+      if (!get('知识节点.xlsx')) {
+        // 没有知识节点表 = 单文件增量导入：只改锚点对应的正文/题目，不动结构
+        const knowledge = get('知识点.md'), exercises = get('习题.md');
+        if (!knowledge && !exercises) {
+          throw new Error('请选择含知识节点.xlsx、知识点.md 和习题.md 的资源包；'
+            + '只改内容时可以只传 知识点.md 或 习题.md。');
+        }
+        if (!S().courseId || S().courseId === '__new__') {
+          throw new Error('单文件导入要先在上面选一门已有课程（新建课程必须带知识节点.xlsx）。');
+        }
+        // 原文留在内存里：确认写入时要用同一份文本，否则两次读取之间文件被
+        // 改动，预览看到的和写进去的就不是一回事了
+        const knowledgeText = knowledge ? await knowledge.text() : null;
+        const exercisesText = exercises ? await exercises.text() : null;
+        S().docPreview = await A.api.importDocs(S().courseId, {
+          knowledge_md: knowledgeText, exercises_md: exercisesText, dry_run: true
+        });
+        S().docFiles = { knowledge: knowledgeText, exercises: exercisesText };
+        A.toast(`已解析：${summaryOf(S().docPreview)}`);
+        A.render();
+        return;
+      }
       for (const name of ['知识节点.xlsx', '知识点.md', '习题.md']) {
         if (!get(name)) throw new Error(`缺少根目录文件：${name}`);
       }
@@ -192,11 +266,21 @@
     A.render();
   }
 
+  function summaryOf(report) {
+    const parts = [];
+    if (report.knowledge) parts.push(`${report.knowledge.changed} 个知识点正文有改动`);
+    if (report.exercises) parts.push(`${report.exercises.added + report.exercises.updated} 道题新增或改写`);
+    return parts.join('，') || '没有需要改动的内容';
+  }
+
   function relativePaths(files) {
     const workbook = files.filter(file => file.name === '知识节点.xlsx')
       .sort((a, b) => (a.webkitRelativePath || a.name).length - (b.webkitRelativePath || b.name).length)[0];
-    if (!workbook) throw new Error('请选择含知识节点.xlsx、知识点.md 和习题.md 的资源包。');
-    const root = workbook.webkitRelativePath?.slice(0, -workbook.name.length) || '';
+    // 没有 xlsx 时只可能是单个 md：根目录就取选择器给的相对路径前缀
+    const root = workbook
+      ? workbook.webkitRelativePath?.slice(0, -workbook.name.length) || ''
+      : (files.find(file => file.webkitRelativePath)?.webkitRelativePath
+        ?.split('/').slice(0, -1).join('/') + '/' || '');
     return files.map(file => ({
       file,
       path: file.webkitRelativePath?.startsWith(root) ? file.webkitRelativePath.slice(root.length) : file.name
@@ -443,7 +527,32 @@
     S().preview = null;
     S().importError = '';
     S().importResult = null;
+    S().docPreview = null;
+    S().docResult = null;
     A.render();
+  };
+
+  A.actions['content-apply-docs'] = async () => {
+    const report = S().docPreview;
+    if (!report) throw new Error('先选择要导入的文件');
+    S().importing = true;
+    A.render();
+    try {
+      const files = S().docFiles || {};
+      S().docResult = await A.api.importDocs(S().courseId, {
+        knowledge_md: files.knowledge || null,
+        exercises_md: files.exercises || null,
+        dry_run: false
+      });
+      S().docPreview = null;
+      S().notice = '增量导入完成：只改了上传文件里出现的锚点。';
+      A.api.courseList(true).then(courses => { S().courses = courses; }).catch(() => {});
+    } catch (error) {
+      S().importError = error.message;
+    } finally {
+      S().importing = false;
+      A.render();
+    }
   };
 
   A.inputs['content-target'] = input => { S().courseId = input.value; };

@@ -723,6 +723,38 @@ def import_course_content(course_id: str, body: PackIn,
     return {"ok": True, **counts}
 
 
+class DocsIn(BaseModel):
+    """单文件增量导入：只传 知识点.md 或 习题.md。"""
+    knowledge_md: str | None = Field(default=None, max_length=20_000_000)
+    exercises_md: str | None = Field(default=None, max_length=20_000_000)
+    dry_run: bool = True
+
+
+@router.post("/courses/{course_id}/content/import-docs")
+def import_documents(course_id: str, body: DocsIn,
+                     actor: Actor = Depends(require("admin"))) -> dict:
+    """只上传两个 md 里的一个时走这里：按锚点改已有内容，结构不动。
+
+    默认 dry_run：先给一份"会改什么"的报告，老师点确认再落库。
+    没有知识节点表的整包导入走 /content/import，那条路会重写整门课。
+    """
+    from . import pack_merge
+
+    if not body.knowledge_md and not body.exercises_md:
+        raise HTTPException(400, "至少要上传一个文件：知识点.md 或 习题.md")
+    try:
+        if body.dry_run:
+            report = pack_merge.plan_changes(course_id, body.knowledge_md, body.exercises_md)
+            return {"ok": True, "dry_run": True, **pack_merge.public(report)}
+        return {"ok": True, "dry_run": False,
+                **pack_merge.apply_changes(course_id, body.knowledge_md,
+                                           body.exercises_md, actor.id)}
+    except HTTPException:
+        raise
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from error
+
+
 @router.get("/courses/{course_id}/content")
 def get_course_content(course_id: str, include_retired: bool = False,
                        actor: Actor = Depends(require("reviewer"))) -> dict:

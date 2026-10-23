@@ -1,0 +1,23 @@
+[Unit]
+Description=WHU math teaching platform generation worker (教材生成队列)
+Documentation=file:///home/aiformath/AIForTeaching/docs/教材生成流水线.md
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=aiformath
+Group=aiformath
+WorkingDirectory=/home/aiformath/AIForTeaching
+EnvironmentFile=/home/aiformath/AIForTeaching/.env
+# 不要开多个实例：领取任务用的是 FOR UPDATE SKIP LOCKED，多开会各自领到不同的章，
+# 同时调模型——限流会被打满，而且同一本书的章节进度更难判断。要并行请先改限流策略。
+ExecStart=/home/aiformath/AIForTeaching/.venv/bin/python scripts/run_worker.py
+# 一章一次模型调用，可能跑几分钟；收到 SIGTERM 等当前章写完再退，别把半章丢掉
+TimeoutStopSec=120
+Restart=always
+RestartSec=10
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

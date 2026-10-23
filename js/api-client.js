@@ -222,6 +222,12 @@
     return request('POST', `/api/v1/courses/${encodeURIComponent(courseId)}/content/import`, { body: payload });
   }
 
+  /* 只上传 知识点.md 或 习题.md 时走这条：按锚点改已有内容，结构不动。
+     dry_run 默认 true，所以"先看会改什么"和"真改"是同一个接口。 */
+  function importDocs(courseId, payload) {
+    return request('POST', `/api/v1/courses/${encodeURIComponent(courseId)}/content/import-docs`, { body: payload });
+  }
+
   function exportContent(courseId) {
     return request('GET', `/api/v1/courses/${encodeURIComponent(courseId)}/content/export`);
   }
@@ -467,6 +473,7 @@
     jobList,
     courseContent,
     importContent,
+    importDocs,
     exportContent,
     patchNode,
     patchExercise,

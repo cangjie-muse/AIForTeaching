@@ -131,6 +131,10 @@ cat <<'NEXT'
      cp deploy/env.example .env && chmod 600 .env && nano .env
      sudo cp deploy/whu-teaching.service /etc/systemd/system/
      sudo systemctl daemon-reload && sudo systemctl enable --now whu-teaching
+
+# 教材生成 worker：不装它，"上传 PDF → 生成知识点"的任务会排队但一直没人跑
+sudo cp deploy/whu-worker.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now whu-worker
      sudo cp deploy/nginx.conf.example /etc/nginx/sites-available/whu-teaching
      sudo ln -sf /etc/nginx/sites-available/whu-teaching /etc/nginx/sites-enabled/
      sudo nginx -t && sudo systemctl reload nginx

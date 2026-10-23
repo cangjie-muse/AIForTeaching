@@ -66,6 +66,13 @@ fi
 
 say "5. 重启服务"
 sudo systemctl restart "$SERVICE"
+# worker 是可选的：没装它的机器上 systemctl 会报 not found，不该因此中断更新
+if systemctl list-unit-files | grep -q '^whu-worker.service'; then
+  sudo systemctl restart whu-worker
+  sleep 1
+  systemctl is-active --quiet whu-worker && ok "whu-worker 运行中" \
+    || echo "  ！whu-worker 没起来，教材生成任务会排队不动：sudo journalctl -u whu-worker -n 40"
+fi
 sleep 2
 systemctl is-active --quiet "$SERVICE" && ok "$SERVICE 运行中" || {
   sudo journalctl -u "$SERVICE" -n 40 --no-pager
