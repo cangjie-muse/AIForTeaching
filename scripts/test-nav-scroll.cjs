@@ -100,7 +100,7 @@ check('换页后菜单没有被弹回顶部', navScroller.scrollTop === 480, `sc
 check('换页后菜单仍是同一块菜单', renderedHtml.includes('账号管理') && renderedHtml.includes('内容审核'));
 
 navScroller.scrollTop = 120;
-sandbox.location.hash = '#/settings';
+sandbox.location.hash = '#/construction';
 App.render();
 check('半途滚动的位置同样保留', navScroller.scrollTop === 120, `scrollTop=${navScroller.scrollTop}`);
 
@@ -109,6 +109,10 @@ navScroller.scrollTop = 0;
 sandbox.location.hash = '#/catalog';
 App.render();
 check('滚回顶部后再换页仍在顶部', navScroller.scrollTop === 0);
+
+// 平台设置删了：学生工作台不该出现「先选课再谈设置」这种页
+check('菜单里不再有「平台设置」', !renderedHtml.includes('平台设置'));
+check('菜单里也没有设置那一项', !/nav-item[^>]*href="#\/settings"/.test(renderedHtml));
 
 console.log('');
 if (failures.length) {
