@@ -128,6 +128,15 @@ html = App.views.content();
 check('内容页不再有发布按钮', !html.includes('data-action="content-publish"'));
 check('内容页指向审核页发布', html.includes('去审核页发布'));
 
+/// 从内容页跳过来：要直接把课选上
+App.state.review = { filters: { course_id: '', category: '', priority: '' }, status: 'ready' };
+sandbox.location.hash = '#/content';
+App.actions['review-open-course']({ dataset: { id: 'pde-new' } });
+check('跳转时选好这门课', App.state.review.filters.course_id === 'pde-new',
+  App.state.review.filters.course_id);
+check('跳转时把审核页缓存标脏（课程列表要重拉）', App.state.review.status === 'idle');
+check('跳到审核页', sandbox.location.hash === '#/review', sandbox.location.hash);
+
 (async () => {
   console.log('\n发布动作：');
   const calls = [];

@@ -400,7 +400,7 @@
       ${status && status.published_at ? A.badge('已发布给学生', 'green') : A.badge('未发布', 'amber')}</div>
       <p class="muted small">上传只把内容写进库，发布在「内容审核」里做：审完可以一键发给学生。
         ${status ? `当前这门课：${Number(status.published) || 0} 道题已发布，${Number(status.nodes) || 0} 个知识点。` : ''}</p>
-      <div class="button-row">${A.link('去审核页发布', 'review', null, '', 'primary')}</div></div>`;
+      <div class="button-row">${A.button('去审核页发布', 'review-open-course', 'arrow', `data-id="${e(S().courseId || '')}"`, 'primary')}</div></div>`;
   }
 
   function nodeList(content) {
@@ -636,6 +636,9 @@
      只改本地这份列表的话，总览上的知识点与习题数还是旧的。 */
   async function refreshAfterImport() {
     S().courses = await A.api.courseList(true).catch(() => S().courses);
+    // 刚导入的课不在审核页那份课程缓存里：不标脏，跳过去下拉框里就没有它
+    if (A.state.review) A.state.review.status = 'idle';
+    if (A.state.publish) A.state.publish.status = null;
     if (typeof A.loadCatalog === 'function') await A.loadCatalog();
     else A.render();
   }

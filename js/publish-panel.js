@@ -91,6 +91,23 @@
     A.render();
   }
 
+  /* 上传完点「去审核页发布」：直接落在这一门课上。
+     不然跳过去是"全部课程"，发布块要求先选课，人还得在下拉框里找自己刚导的那门。 */
+  A.actions['review-open-course'] = function (target) {
+    const id = target.dataset.id;
+    if (!id) return;
+    const review = A.state.review || (A.state.review = {
+      filters: { course_id: '', category: '', priority: '' }
+    });
+    review.filters = review.filters || { course_id: '', category: '', priority: '' };
+    review.filters.course_id = id;
+    review.status = 'idle';    // 课程列表与队列都得重拉：刚导入的课还不在里面
+    review.graph = null;
+    review.ledger = null;
+    if (window.location.hash === '#/review') A.render();
+    else window.location.hash = '#/review';
+  };
+
   A.actions['publish-reload'] = async function () {
     await A.loadPublish(S().courseId);
     A.render();

@@ -83,6 +83,17 @@ reset();
 html = App.views.review();
 check('空队列时指引用「从数据生成队列」', html.includes('从数据生成队列') && html.includes('队列是空的'));
 
+// 3b. 刚导入的课不在课程缓存里：下拉框要补上这一项并且选中
+reset({
+  courses: [{ id: 'analysis', title: '数学分析 I', exercise_count: 416 }],
+  filters: { course_id: 'pde-new', category: '', priority: '' }
+});
+App.state.publish = { courseId: '', status: null, loading: false, saving: false, error: '', notice: '' };
+html = App.views.review();
+check('下拉框补上刚导入的课', html.includes('value="pde-new" selected'), '');
+check('补的那项写清是刚导入的', html.includes('刚导入'));
+check('补项之后也能发布（发布块出现）', html.includes('课程发布'));
+
 // 4. 正常列表
 reset({
   courses: [{ id: 'analysis', title: '数学分析 I', exercise_count: 416 },

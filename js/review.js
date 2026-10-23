@@ -198,6 +198,11 @@
     const courses = S().courses || [];
     if (!courses.length) return '';
     const current = S().filters.course_id;
+    // 刚导入的课可能还没进这份缓存（审核页的课程列表是进页面时拉的），
+    // 但它就在 filters 里等着——不补一项的话，下拉框显示成别的课，人也选不回去。
+    if (current && !courses.some(course => course.id === current)) {
+      courses.unshift({ id: current, title: `${current}（刚导入）`, exercise_count: 0 });
+    }
     return `<label class="rv-select">
       <span>课程</span>
       <select data-input="review-course">
@@ -504,7 +509,10 @@
 
   A.after.review = function () {
     if (S().status === 'idle') load();
-    if (S().filters.course_id && !A.state.publish.status) {
+    // 发布状态跟着课程走：换了课、或者手里是别的课的状态，都要重拉
+    const publishState = A.state.publish || {};
+    if (S().filters.course_id
+      && (publishState.courseId !== S().filters.course_id || !publishState.status)) {
       A.loadPublish(S().filters.course_id).then(() => A.render());
     }
   };
