@@ -161,6 +161,15 @@ try:
 except HTTPException as exc:
     check("不存在的课返回 404", exc.status_code == 404, exc.detail)
 
+print("\n路由本身（那次事故：函数测试全绿，线上 404 Not Found）：")
+import inspect  # noqa: E402
+
+source = inspect.getsource(course_meta.patch_course)
+check("路由挂在 /api/v1 前缀下",
+      '@router.patch("/api/v1/courses/{course_id}")' in source,
+      "这个项目的路由把完整路径写在函数上，少了前缀 FastAPI 直接 404，"
+      "而函数级测试根本测不到路由层")
+
 print("")
 if failures:
     print(f"失败 {len(failures)} 项：{'、'.join(failures)}")

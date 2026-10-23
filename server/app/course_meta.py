@@ -48,7 +48,7 @@ def _current(course_id: str) -> dict:
     return row
 
 
-@router.patch("/courses/{course_id}")
+@router.patch("/api/v1/courses/{course_id}")
 def patch_course(course_id: str, body: CourseMetaIn,
                  actor: Actor = Depends(require("reviewer"))) -> dict:
     row = _current(course_id)
