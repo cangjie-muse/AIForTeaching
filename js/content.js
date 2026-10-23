@@ -124,6 +124,11 @@
   }
 
   /* 单文件导入的预览：数字比文字重要，老师扫一眼就知道会不会动到别处 */
+  function targetTitle(courseId) {
+    const course = (S().courses || []).find(item => item.id === courseId);
+    return course ? course.title : courseId;
+  }
+
   function docPreviewPanel(report) {
     const rows = [];
     if (report.knowledge) {
@@ -139,7 +144,7 @@
     const warnings = report.warnings || [];
     return `<div class="panel">
       <div class="panel-heading"><h2>核对这次改动</h2>${A.badge(e(report.course_id), 'blue')}</div>
-      <p class="muted small">只改上传文件里出现的锚点，其他知识点一个字不动；结构（层级、父子）不变。</p>
+      <p class="muted small">写入《${e(targetTitle(report.course_id))}》。只改上传文件里出现的锚点，其他知识点一个字不动；结构（层级、父子）不变。</p>
       <table class="data-table"><tbody>${rows.map(([label, value]) =>
         `<tr><th>${label}</th><td>${Number(value) || 0}</td></tr>`).join('')}</tbody></table>
       ${warnings.length ? `<details class="panel"><summary>${warnings.length} 条提示</summary>
@@ -269,8 +274,10 @@
           throw new Error('请选择含知识节点.xlsx、知识点.md 和习题.md 的资源包；'
             + '只改内容时可以只传 知识点.md 或 习题.md。');
         }
-        if (!S().courseId || S().courseId === '__new__') {
-          throw new Error('单文件导入要先在上面选一门已有课程（新建课程必须带知识节点.xlsx）。');
+        const target = (S().courses || []).find(course => course.id === S().courseId);
+        if (!target) {
+          throw new Error('单文件导入要指定写入哪门课：先去「修改与导出」标签选一门课'
+            + '（新建课程必须带知识节点.xlsx）。');
         }
         // 原文留在内存里：确认写入时要用同一份文本，否则两次读取之间文件被
         // 改动，预览看到的和写进去的就不是一回事了

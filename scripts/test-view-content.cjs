@@ -144,6 +144,15 @@ check('不再有"目标课程"下拉（避免两套口径打架）', !html.inclu
 check('两种更新方式都在', html.includes('整体更新') && html.includes('只增改'));
 check('提示项可展开', html.includes('1 条提示'));
 
+// 3b. 单文件增量导入：要写明写入哪门课，别让人对着 id 猜
+reset({ tab: 'import', docPreview: {
+  course_id: 'analysis-ii', knowledge: { changed: 2, unchanged: 5 },
+  exercises: { added: 1, updated: 1, unchanged: 3, unlinked: 0 }, warnings: []
+} });
+html = App.views.content();
+check('单文件导入写明写入哪门课', html.includes('写入《数学分析 II》'), '');
+check('单文件导入有改动计数', html.includes('知识点正文更新') && html.includes('题目新增'), '');
+
 // 4. 导入结果：要显示停用了多少
 reset({ tab: 'import', importResult: {
   course_id: 'analysis-ii', batch: 'abc123', mode: 'replace',
