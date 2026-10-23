@@ -14,8 +14,20 @@
   }
   // 库里存在但没发布的课：学生看不到，教师要知道"它在，只是还没放出去"。
   // 做成卡片而不是藏起来——藏起来的话，新导入的课会像凭空消失。
+  /* 「建设中」卡片点进来：直接打开这门课的「修改与导出」。
+     发布面板在那儿；不指定课程的话，内容页会落到列表第一门课。 */
+  A.actions['course-open-content'] = function (target) {
+    const state = A.state.content || (A.state.content = {});
+    if (target.dataset.id) { state.courseId = target.dataset.id; state.content = null; }
+    state.tab = 'edit';
+    window.location.hash = '#/content';
+  };
+
   function draftCard(row) {
-    return `<a class="course-card draft-card" data-course-id="${e(row.id)}" href="#/content">
+    // 带 action：不指定课程 id 的话，内容页会落到列表第一门课，
+    // 老师点了《交换代数》却看到《机器学习》，只会以为点错了。
+    return `<a class="course-card draft-card" data-course-id="${e(row.id)}"
+      data-action="course-open-content" data-id="${e(row.id)}" href="#/content">
       <div class="draft-cover">${A.icon('upload')}<span>建设中</span></div>
       <div class="course-card-body">
         <div class="card-category">未发布<span>仅教师可见</span></div>

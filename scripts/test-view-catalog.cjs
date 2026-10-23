@@ -105,6 +105,15 @@ check('出现"建设中（未发布）"区块', html.includes('建设中（未�
 check('区块里列出未发布的课', html.includes('实变函数') || html.includes('real-analysis') || html.includes('337 道习题'));
 check('建设中卡片写明学生看不到', html.includes('尚未发布给学生'));
 check('建设中卡片指向课程内容页', html.includes('href="#/content"'));
+sandbox.location.hash = '';
+App.state.content = { courseId: '', tab: 'import' };
+App.actions['course-open-content']({ dataset: { id: 'real-analysis' } });
+check('点卡片直接打开这门课', App.state.content.courseId === 'real-analysis', App.state.content.courseId);
+check('点卡片直接停在「修改与导出」', App.state.content.tab === 'edit', App.state.content.tab);
+check('点卡片跳到内容页', sandbox.location.hash === '#/content', sandbox.location.hash);
+
+check('建设中卡片带上这门课的 id', /data-action="course-open-content" data-id="real-analysis"/.test(html),
+  '');
 
 App.state.auth = { status: 'ready', actor: { id: 'acc-s', role: 'student', display_name: '小明' } };
 console.log('\n学生端目录：');
