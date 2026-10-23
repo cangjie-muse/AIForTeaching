@@ -230,6 +230,17 @@ def publish(course_id: str, actor: str, note: str | None = None) -> dict:
     if not course:
         raise HTTPException(404, f"课程不存在：{course_id}")
 
+    # 发布 = 把"人工已审"的题一起放出去。
+    #
+    # 逐题点发布在 486 道题的课上不现实，但发布又必须有门槛，于是口径定成：
+    # 审核是逐题的动作（「内容审核」里通过/批量通过），发布是整门课的开关。
+    # 只放出 teacher-reviewed 这一档：machine-checked 是脚本自己验的、draft 还没人看过，
+    # 替它们盖章等于把审核做成形式（同 scripts/publish_courses.py 的默认口径）。
+    promoted = db.execute(
+        """UPDATE exercise SET review_status = 'published', updated_at = now()
+            WHERE course_id = %s AND review_status = 'teacher-reviewed'""",
+        (course_id,))
+
     counts = db.query_one(
         """SELECT
              (SELECT count(*) FROM knowledge_node
@@ -245,8 +256,9 @@ def publish(course_id: str, actor: str, note: str | None = None) -> dict:
     if counts["exercises"] == 0:
         raise HTTPException(
             400,
-            "还没有任何题目被审核通过并发布。先在「内容审核」里逐题点发布，"
-            "否则学生端只能看到知识点、看不到题",
+            "还没有题目可以发布：先去「内容审核」把看过的题通过（或批量通过），"
+            "再回来点发布——通过了的题会在这一步一起放出给学生",
+
         )
 
     db.execute(
@@ -268,7 +280,7 @@ def publish(course_id: str, actor: str, note: str | None = None) -> dict:
 
     return {"course_id": course_id, "published": True,
             "nodes": counts["nodes"], "exercises": counts["exercises"],
-            "drafts_hidden": counts["drafts"]}
+            "drafts_hidden": counts["drafts"], "promoted": promoted}
 
 
 def unpublish(course_id: str, actor: str, note: str | None = None) -> dict:
@@ -334,6 +346,48 @@ def publish_status(course_id: str, actor: Actor = Depends(require("reviewer"))) 
         (course_id,))
     row["last_event"] = {**last, "created_at": _iso(last["created_at"])} if last else None
     return row
+
+
+class PublishAllIn(BaseModel):
+    note: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/courses/{course_id}/exercises/publish-all")
+def publish_all_exercises(course_id: str, body: PublishAllIn | None = None,
+                          actor: Actor = Depends(require("admin"))) -> dict:
+    """把一门课里所有未停用的题直接标为「已发布」。
+
+    这是"整本书的题老师认可"时的一次性动作，不是审核的替代品：human_verified 不动，
+    所以可信度仍显示「未经人工校验」，可见范围里"仅人工审核"那档也不会把它们放出来。
+    审计日志记下是谁、放了多少、写了什么理由。
+    """
+    return publish_exercises_all(course_id, actor.id, body.note if body else None)
+
+
+def publish_exercises_all(course_id: str, actor: str, note: str | None = None) -> dict:
+    course = db.query_one("SELECT id, title FROM course WHERE id = %s", (course_id,))
+    if not course:
+        raise HTTPException(404, f"课程不存在：{course_id}")
+    nodes = db.query_one(
+        """SELECT (SELECT count(*) FROM knowledge_node
+                    WHERE course_id = %s AND review_status <> 'retired') AS nodes""",
+        (course_id,))
+    if not nodes or not nodes["nodes"]:
+        raise HTTPException(400, "这门课还没有知识点，先导入内容")
+    updated = db.execute(
+        """UPDATE exercise SET review_status = 'published', updated_at = now()
+            WHERE course_id = %s AND review_status <> 'retired'
+              AND review_status <> 'published'""",
+        (course_id,))
+    db.execute(
+        """INSERT INTO audit_log (actor, action, entity, entity_key, detail)
+           VALUES (%s, 'exercise.publish-all', 'course', %s, %s::jsonb)""",
+        (actor, course_id,
+         json.dumps({"published": updated, "note": note,
+                     "verified": False}, ensure_ascii=False)),
+    )
+    return {"course_id": course_id, "published": updated,
+            "nodes": nodes["nodes"], "verified": False}
 
 
 @router.post("/courses/{course_id}/publish")

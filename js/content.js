@@ -405,14 +405,15 @@
         ${published && state.published_at ? `<tr><th>发布时间</th><td>${e(String(state.published_at).slice(0, 19).replace('T', ' '))}</td></tr>` : ''}
       </tbody></table>
       <p class="muted small">${published
-        ? '学生端直接读库里的内容：改知识点正文、标签或题干会立刻生效（题目本身仍须是「已发布」状态）。新导入的题要等它在「内容审核」里被发布才会出现。'
-        : '发布后学生端会读这门课；只有「内容审核」里点过发布的题会出现，其余仍然隐藏。'}</p>
+        ? '学生端直接读库里的内容：改知识点正文、标签或题干会立刻生效（题目本身仍须是「已发布」状态）。新导入的题要等它被发布才会出现。'
+        : '发布 = 把「人工已审」的题一起放出，其余仍然隐藏。审核是逐题的动作（「内容审核」里通过或批量通过），发布是整门课的开关。'}</p>
       <div class="button-row">
         ${published
           ? `<button class="btn" data-action="content-unpublish" ${S().saving ? 'disabled' : ''}>撤回发布</button>`
-          : `<button class="btn primary" data-action="content-publish" ${S().saving || !Number(state.published) ? 'disabled' : ''}>发布到学生端</button>`}
-        ${Number(state.published) ? '' : `<span class="muted small">还没有题通过审核发布——先去「内容审核」处理。</span>`}
+          : `<button class="btn primary" data-action="content-publish" ${S().saving ? 'disabled' : ''}>发布到学生端</button>
+             <button class="btn" data-action="content-publish-all" ${S().saving ? 'disabled' : ''}>放出全部题目并发布</button>`}
       </div>
+      ${published ? '' : `<p class="muted small">还没有题被发布时，两条路：① 去「内容审核」勾选后批量通过，再回来点发布（已审的题会在这一步一起放出）；② 点「放出全部题目并发布」——跳过逐题审核，可信度仍显示「未经人工校验」，审计日志记下是你做的。</p>`}
     </div>`;
   }
 
@@ -718,6 +719,33 @@
         `${result.drafts_hidden} 道未审核发布的题仍然隐藏。`;
       S().publish = await A.api.publishStatus(S().courseId);
       if (A.loadCatalog) A.loadCatalog();   // 目录里的"建设中"要跟着消失
+    } catch (error) {
+      S().error = error.message;
+    } finally {
+      S().saving = false;
+      A.render();
+    }
+  };
+
+  /* 整本书的题一次放出。可信度不会因此变成"已人工校验"——
+     发布与验证是两件事，替 486 道题盖章只会让"人工已审"这个标记变得不可信。 */
+  A.actions['content-publish-all'] = async () => {
+    const hidden = Number((S().publish || {}).hidden) || 0;
+    const nodes = Number((S().publish || {}).nodes) || 0;
+    const answer = window.confirm(`把本课 ${hidden} 道题全部标为「已发布」，并把这门课发布到学生端？\n\n`
+      + `· 学生将看到 ${nodes} 个知识点与 ${hidden} 道题；\n`
+      + '· 这会跳过逐题审核，可信度仍显示「未经人工校验」；\n'
+      + '· 审计日志会记下是你做的，事后查得到。');
+    if (!answer) return;
+    S().saving = true;
+    try {
+      const result = await A.api.publishAllExercises(S().courseId, '整课放出（跳过逐题审核）');
+      const published = await A.api.publishCourse(S().courseId, '整课放出后发布');
+      S().notice = `已放出 ${result.published} 道题，课程已发布：`
+        + `学生端可见 ${published.nodes} 个知识点、${published.exercises} 道题。`
+        + '这些题没有人工校验标记，可见范围若设成「仅人工审核」仍不会放出来。';
+      S().publish = await A.api.publishStatus(S().courseId);
+      if (A.loadCatalog) A.loadCatalog();
     } catch (error) {
       S().error = error.message;
     } finally {

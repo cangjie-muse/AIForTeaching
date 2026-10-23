@@ -286,6 +286,12 @@
     return request('POST', `/api/v1/courses/${encodeURIComponent(courseId)}/publish`, { body: note ? { note } : {} });
   }
 
+  // 整门课的题一次性放出（跳过逐题审核；可信度不会因此变成"已人工校验"）
+  function publishAllExercises(courseId, note) {
+    return request('POST', `/api/v1/courses/${encodeURIComponent(courseId)}/exercises/publish-all`,
+      { body: note ? { note } : {} });
+  }
+
   function unpublishCourse(courseId, note) {
     return request('POST', `/api/v1/courses/${encodeURIComponent(courseId)}/unpublish`, { body: note ? { note } : {} });
   }
@@ -486,6 +492,7 @@
     catalogCourse,
     publishStatus,
     publishCourse,
+    publishAllExercises,
     unpublishCourse,
     visibility,
     saveVisibility,
