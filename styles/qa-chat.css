@@ -1,12 +1,5 @@
 /* AI 问答页（接入后端模型）。与「AI 学习助手」的本地检索区分开：
- * 这一页必须连后端，会把教材片段发出去，所以服务状态要一直可见。 */
-.qa-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 260px;
-  gap: 18px;
-  align-items: start;
-}
-
+ * 这一页必须连后端；后端挂了靠错误横幅提示，不再常驻一块服务状态栏。 */
 .qa-panel {
   display: flex;
   flex-direction: column;
@@ -224,29 +217,6 @@
   cursor: not-allowed;
 }
 
-.qa-aside h3 {
-  margin: 4px 0 12px;
-  font-size: 15px;
-}
-
-.qa-aside h4 {
-  margin: 0 0 8px;
-  font-size: 13px;
-}
-
-.qa-flow {
-  margin: 0 0 10px;
-  padding-left: 18px;
-  font-size: 12px;
-  line-height: 1.9;
-  color: var(--muted);
-}
-
-.qa-aside .small {
-  font-size: 11px;
-  line-height: 1.7;
-}
-
 .qa-error {
   margin-bottom: 14px;
   padding: 12px 14px;
@@ -283,10 +253,4 @@
   padding: 5px 8px;
   border: 1px solid var(--line);
   border-radius: 6px;
-}
-
-@media (max-width: 980px) {
-  .qa-layout {
-    grid-template-columns: 1fr;
-  }
 }

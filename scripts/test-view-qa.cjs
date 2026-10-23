@@ -56,7 +56,7 @@ const check = (name, condition, detail = '') => {
 function reset(overrides) {
   App.state.qa = {
     status: 'ready', error: '', errorHint: '', messages: [], conversationId: null,
-    mode: 'guide', question: '', courseId: null, exerciseId: null, courses: [], health: null,
+    mode: 'guide', question: '', courseId: null, exerciseId: null, courses: [],
     ...overrides
   };
 }
@@ -67,10 +67,10 @@ let html = App.views.qa();
 check('空状态给出提问引导', html.includes('问一个具体的问题'));
 check('空状态说明了两种模式的区别', html.includes('引导思考') && html.includes('完整解答'));
 check('有输入框与提交按钮', html.includes('id="qa-input"') && html.includes('提问'));
+check('校内使用提示保留在欢迎语里', html.includes('仅校内使用'));
 
 // 2. 正常回答带引用
 reset({
-  health: { status: 'ok', models: { chat: { name: 'deepseek', model: 'deepseek-chat', data_scope: 'approved' } } },
   messages: [
     { role: 'user', content: '数列极限怎么定义' },
     {
@@ -92,7 +92,6 @@ check('引用带章节路径以便核对', html.includes('第一章 极限 / 数
 
 // 知识点语料没有页码：不能显示"第 null 页"，要显示知识点名（2026-10-22 接入知识点语料）
 reset({
-  health: { status: 'ok', models: { chat: { name: 'deepseek', model: 'deepseek-chat', data_scope: 'approved' } } },
   messages: [{
     role: 'assistant',
     content: '上极限的定义见知识点。',
@@ -107,8 +106,8 @@ html = App.views.qa();
 check('无页码的引用不显示「第 null 页」', !html.includes('第 null 页'));
 check('知识点引用显示知识点名', html.includes('上极限') && html.includes('qa-cite'));
 check('知识点引用的悬浮提示给完整路径', html.includes('数学分析I / 集合映射与极限连续理论'));
-check('显示后端连接状态', html.includes('已连接'));
-check('显示模型与数据流向', html.includes('deepseek-chat') && html.includes('已批准出校'));
+check('服务状态栏已删，不再显示连接状态', !html.includes('已连接') && !html.includes('服务状态'));
+check('模型名与数据流向不再出现在页面上', !html.includes('deepseek-chat') && !html.includes('已批准出校'));
 
 // 3. 拒答必须看得出来
 reset({

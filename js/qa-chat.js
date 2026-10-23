@@ -26,8 +26,7 @@
     courses: [],
     courseNote: '',      // 前端课程 id 与后端课程对不上的时候要说清楚
     resolved: false,
-    health: null,
-    // 滚动：整个消息区每次重渲染都会被重建，scrollTop 归零。
+        // 滚动：整个消息区每次重渲染都会被重建，scrollTop 归零。
     // 记下之前的位置与"是否贴着底部"，渲染后放回去。
     scrollTop: 0,
     stickBottom: true,
@@ -147,38 +146,9 @@
       <div class="qa-hints">
         <span>${A.icon('info')}默认是「引导思考」：先给思路，不直接给答案</span>
         <span>${A.icon('info')}「完整解答」要先提交自己的作答才能解锁</span>
+        <span>${A.icon('info')}教材标注「仅校内使用」时，原文不会随外传端点发出</span>
       </div>
     </div>`;
-  }
-
-  function statusAside() {
-    const health = S().health;
-    const chat = health?.models?.chat;
-    // /health 总会返回配置里的默认端点，所以这里不能说"已配置"——
-    // 只能说"后端认为它会用的模型是哪个、数据落在哪一类"。
-    const scope = chat?.data_scope;
-    const scopeLabel = scope === 'internal' ? '校内' : scope === 'approved' ? '已批准出校' : '未批准';
-    const lines = [
-      ['后端服务', health ? A.badge('已连接', 'green') : A.badge('未连接', 'amber')],
-      ['对话模型', chat ? A.badge(e(chat.model), 'blue') : A.badge('未知', 'amber')],
-      ['数据流向', A.badge(scopeLabel, scope === 'internal' ? 'green' : 'amber')],
-      ['检索范围', A.badge(S().courseId ? '本课程' : '全库', '')],
-      ['回答模式', A.badge(S().mode === 'guide' ? '引导思考' : '完整解答', '')]
-    ];
-    return `<aside class="qa-aside panel">
-      <div class="eyebrow">SERVICE</div>
-      <h3>服务状态</h3>
-      ${lines.map(([label, value]) => `<div class="service-line"><span>${label}</span>${value}</div>`).join('')}
-      <div class="divider"></div>
-      <h4>回答是怎么来的</h4>
-      <ol class="qa-flow">
-        <li>按你的问题检索教材片段</li>
-        <li>片段有字符上限，只传必要的部分</li>
-        <li>模型只依据这些片段作答</li>
-        <li>回答与页码一起落库，可回溯</li>
-      </ol>
-      <p class="muted small">教材若标注为「仅校内使用」，原文不会随外传端点发出。</p>
-    </aside>`;
   }
 
   function errorBanner() {
@@ -231,23 +201,20 @@
            <div class="qa-msg-body"><span class="qa-thinking">正在检索教材并组织回答…</span></div></div>`
       : '';
     return heading + errorBanner() + `
-      <div class="qa-layout">
-        <section class="qa-panel panel">
-          ${contextLine}
-          <div class="qa-messages" id="qa-messages" aria-live="polite">${messages}${thinking}</div>
-          <form class="qa-composer" data-form="qa">
-            <textarea id="qa-input" rows="2" placeholder="输入问题，例如：数列极限的 ε-N 定义怎么理解？"
-                      aria-label="向课程问答提问">${e(state.question)}</textarea>
-            <div class="qa-composer-foot">
-              <span class="muted small">${state.mode === 'guide' ? '引导模式：只给思路，不直接给答案' : '完整模式：需要你已提交作答'}</span>
-              <button class="btn primary" type="submit" ${state.status === 'sending' ? 'disabled' : ''}>
-                ${A.icon('send')}提问
-              </button>
-            </div>
-          </form>
-        </section>
-        ${statusAside()}
-      </div>`;
+      <section class="qa-panel panel">
+        ${contextLine}
+        <div class="qa-messages" id="qa-messages" aria-live="polite">${messages}${thinking}</div>
+        <form class="qa-composer" data-form="qa">
+          <textarea id="qa-input" rows="2" placeholder="输入问题，例如：数列极限的 ε-N 定义怎么理解？"
+                    aria-label="向课程问答提问">${e(state.question)}</textarea>
+          <div class="qa-composer-foot">
+            <span class="muted small">${state.mode === 'guide' ? '引导模式：只给思路，不直接给答案' : '完整模式：需要你已提交作答'}</span>
+            <button class="btn primary" type="submit" ${state.status === 'sending' ? 'disabled' : ''}>
+              ${A.icon('send')}提问
+            </button>
+          </div>
+        </form>
+      </section>`;
   };
 
   A.after.qa = function () {
@@ -267,10 +234,11 @@
   };
 
   async function loadHealth() {
+    // /health 只当连通性探针：后端挂了要在页面上明说。模型名、数据流向这些
+    // 原来显示在右侧「服务状态」栏里，那栏已删——真出问题时看错误横幅就够。
     try {
-      S().health = await A.api.get('/api/v1/health');
+      await A.api.get('/api/v1/health');
     } catch (error) {
-      S().health = null;
       if (error.status === 0) {
         S().error = error.message;
         S().errorHint = error.detail;
