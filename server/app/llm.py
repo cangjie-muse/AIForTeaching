@@ -42,7 +42,8 @@ APPROVED_HOSTS: frozenset[str] = frozenset(
         "MODEL_ALLOWED_HOSTS",
         "api.deepseek.com,api.moonshot.cn,platform.kimi.com,"
         "dashscope.aliyuncs.com,dashscope-intl.aliyuncs.com,open.bigmodel.cn,"
-        "ark.cn-beijing.volces.com,ark.cn-shanghai.volces.com",
+        "ark.cn-beijing.volces.com,ark.cn-shanghai.volces.com,"
+        "sophnet.com,www.sophnet.com",
     ).split(",")
     if h.strip()
 )

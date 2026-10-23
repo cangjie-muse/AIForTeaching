@@ -140,6 +140,32 @@ finally:
         else:
             os.environ[key] = value
 
+print("\n出校白名单（换厂商最容易在这里静默失败）")
+# SophNet 的路径是 /api/open-apis/v1，和常见的 /v1 不一样；host 还必须带 www.
+check("SophNet 带 www 的地址被批准",
+      llm.classify("https://www.sophnet.com/api/open-apis/v1") == "approved")
+check("不带 www 的裸域也批准（少打一个 www 不该 400）",
+      llm.classify("https://sophnet.com/api/open-apis/v1") == "approved")
+# 后缀匹配必须按域名边界，否则 evil-sophnet.com 会冒充 sophnet.com
+check("evil-sophnet.com 不能冒充 sophnet.com",
+      llm.classify("https://evil-sophnet.com/api") == "unapproved")
+check("sophnet.com.example.org 也不能冒充",
+      llm.classify("https://sophnet.com.example.org/api") == "unapproved")
+# .env 里手写的白名单要覆盖默认值，否则运维加了域名也不生效
+saved = os.environ.get("MODEL_ALLOWED_HOSTS")
+os.environ["MODEL_ALLOWED_HOSTS"] = "only.example.com"
+import importlib
+fresh = importlib.reload(llm)
+check("MODEL_ALLOWED_HOSTS 设了就完全接管默认列表",
+      fresh.classify("https://only.example.com/v1") == "approved")
+check("默认列表里的域名在设了 env 后不再自动批准",
+      fresh.classify("https://api.deepseek.com") == "unapproved")
+if saved is None:
+    os.environ.pop("MODEL_ALLOWED_HOSTS", None)
+else:
+    os.environ["MODEL_ALLOWED_HOSTS"] = saved
+importlib.reload(llm)
+
 print("")
 if failures:
     print(f"失败 {len(failures)} 项：{', '.join(failures)}")
