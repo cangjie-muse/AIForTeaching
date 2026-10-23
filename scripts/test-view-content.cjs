@@ -116,6 +116,17 @@ reset({ tab: 'import', preview: pkg, courseId: 'analysis-ii' });
 html = App.views.content();
 check('预览显示知识点与题目数', html.includes('3 个知识点') && html.includes('1 道题'), '');
 check('能选目标课程', html.includes('content-target'), '');
+
+// 目标课程这一栏要把"按下去会发生什么"写出来：包 id 与所选课程不一致时，
+// 整体更新会把那门课的内容全部换成这个包的——导错书就是这样发生的。
+check('包 id 与目标课程不一致时明确警告',
+  html.includes('注意：资源包是 course-analysis-ii'), '');
+reset({ tab: 'import', preview: pkg, courseId: '__new__' });
+check('选新建时说清会新建哪门课',
+  App.views.content().includes('平台里还没有 course-analysis-ii'), '');
+reset({ tab: 'import', preview: { ...pkg, id: 'analysis-ii' }, courseId: 'analysis-ii' });
+check('包 id 与目标课程一致时说明会覆盖',
+  App.views.content().includes('已存在，会覆盖'), '');
 check('能选新建课程', html.includes('新建课程') && pkg.id, '');
 check('两种更新方式都在', html.includes('整体更新') && html.includes('只增改'));
 check('提示项可展开', html.includes('1 条提示'));

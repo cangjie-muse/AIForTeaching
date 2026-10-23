@@ -169,6 +169,19 @@
     </div>`;
   }
 
+  /* 说清按下去会发生什么。原来只有一句"选已有课程 = 整体更新那门课"，
+     老师不一定把它和自己手上的包对上，导错书才发现内容被换掉。 */
+  function targetHint(preview) {
+    if (S().courseId === '__new__') return `平台里还没有 ${preview.id}，会新建一门课再写内容。`;
+    const target = S().courses.find(course => course.id === S().courseId);
+    const title = target ? target.title : S().courseId;
+    if (S().courseId !== preview.id) {
+      return `注意：资源包是 ${preview.id}，你却选了「${title}」。`
+        + '整体更新会把那门课里上一次导入的内容全部标为停用，换成这个包的。';
+    }
+    return `「${title}」已存在，会覆盖它的内容；文件里没再出现的知识点与习题标为停用。`;
+  }
+
   function previewPanel(preview) {
     const warnings = preview.warnings || [];
     return `<div class="panel">
@@ -179,7 +192,7 @@
           ${courseOptions(S().courseId)}
           <option value="__new__" ${S().courseId === '__new__' ? 'selected' : ''}>＋ 新建课程（用资源包里的课程 id：${e(preview.id)}）</option>
         </select>
-        <small>选已有课程 = 整体更新那门课；选新建 = 按资源包里的 id 建一门新课。</small>
+        <small>${targetHint(preview)}</small>
       </div>
       <div class="field">
         <label>更新方式</label>
@@ -273,7 +286,7 @@
         await exerciseFile.text(), metadata);
       S().preview = pkg;
       S().previewFiles = { knowledge: knowledgeFile.name, exercises: exerciseFile.name };
-      if (!S().courseId || S().courseId === '__new__') S().courseId = pkg.id;
+      S().courseId = S().courses.some(course => course.id === pkg.id) ? pkg.id : '__new__';
       A.toast(`解析完成：${pkg.nodes.length} 个知识点、${pkg.exercises.length} 道题`);
     } catch (error) {
       S().preview = null;
