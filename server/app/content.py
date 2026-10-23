@@ -82,6 +82,10 @@ class PackIn(BaseModel):
     nodes: list[NodeIn]
     exercises: list[ExerciseIn] = Field(default_factory=list)
     mode: str = Field(default="replace", pattern="^(replace|merge)$")
+    # 导入页上填的课程名称。老师改过名（例如把「数值线代」写成「数值线性代数」）时
+    # 以它为准；不传则用资源包里的课程名。前端已做过一次"名字与包是否一致"的提醒，
+    # 这里不再重复判断——两边都判断，等于把一个决定做成两处。
+    title_override: str | None = Field(default=None, max_length=120)
 
 
 class NodePatchIn(BaseModel):
@@ -219,6 +223,11 @@ def import_pack(course_id: str, pack: PackIn, actor: str) -> dict:
     batch = f"{uuid.uuid4().hex[:12]}"
     mode = pack.mode
     meta = plan["course"]
+    # 课程原来在不在：决定返回「新建」还是「已存在，已更新」。
+    # 前端手上的课程列表可能是几分钟前的，这件事只有库能回答。
+    existed = bool(db.query_one(
+        "SELECT 1 AS ok FROM course WHERE id = %s", (course_id,)))
+    title = (pack.title_override or meta["title"] or "").strip() or meta["title"]
 
     db.execute(
         """INSERT INTO course (id, title, description, audience, subject, status,
@@ -235,7 +244,7 @@ def import_pack(course_id: str, pack: PackIn, actor: str) -> dict:
                  content_batch = EXCLUDED.content_batch,
                  content_updated_at = now(),
                  updated_at = now()""",
-        (course_id, meta["title"], meta.get("description"), meta.get("audience"),
+        (course_id, title, meta.get("description"), meta.get("audience"),
          meta.get("subject"), meta.get("schema_version") or "1.0", batch),
     )
 
@@ -325,6 +334,7 @@ def import_pack(course_id: str, pack: PackIn, actor: str) -> dict:
 
     counts = {
         "course_id": course_id, "batch": batch, "mode": mode,
+        "course_title": title, "course_created": not existed,
         "nodes_upserted": len(plan["nodes"]),
         "chapters_upserted": len(plan["chapters"]),
         "exercises_upserted": len(plan["exercises"]),

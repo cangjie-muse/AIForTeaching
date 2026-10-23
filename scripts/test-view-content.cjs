@@ -115,19 +115,32 @@ const pkg = {
 reset({ tab: 'import', preview: pkg, courseId: 'analysis-ii' });
 html = App.views.content();
 check('预览显示知识点与题目数', html.includes('3 个知识点') && html.includes('1 道题'), '');
-check('能选目标课程', html.includes('content-target'), '');
+check('有课程名称输入框', html.includes('id="content-name"'), '');
+check('名称默认取资源包里的课程名', html.includes('value="数学分析 II"'), '');
 
-// 目标课程这一栏要把"按下去会发生什么"写出来：包 id 与所选课程不一致时，
-// 整体更新会把那门课的内容全部换成这个包的——导错书就是这样发生的。
-check('包 id 与目标课程不一致时明确警告',
-  html.includes('注意：资源包是 course-analysis-ii'), '');
-reset({ tab: 'import', preview: pkg, courseId: '__new__' });
-check('选新建时说清会新建哪门课',
-  App.views.content().includes('平台里还没有 course-analysis-ii'), '');
-reset({ tab: 'import', preview: { ...pkg, id: 'analysis-ii' }, courseId: 'analysis-ii' });
-check('包 id 与目标课程一致时说明会覆盖',
-  App.views.content().includes('已存在，会覆盖'), '');
-check('能选新建课程', html.includes('新建课程') && pkg.id, '');
+// 课程名称是唯一入口：名字对上哪门课就是哪门课，对不上就新建。
+// 提示必须当场说清"和包对不对得上、库里有没有"，不能等点下确认才报错。
+reset({ tab: 'import', preview: pkg, courseName: '数学分析 II',
+  courses: [{ id: 'analysis-ii', title: '数学分析 II' }] });
+html = App.views.content();
+check('名字与包一致时说明一致', html.includes('与资源包里的课程名一致'), '');
+check('已有同名课程时提示会更新它', html.includes('已经有《数学分析 II》'), '');
+check('提示里带课程 id', html.includes('id：analysis-ii'), '');
+
+reset({ tab: 'import', preview: pkg, courseName: '数学分析 二',
+  courses: [{ id: 'analysis-ii', title: '数学分析 II' }] });
+html = App.views.content();
+check('名字与包不一致时明确指出两边各是什么',
+  html.includes('资源包里的课程名是《数学分析 II》') && html.includes('你填的是《数学分析 二》'), '');
+check('不一致且没有同名课程时说要新建',
+  html.includes('还没有这门课，导入后会新建'), '');
+
+reset({ tab: 'import', preview: pkg, courseName: '拓扑学',
+  courses: [{ id: 'topology', title: '拓扑学' }] });
+html = App.views.content();
+check('改成另一门已存在的课也如实说会更新它',
+  html.includes('已经有《拓扑学》') && html.includes('id：topology'), '');
+check('不再有"目标课程"下拉（避免两套口径打架）', !html.includes('content-target'), '');
 check('两种更新方式都在', html.includes('整体更新') && html.includes('只增改'));
 check('提示项可展开', html.includes('1 条提示'));
 
@@ -187,22 +200,49 @@ check('一级节点也在里面（导入器要求有且只有一个根）', rows
   console.log('\n接口调用：');
 
   const moduleCalls = [];
+  // 课程列表由"服务器"给：课程存在与否只认这一份，不认页面里那份旧缓存
   sandbox.window.fetch = (url, options) => {
-    moduleCalls.push({ url: String(url), options });
+    const target = String(url);
+    moduleCalls.push({ url: target, options });
+    const isList = /\/api\/v1\/courses$/.test(target);
+    const body = isList
+      ? { items: [{ id: 'analysis-ii', title: '数学分析 II' }] }
+      : { ok: true, course_id: 'analysis-ii', course_title: '数学分析 II', course_created: false,
+        batch: 'abc', nodes_upserted: 3, exercises_upserted: 1, nodes_retired: 0, exercises_retired: 0 };
     return Promise.resolve({
       ok: true, status: 200,
-      text: () => Promise.resolve(JSON.stringify({ ok: true, batch: 'abc', nodes_upserted: 3, exercises_upserted: 1, nodes_retired: 0, exercises_retired: 0 })),
-      json: () => Promise.resolve({ ok: true, batch: 'abc', nodes_upserted: 3, exercises_upserted: 1, nodes_retired: 0, exercises_retired: 0 })
+      text: () => Promise.resolve(JSON.stringify(body)),
+      json: () => Promise.resolve(body)
     });
   };
-  reset({ tab: 'import', preview: pkg, courseId: 'analysis-ii' });
+  let catalogReloads = 0;
+  App.loadCatalog = async () => { catalogReloads += 1; };
+  reset({ tab: 'import', preview: pkg, courseName: '数学分析 II' });
   await App.actions['content-import']();
   check('导入打到 /content/import', moduleCalls.some(c => c.url.includes('/content/import')),
     moduleCalls.map(c => c.url.replace(/^https?:\/\/[^/]+/, '')).join(' '));
+  check('同名课程已存在 → 导入到那门课的 id 上',
+    moduleCalls.some(c => c.url.includes('/courses/analysis-ii/content/import')),
+    moduleCalls.map(c => c.url.split('/api/v1')[1] || c.url).join(' '));
   check('导入请求体带三件套解析结果',
     moduleCalls.some(c => String(c.options?.body || '').includes('"nodes"')),
     '');
   check('导入后记住了批次结果', App.state.content.importResult?.batch === 'abc', '');
+  check('导入后重拉课程目录（课程总览才会跟着变）', catalogReloads >= 1, `${catalogReloads} 次`);
+  check('已存在时不带 title_override（不改名）',
+    moduleCalls.some(c => c.url.includes('/content/import')
+      && JSON.parse(c.options.body).title_override === null), '');
+
+  // 改了名字、库里又没有这门课：按新名字建，并把名字写进 course.title
+  moduleCalls.length = 0;
+  reset({ tab: 'import', preview: pkg, courseName: '数学分析 II（2026）' });
+  await App.actions['content-import']();
+  const renameCall = moduleCalls.find(c => c.url.includes('/content/import'));
+  check('名字与包不一致 → 带上 title_override',
+    renameCall && JSON.parse(renameCall.options.body).title_override === '数学分析 II（2026）',
+    renameCall ? JSON.parse(renameCall.options.body).title_override : '没有导入请求');
+  check('库里没有这门课 → 用资源包里的 id 新建',
+    renameCall && renameCall.url.includes('/courses/course-analysis-ii/content/import'), '');
 
   moduleCalls.length = 0;
   reset({ tab: 'edit', content: { course: { id: 'analysis-ii', title: 'x' }, nodes: [], exercises: [] } });

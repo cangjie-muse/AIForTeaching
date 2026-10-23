@@ -42,6 +42,7 @@
     docPreview: null,    // 单文件增量导入的预览报告（还没提交）
     docFiles: null,      // 这次上传了哪几个 md
     docResult: null,     // 单文件导入落库后的结果
+    courseName: '',      // 导入页上填的课程名称（默认取资源包里的）
     importError: '',
     importing: false,
     importResult: null,
@@ -169,17 +170,32 @@
     </div>`;
   }
 
-  /* 说清按下去会发生什么。原来只有一句"选已有课程 = 整体更新那门课"，
-     老师不一定把它和自己手上的包对上，导错书才发现内容被换掉。 */
-  function targetHint(preview) {
-    if (S().courseId === '__new__') return `平台里还没有 ${preview.id}，会新建一门课再写内容。`;
-    const target = S().courses.find(course => course.id === S().courseId);
-    const title = target ? target.title : S().courseId;
-    if (S().courseId !== preview.id) {
-      return `注意：资源包是 ${preview.id}，你却选了「${title}」。`
-        + '整体更新会把那门课里上一次导入的内容全部标为停用，换成这个包的。';
+  /* 课程名称这一栏要回答两件事：和资源包里的名字对不对得上、课程中心里有没有。
+     两件都在这里实时说，不等到点下确认才报错。 */
+  function sameCourseName(left, right) {
+    const clean = text => String(text || '').normalize('NFKC').replace(/[\s《》()（）]/g, '').toLowerCase();
+    return clean(left) === clean(right);
+  }
+
+  function findByName(name) {
+    return (S().courses || []).find(course => sameCourseName(course.title, name));
+  }
+
+  function nameHint(preview) {
+    const name = String(S().courseName || preview.title).trim();
+    const existing = findByName(name);
+    const parts = [];
+    if (sameCourseName(name, preview.title)) {
+      parts.push(`与资源包里的课程名一致：${preview.title}。`);
+    } else {
+      parts.push(`资源包里的课程名是《${preview.title}》，你填的是《${name}》，确认时会再问一遍。`);
     }
-    return `「${title}」已存在，会覆盖它的内容；文件里没再出现的知识点与习题标为停用。`;
+    if (existing) {
+      parts.push(`课程中心里已经有《${existing.title}》（id：${existing.id}），这次导入会更新它。`);
+    } else {
+      parts.push(`课程中心里还没有这门课，导入后会新建（id：${preview.id}）。`);
+    }
+    return parts.join('');
   }
 
   function previewPanel(preview) {
@@ -187,12 +203,10 @@
     return `<div class="panel">
       <div class="panel-heading"><h2>提交到哪门课</h2>${A.badge(`${preview.nodes.length} 知识点 / ${preview.exercises.length} 题`, 'blue')}</div>
       <div class="field">
-        <label for="content-target">目标课程</label>
-        <select id="content-target" data-input="content-target">
-          ${courseOptions(S().courseId)}
-          <option value="__new__" ${S().courseId === '__new__' ? 'selected' : ''}>＋ 新建课程（用资源包里的课程 id：${e(preview.id)}）</option>
-        </select>
-        <small>${targetHint(preview)}</small>
+        <label for="content-name">课程名称</label>
+        <input id="content-name" data-input="content-name" value="${e(S().courseName || preview.title)}"
+               placeholder="例如 数学分析 I" autocomplete="off">
+        <small>${nameHint(preview)}</small>
       </div>
       <div class="field">
         <label>更新方式</label>
@@ -216,13 +230,18 @@
       ['习题写入', result.exercises_upserted],
       ['习题停用', result.exercises_retired]
     ];
+    const created = result.course_created;
     return `<div class="panel">
-      <div class="panel-heading"><h2>导入完成</h2>${A.badge(`批次 ${result.batch}`, 'green')}</div>
-      <table class="data-table"><tbody>${rows.map(([label, value]) =>
-        `<tr><th>${label}</th><td>${Number(value) || 0}</td></tr>`).join('')}</tbody></table>
+      <div class="panel-heading"><h2>${created ? '已新建课程' : '已更新课程'}</h2>${A.badge(`批次 ${result.batch}`, 'green')}</div>
+      <table class="data-table"><tbody>
+        <tr><th>课程</th><td>${e(result.course_title || result.course_id)}（id：${e(result.course_id)}）</td></tr>
+        <tr><th>课程状态</th><td>${created ? '新建' : '已存在，本次为更新'}</td></tr>
+        ${rows.map(([label, value]) => `<tr><th>${label}</th><td>${Number(value) || 0}</td></tr>`).join('')}
+      </tbody></table>
       <p class="muted small">${result.mode === 'replace'
         ? '整体更新：文件里没有的旧内容已标记为「已停用」，仍在库里可追溯，学生端不再出现。'
-        : '只增改：没有处理文件里缺失的内容。'}</p>
+        : '只增改：没有处理文件里缺失的内容。'}
+        课程内容进来后是「待审核」，审核并发布后才会出现在课程中心。</p>
       <div class="button-row">
         ${A.link('看知识图谱', 'graph', result.course_id)}
         ${A.link('去审核', 'review', null)}
@@ -285,8 +304,10 @@
       const pkg = CourseImport.parsePackage(rows, await knowledgeFile.text(),
         await exerciseFile.text(), metadata);
       S().preview = pkg;
+      S().courseName = pkg.title;
       S().previewFiles = { knowledge: knowledgeFile.name, exercises: exerciseFile.name };
       S().courseId = S().courses.some(course => course.id === pkg.id) ? pkg.id : '__new__';
+      S().courseName = pkg.title;
       A.toast(`解析完成：${pkg.nodes.length} 个知识点、${pkg.exercises.length} 道题`);
     } catch (error) {
       S().preview = null;
@@ -585,26 +606,77 @@
     }
   };
 
-  A.inputs['content-target'] = input => { S().courseId = input.value; };
+  A.inputs['content-name'] = input => {
+    S().courseName = input.value;
+    // 只重画提示那一行：重画整页会把输入框的焦点和光标位置弄丢
+    const hint = input.parentElement && input.parentElement.querySelector('small');
+    if (hint && S().preview) hint.textContent = nameHint(S().preview);
+  };
+
   A.inputs['content-course'] = input => { S().courseId = input.value; S().content = null; };
 
   // 没有 change 监听：文件选择靠 input 事件触发（与教材生成页一致）
   A.inputs['content-folder'] = input => { parseFiles(input.files); };
   A.inputs['content-files'] = input => { parseFiles(input.files); };
 
+  /* 导入前的确认：只弹一次框，把"名字对不对、课在不在、会怎么改"写在同一段话里。
+     两个 confirm 连着弹，人会条件反射地点确定。 */
+  function importConfirmText(preview, name, existing) {
+    const lines = [];
+    if (!sameCourseName(name, preview.title)) {
+      lines.push(`你填的课程名称是《${name}》，资源包里的课程名是《${preview.title}》。`);
+    }
+    if (existing) {
+      lines.push(`课程中心里已经有《${existing.title}》，这次导入会更新它：`
+        + '文件里没再出现的旧知识点与习题会标为停用。');
+    } else {
+      lines.push(`课程中心里还没有《${name}》，导入后会新建一门课程。`);
+    }
+    lines.push(S().mode === 'replace' ? '更新方式：整体更新（缺的标停用）。'
+      : '更新方式：只增改（不处理文件里缺的）。');
+    lines.push('确认导入？');
+    return lines.join('\n\n');
+  }
+
+  /* 导入改的是"库里有什么"，所以课程中心与课程总览都得重新拉一次。
+     只改本地这份列表的话，总览上的知识点与习题数还是旧的。 */
+  async function refreshAfterImport() {
+    S().courses = await A.api.courseList(true).catch(() => S().courses);
+    if (typeof A.loadCatalog === 'function') await A.loadCatalog();
+    else A.render();
+  }
+
   A.actions['content-import'] = async () => {
     const pkg = S().preview;
     if (!pkg) throw new Error('先选择资源包');
-    if (!S().courseId) throw new Error('先选目标课程');
-    const courseId = S().courseId === '__new__' ? pkg.id : S().courseId;
+    const name = String(S().courseName || '').trim();
+    if (!name) throw new Error('先填写课程名称');
     S().importing = true;
     A.render();
     try {
-      S().importResult = await A.api.importContent(courseId, toPayload(pkg));
+      // 存在与否只认库里那份：手上的列表可能是几分钟前拉的
+      S().courses = await A.api.courseList(true).catch(() => S().courses);
+      const existing = findByName(name);
+      const sameId = (S().courses || []).find(course => course.id === pkg.id);
+      const courseId = existing ? existing.id : (sameId ? sameId.id : pkg.id);
+      if ((existing || !sameCourseName(name, pkg.title))
+          && !window.confirm(importConfirmText(pkg, name, existing))) {
+        S().importing = false;
+        A.render();
+        return;
+      }
+      S().importResult = await A.api.importContent(courseId, {
+        ...toPayload(pkg),
+        title_override: sameCourseName(name, pkg.title) ? null : name
+      });
       S().courseId = courseId;
       S().preview = null;
-      A.api.courseList(true).then(courses => { S().courses = courses; }).catch(() => {});
-      S().notice = '导入完成。旧版本里没有的内容已标记为「已停用」。';
+      S().content = null;   // 修改与导出标签里的缓存一并作废
+      await refreshAfterImport();
+      const result = S().importResult || {};
+      S().notice = result.course_created
+        ? `已新建课程《${result.course_title || name}》，内容进入数据库，待审核后发布。`
+        : `已更新课程《${result.course_title || name}》；文件里没有的旧内容标为「已停用」。`;
     } catch (error) {
       S().importError = error.message;
     } finally {
