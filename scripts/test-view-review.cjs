@@ -33,7 +33,7 @@ sandbox.window.confirm = () => true;
 vm.createContext(sandbox);
 
 const bundle = ['js/core.js', 'js/visual-identity.js', 'js/api-client.js', 'js/diff.js',
-    'js/review-scope.js', 'js/review-node.js', 'js/publish-panel.js', 'js/review.js']
+    'js/review-scope.js', 'js/review-node.js', 'js/publish-panel.js', 'js/review-course-picker.js', 'js/review.js']
   .map(file => fs.readFileSync(path.join(root, file), 'utf8'))
   .join('\n;\n');
 vm.runInContext(bundle, sandbox, { filename: 'bundle.js' });
@@ -93,6 +93,27 @@ html = App.views.review();
 check('下拉框补上刚导入的课', html.includes('value="pde-new" selected'), '');
 check('补的那项写清是刚导入的', html.includes('刚导入'));
 check('补项之后也能发布（发布块出现）', html.includes('课程发布'));
+
+// 3c. 课程多了以后要能打字筛选：选项只留匹配的，选中项永远留着
+const options = App.courseOptionsHtml([
+  { id: 'a', title: '数学分析 I', exercise_count: 416 },
+  { id: 'b', title: '数学分析 II', exercise_count: 349 },
+  { id: 'c', title: '运筹学', exercise_count: 270 }
+], '分析', 'c');
+const onlyMatches = App.courseOptionsHtml([
+  { id: 'a', title: '数学分析 I', exercise_count: 416 },
+  { id: 'b', title: '数学分析 II', exercise_count: 349 },
+  { id: 'c', title: '运筹学', exercise_count: 270 }
+], '分析', '');
+check('不匹配的课被筛掉', !onlyMatches.includes('value="c"')
+  && (onlyMatches.match(/<option/g) || []).length === 2, onlyMatches);
+check('筛选时选中项不会被筛掉', options.includes('value="c" selected'));
+check('选项带题数', options.includes('数学分析 I（416 题）'));
+const none = App.courseOptionsHtml([
+  { id: 'a', title: '数学分析 I', exercise_count: 416 }
+], '运筹', '');
+check('没匹配就只剩空列表', none === '', none);
+check('筛选框出现在页面上', html.length > 0 && App.views.review().includes('data-input="review-course-query"'));
 
 // 4. 正常列表
 reset({

@@ -38,7 +38,7 @@ sandbox.window.confirm = message => { confirms.push(message); return confirmAnsw
 vm.createContext(sandbox);
 
 const bundle = ['js/core.js', 'js/visual-identity.js', 'js/api-client.js',
-  'js/review-scope.js', 'js/review-node.js', 'js/publish-panel.js', 'js/review.js']
+  'js/review-scope.js', 'js/review-node.js', 'js/publish-panel.js', 'js/review-course-picker.js', 'js/review.js']
   .map(file => fs.readFileSync(path.join(root, file), 'utf8')).join('\n;\n');
 vm.runInContext(bundle, sandbox, { filename: 'bundle.js' });
 

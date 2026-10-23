@@ -194,24 +194,6 @@
     </div>`;
   }
 
-  function courseFilter() {
-    const courses = S().courses || [];
-    if (!courses.length) return '';
-    const current = S().filters.course_id;
-    // 刚导入的课可能还没进这份缓存（审核页的课程列表是进页面时拉的），
-    // 但它就在 filters 里等着——不补一项的话，下拉框显示成别的课，人也选不回去。
-    if (current && !courses.some(course => course.id === current)) {
-      courses.unshift({ id: current, title: `${current}（刚导入）`, exercise_count: 0 });
-    }
-    return `<label class="rv-select">
-      <span>课程</span>
-      <select data-input="review-course">
-        <option value="">全部课程（${courses.length}）</option>
-        ${courses.map(course => `<option value="${e(course.id)}"${course.id === current ? ' selected' : ''}>${e(course.title)}（${course.exercise_count ?? 0} 题）</option>`).join('')}
-      </select>
-    </label>`;
-  }
-
   // 一门课全部题目的审核总表。队列回答"接下来审哪几道"，总表回答
   // "这门课每道题各自什么状态"——后者才是"哪些还没人审"能被发现的地方。
 
@@ -498,7 +480,7 @@
     const publishBlock = state.tab === 'exercises' || !state.tab
       ? A.publishPanel(state.filters.course_id) : '';
     return heading + tabs() + statsPanel()
-      + `<div class="rv-filters">${courseFilter()}${issueSummary()}</div>`
+      + `<div class="rv-filters">${A.reviewCoursePicker()}${issueSummary()}</div>`
       + publishBlock
       + A.reviewScopeOf().lookupBar() + A.reviewScopeOf().ledgerPanel() + `
       <div class="rv-layout ${detail ? 'has-detail' : ''}">
@@ -530,6 +512,7 @@
 
   A.inputs['review-course'] = function (select) {
     S().filters.course_id = select.value;
+    S().courseQuery = '';        // 选定了就把筛选词清掉，下次打开是完整列表
     S().graph = null;
     S().editingNode = '';
     // 发布状态跟着选的课走：选了课才谈得上发布

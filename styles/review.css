@@ -1,4 +1,7 @@
 /* 课程筛选条：一期只上数学分析 I + II，审核员需要先按课程缩小范围。 */
+.rv-course-filter { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rv-course-search { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.rv-course-search input { width: 150px; padding: 7px 10px; font-size: 12px; }
 .rv-filters {
   display: flex;
   flex-wrap: wrap;
