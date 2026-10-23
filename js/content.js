@@ -385,8 +385,9 @@
       </div>
       ${S().error ? `<p class="small">${e(S().error)}</p>` : ''}
     </div>`;
-    if (!content) return heading;
-    return heading + publishHint() + nodeList(content) + exerciseList(content);
+    const meta = A.courseMetaPanel ? A.courseMetaPanel(S().courseId) : '';
+    if (!content) return heading + meta;
+    return heading + meta + publishHint() + nodeList(content) + exerciseList(content);
   }
 
   // 发布是"课程级"开关：条目级发布（审核页逐题点）只决定单条能不能露出来，

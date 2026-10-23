@@ -73,6 +73,10 @@
       description: '课程框架已建立，待接入知识图谱、知识内容与题库。'
     };
   });
+  /* 库里记了方向就用库里的：课程中心的分组不该只存在于这张静态表里，
+     否则老师给一门课归位，还得改代码再部署。不认识的 id 一律当待归类，
+     不让课因为一个拼错的值凭空消失。 */
+  const groupOf = direction => (direction ? byId.get(direction) : null);
   function merge(imported) {
     const used = new Set();
     const planned = entries.map(entry => {
@@ -80,14 +84,22 @@
       const course = imported.find(item => item.id === entry.id || titles.includes(normalize(item.title)));
       if (!course) return { ...entry };
       used.add(course.id);
+      const group = groupOf(course.direction) || byId.get(entry.groupId) || groups[0];
       return { ...entry, ...course, catalogId: entry.id, catalogPlanned: true, order: entry.order,
-        groupId: entry.groupId, subject: entry.subject, categoryLabel: entry.categoryLabel,
-        direction: entry.direction, theme: entry.theme };
+        groupId: group.id, directionId: group.id, subject: group.label,
+        categoryLabel: group.label, direction: group.label, theme: group.theme };
     });
-    const additional = imported.filter(course => !used.has(course.id)).map((course, index) => ({
-      ...course, catalogPlanned: false, groupId: 'imported', categoryLabel: '新导入课程',
-      direction: '待归类', order: entries.length + index + 1
-    }));
+    const additional = imported.filter(course => !used.has(course.id)).map((course, index) => {
+      const group = groupOf(course.direction);
+      return {
+        ...course, catalogPlanned: false,
+        groupId: group ? group.id : 'imported',
+        directionId: group ? group.id : '',
+        categoryLabel: group ? group.label : '新导入课程',
+        direction: group ? group.label : '待归类',
+        order: entries.length + index + 1
+      };
+    });
     return [...planned, ...additional];
   }
   const api = { groups, entries, normalize, merge };

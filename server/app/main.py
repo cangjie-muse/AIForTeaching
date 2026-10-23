@@ -28,6 +28,7 @@ from .attempts import router as attempts_router
 from .catalog import router as catalog_router
 from .classes import router as classes_router
 from .content import router as content_router
+from .course_meta import router as course_meta_router
 from .generation import router as generation_router
 from .imports import router as imports_router
 from .qa import router as qa_router
@@ -96,6 +97,7 @@ app.include_router(qa_corpus_router)
 app.include_router(attempts_router)
 app.include_router(generation_router)
 app.include_router(content_router)
+app.include_router(course_meta_router)
 app.include_router(catalog_router)
 app.include_router(visibility_router)
 app.include_router(classes_router)
@@ -154,6 +156,7 @@ def list_courses() -> dict:
     rows = db.query(
         """
         SELECT c.id, c.title, c.audience, c.subject, c.status, c.review_status,
+               c.direction,
                (SELECT count(*) FROM knowledge_node k
                  WHERE k.course_id = c.id AND k.kind = 'knowledge') AS knowledge_count,
                (SELECT count(*) FROM exercise e WHERE e.course_id = c.id) AS exercise_count,

@@ -73,6 +73,12 @@ App.applyDbCatalog = function (dbCourses, publishedCourses) {
       exercises: row.exercise_count || 0,
       nodes: row.knowledge_count || 0
     }));
+  // 方向存在库里的 course.direction，内容接口不带它：在这儿补一次，
+  // 否则 CourseCatalog.merge 只能看到静态表里的方向，改归类等于没改。
+  const directions = new Map(rows.map(row => [row.id, row.direction || '']));
+  App.courses.forEach(course => {
+    course.direction = directions.get(course.id) || course.direction || '';
+  });
   App.dataSource = 'db';
   return before - App.courses.length;
 };

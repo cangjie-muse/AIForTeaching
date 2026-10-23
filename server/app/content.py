@@ -232,8 +232,8 @@ def import_pack(course_id: str, pack: PackIn, actor: str) -> dict:
     db.execute(
         """INSERT INTO course (id, title, description, audience, subject, status,
                                schema_version, review_status, content_source,
-                               content_batch, content_updated_at)
-           VALUES (%s, %s, %s, %s, %s, 'ready', %s, 'draft', 'import', %s, now())
+                               content_batch, content_updated_at, created_by)
+           VALUES (%s, %s, %s, %s, %s, 'ready', %s, 'draft', 'import', %s, now(), %s)
            ON CONFLICT (id) DO UPDATE
              SET title = EXCLUDED.title,
                  description = coalesce(EXCLUDED.description, course.description),
@@ -245,7 +245,7 @@ def import_pack(course_id: str, pack: PackIn, actor: str) -> dict:
                  content_updated_at = now(),
                  updated_at = now()""",
         (course_id, title, meta.get("description"), meta.get("audience"),
-         meta.get("subject"), meta.get("schema_version") or "1.0", batch),
+         meta.get("subject"), meta.get("schema_version") or "1.0", batch, actor),
     )
 
     for index, chapter in enumerate(plan["chapters"], start=1):

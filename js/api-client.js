@@ -125,6 +125,12 @@
     return courseCache;
   }
 
+  async function updateCourse(courseId, patch) {
+    const result = await request('PATCH', `/api/v1/courses/${encodeURIComponent(courseId)}`, { body: patch });
+    courseCache = null;   // 改了名字/归类，课程列表整个都旧了
+    return result;
+  }
+
   async function submitAttempt({ courseId, exerciseId, answerMd, durationSec }) {
     const matched = matchCourse(courseId, await courseList());
     if (!matched.id) return { status: 'no-course', reason: matched.note };
@@ -468,7 +474,7 @@
     base,
     courseList,
     matchCourse,
-    submitAttempt,
+    updateCourse, submitAttempt,
     uploadTextbook,
     startGeneration,
     textbookChapters,

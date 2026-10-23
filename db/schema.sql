@@ -71,6 +71,8 @@ CREATE TABLE course (
   source_files    text[],                      -- 原始三件套文件名
   review_status   review_status NOT NULL DEFAULT 'draft',
   source_imported_at timestamptz,              -- 来源数据里的 importedAt
+  direction       text,                        -- 学科方向 id（课程中心六组之一），空 = 待归类
+  created_by      text,                        -- 导入人（教师可改自己导入的课）
   created_at      timestamptz NOT NULL DEFAULT now(),
   updated_at      timestamptz NOT NULL DEFAULT now()
 );
