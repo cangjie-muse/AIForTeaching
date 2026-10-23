@@ -510,16 +510,6 @@
     A.render();
   };
 
-  A.inputs['review-course'] = function (select) {
-    S().filters.course_id = select.value;
-    S().courseQuery = '';        // 选定了就把筛选词清掉，下次打开是完整列表
-    S().graph = null;
-    S().editingNode = '';
-    // 发布状态跟着选的课走：选了课才谈得上发布
-    if (select.value) A.loadPublish(select.value).then(() => A.render());
-    reload();
-  };
-
   A.actions['review-filter'] = function (button) {
     S().filters.category = button.dataset.category || '';
     reload();

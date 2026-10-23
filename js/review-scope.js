@@ -203,15 +203,9 @@
   // 图谱这块自己带一个课程选择器：审核时换课比换筛选条件更频繁，
   // 藏在别的区域的筛选里容易被忽略。
   function coursePicker() {
-    const courses = S().courses || [];
-    const current = S().filters.course_id;
-    if (!courses.length) return '';
-    return `<label class="rv-select rv-graph-course"><span>课程</span>
-      <select data-input="review-course">
-        <option value="">选一门课</option>
-        ${courses.map(course => `<option value="${e(course.id)}"${course.id === current ? ' selected' : ''}>${e(course.title)}</option>`).join('')}
-      </select>
-    </label>`;
+    // 和习题那半边用同一个组合框：两处各自一个下拉，长得不一样，
+    // 还得各记一次"哪门课选过"。
+    return A.reviewCoursePicker({ emptyLabel: '选一门课' });
   }
 
   function ledgerPanel() {

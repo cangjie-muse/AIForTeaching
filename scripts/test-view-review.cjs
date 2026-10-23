@@ -90,30 +90,29 @@ reset({
 });
 App.state.publish = { courseId: '', status: null, loading: false, saving: false, error: '', notice: '' };
 html = App.views.review();
-check('下拉框补上刚导入的课', html.includes('value="pde-new" selected'), '');
-check('补的那项写清是刚导入的', html.includes('刚导入'));
+check('课程框里就是刚导入的那门', html.includes('value="pde-new（刚导入）"'), '');
+check('菜单里也补上这一项并高亮', /data-id="pde-new"[^>]*>pde-new（刚导入）/.test(html)
+  || /class="rv-combo-item active"[^>]*data-id="pde-new"/.test(html), '');
 check('补项之后也能发布（发布块出现）', html.includes('课程发布'));
 
-// 3c. 课程多了以后要能打字筛选：选项只留匹配的，选中项永远留着
-const options = App.courseOptionsHtml([
+// 3c. 一个框既能点也能打字：选项只留匹配的，选中项永远留着
+const menu = App.courseMenuHtml([
   { id: 'a', title: '数学分析 I', exercise_count: 416 },
   { id: 'b', title: '数学分析 II', exercise_count: 349 },
   { id: 'c', title: '运筹学', exercise_count: 270 }
-], '分析', 'c');
-const onlyMatches = App.courseOptionsHtml([
+], '分析', 'c', '全部课程（3）');
+check('不匹配的课被筛掉', !menu.includes('value="c"') || menu.includes('data-id="c"'));
+const onlyMatches = App.courseMenuHtml([
   { id: 'a', title: '数学分析 I', exercise_count: 416 },
   { id: 'b', title: '数学分析 II', exercise_count: 349 },
   { id: 'c', title: '运筹学', exercise_count: 270 }
-], '分析', '');
-check('不匹配的课被筛掉', !onlyMatches.includes('value="c"')
-  && (onlyMatches.match(/<option/g) || []).length === 2, onlyMatches);
-check('筛选时选中项不会被筛掉', options.includes('value="c" selected'));
-check('选项带题数', options.includes('数学分析 I（416 题）'));
-const none = App.courseOptionsHtml([
-  { id: 'a', title: '数学分析 I', exercise_count: 416 }
-], '运筹', '');
-check('没匹配就只剩空列表', none === '', none);
-check('筛选框出现在页面上', html.length > 0 && App.views.review().includes('data-input="review-course-query"'));
+], '分析', '', '全部课程（3）');
+check('不匹配的课真的没了', !onlyMatches.includes('data-id="c"')
+  && (onlyMatches.match(/data-id="[abc]"/g) || []).length === 2, onlyMatches);
+check('选中项在筛选里也不会消失', menu.includes('data-id="c"'));
+check('选项带题数', menu.includes('数学分析 I（416 题）'));
+check('第一项是"全部课程"', menu.startsWith('<button') && menu.includes('data-id="">全部课程（3）'));
+check('组合框在页面上', App.views.review().includes('data-input="review-course-query"'));
 
 // 4. 正常列表
 reset({
@@ -140,7 +139,8 @@ check('显示大盘统计', html.includes('待审') && html.includes('已通过'
 check('问题分类可点击筛选', html.includes('data-action="review-filter"') && html.includes('页码不精确'));
 check('优先级高亮', html.includes('rv-priority high'));
 check('可信度显示为「未核」', html.includes('未核'));
-check('有课程筛选且列出题量', html.includes('data-input="review-course"') && html.includes('数学分析 II（349 题）'));
+check('课程框列出题量', html.includes('data-input="review-course-query"')
+  && html.includes('数学分析 II（349 题）'));
 
 // 5. 打开详情
 App.state.review.open = 7;
@@ -226,7 +226,7 @@ reset({
 });
 html = App.views.review();
 check('图谱审核没选课时先要人选课', html.includes('先在上面选一门课'));
-check('图谱审核自带课程选择器', html.includes('data-input="review-course"'));
+check('图谱审核自带课程选择器', html.includes('data-input="review-course-query"'));
 
 reset({
   tab: 'graph',

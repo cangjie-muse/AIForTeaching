@@ -1,7 +1,19 @@
 /* 课程筛选条：一期只上数学分析 I + II，审核员需要先按课程缩小范围。 */
 .rv-course-filter { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.rv-course-search { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
-.rv-course-search input { width: 150px; padding: 7px 10px; font-size: 12px; }
+.rv-combo-label { font-size: 12px; color: var(--muted); }
+.rv-combo { position: relative; display: flex; align-items: center; }
+.rv-combo-input { width: 260px; padding: 8px 34px 8px 11px; font-size: 13px; border-radius: 9px; }
+.rv-combo-caret { position: absolute; right: 6px; width: 24px; height: 24px; display: grid;
+  place-items: center; color: #7d8b9b; border-radius: 6px; }
+.rv-combo-caret:hover { background: #eef3fc; color: var(--blue); }
+.rv-combo-caret .icon { width: 12px; height: 12px; transform: rotate(90deg); }
+.rv-combo-menu { position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; width: 320px;
+  max-height: 300px; overflow: auto; padding: 5px; background: #fff; border: 1px solid var(--line);
+  border-radius: 11px; box-shadow: 0 18px 40px -22px #14326966; }
+.rv-combo-item { display: block; width: 100%; text-align: left; padding: 8px 10px; border-radius: 7px;
+  font-size: 12px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rv-combo-item:hover, .rv-combo-item.active { background: #eef3fc; color: var(--blue); }
+.rv-combo-item.active { font-weight: 600; }
 .rv-filters {
   display: flex;
   flex-wrap: wrap;
