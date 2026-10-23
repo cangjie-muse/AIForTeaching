@@ -85,16 +85,15 @@ try:
     check("记得写 publish_event", bool(db.sql_matching("INSERT INTO publish_event")))
     check("记得写审计日志", bool(db.sql_matching("INSERT INTO audit_log")))
 
-    # 一道题都放不出来：要在报错里指路，而不是只说"不行"
+    # 一道题都没有：课程照样能发布，但必须把"学生只能看知识点"说出来。
+    # 拦在这里等于让讲义型课程永远不可见——大堂课上常见的那种课。
     db = FakeDB(nodes=10, published=0, drafts=486, promoted=0)
     catalog.db = db
-    try:
-        catalog.publish("course-x", "acc-admin")
-        check("没题可发布时报 400", False, "居然通过了")
-    except HTTPException as error:
-        check("没题可发布时报 400", error.status_code == 400, str(error.status_code))
-        check("报错里指路「内容审核」和「批量通过」",
-              "批量通过" in error.detail and "内容审核" in error.detail, error.detail[:40])
+    result = catalog.publish("course-x", "acc-admin")
+    check("没题也能发布", result["published"] is True)
+    check("没题时给出提醒", bool(result.get("warning")), str(result.get("warning"))[:30])
+    check("提醒里说清学生只能看知识点", "只能看知识点" in (result.get("warning") or ""))
+    check("提醒里指路「内容审核」", "内容审核" in (result.get("warning") or ""))
 
     # 没有知识点的课不能发布
     db = FakeDB(nodes=0, published=5, drafts=0, promoted=0)

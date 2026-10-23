@@ -253,13 +253,12 @@ def publish(course_id: str, actor: str, note: str | None = None) -> dict:
 
     if counts["nodes"] == 0:
         raise HTTPException(400, "这门课还没有知识点，发布后学生看到的是空课程")
+    # 一道题都没有也要能发布：讲义型课程、还没来得及配题的课都属正常，
+    # 卡在这里等于让整门课永远不可见。但这件事必须说出来，不能悄悄放过。
+    warning = None
     if counts["exercises"] == 0:
-        raise HTTPException(
-            400,
-            "还没有题目可以发布：先去「内容审核」把看过的题通过（或批量通过），"
-            "再回来点发布——通过了的题会在这一步一起放出给学生",
-
-        )
+        warning = ("这门课一道题都没有：发布后学生只能看知识点。"
+                   "要放题，先在「内容审核」把看过的题通过，再回来点发布。")
 
     db.execute(
         """UPDATE course
@@ -280,7 +279,8 @@ def publish(course_id: str, actor: str, note: str | None = None) -> dict:
 
     return {"course_id": course_id, "published": True,
             "nodes": counts["nodes"], "exercises": counts["exercises"],
-            "drafts_hidden": counts["drafts"], "promoted": promoted}
+            "drafts_hidden": counts["drafts"], "promoted": promoted,
+            "warning": warning}
 
 
 def unpublish(course_id: str, actor: str, note: str | None = None) -> dict:

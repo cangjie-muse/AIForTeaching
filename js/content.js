@@ -715,10 +715,11 @@
     S().saving = true;
     try {
       const result = await A.api.publishCourse(S().courseId);
-      S().notice = `已发布：学生端可见 ${result.exercises} 道题、${result.nodes} 个知识点；` +
-        `${result.drafts_hidden} 道未审核发布的题仍然隐藏。`;
+      const hiddenNote = result.drafts_hidden ? `；${result.drafts_hidden} 道未审核发布的题仍然隐藏` : '';
+      S().notice = `已发布：学生端可见 ${result.exercises} 道题、${result.nodes} 个知识点`
+        + hiddenNote + '。' + (result.warning ? `注意：${result.warning}` : '');
       S().publish = await A.api.publishStatus(S().courseId);
-      if (A.loadCatalog) A.loadCatalog();   // 目录里的"建设中"要跟着消失
+      if (A.loadCatalog) A.loadCatalog();  // 目录里的「建设中」要跟着消失
     } catch (error) {
       S().error = error.message;
     } finally {
@@ -731,7 +732,7 @@
      发布与验证是两件事，替 486 道题盖章只会让"人工已审"这个标记变得不可信。 */
   A.actions['content-publish-all'] = async () => {
     const hidden = Number((S().publish || {}).hidden) || 0;
-    const nodes = Number((S().publish || {}).nodes) || 0;
+    const nodes = Number((S().publish || {}).nodes) || 0;  // 确认框里要写清会放出什么
     const answer = window.confirm(`把本课 ${hidden} 道题全部标为「已发布」，并把这门课发布到学生端？\n\n`
       + `· 学生将看到 ${nodes} 个知识点与 ${hidden} 道题；\n`
       + '· 这会跳过逐题审核，可信度仍显示「未经人工校验」；\n'
@@ -743,15 +744,12 @@
       const published = await A.api.publishCourse(S().courseId, '整课放出后发布');
       S().notice = `已放出 ${result.published} 道题，课程已发布：`
         + `学生端可见 ${published.nodes} 个知识点、${published.exercises} 道题。`
-        + '这些题没有人工校验标记，可见范围若设成「仅人工审核」仍不会放出来。';
+        + (result.published
+          ? '这些题没有人工校验标记，可见范围若设成「仅人工审核」仍不会放出来。'
+          : '这门课一道题都没有，学生只能看知识点。');
       S().publish = await A.api.publishStatus(S().courseId);
       if (A.loadCatalog) A.loadCatalog();
-    } catch (error) {
-      S().error = error.message;
-    } finally {
-      S().saving = false;
-      A.render();
-    }
+    } catch (error) { S().error = error.message; } finally { S().saving = false; A.render(); }
   };
 
   A.actions['content-unpublish'] = async () => {
