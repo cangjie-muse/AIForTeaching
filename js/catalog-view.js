@@ -201,11 +201,11 @@
     // 老师点了《交换代数》却看到《机器学习》，只会以为点错了。
     return `<a class="course-card draft-card" data-course-id="${e(row.id)}"
       data-action="course-open-content" data-id="${e(row.id)}" href="#/content">
-      <div class="draft-cover">${A.icon('upload')}<span>建设中</span></div>
+      <div class="draft-cover">${A.icon('upload')}<span>${row.status === 'planned' ? '规划中' : '建设中'}</span></div>
       <div class="course-card-body">
-        <div class="card-category">未发布<span>仅教师可见</span></div>
+        <div class="card-category">${row.status === 'planned' ? '规划中' : '未发布'}<span>${row.status === 'planned' ? '尚未建设' : '仅教师可见'}</span></div>
         <h3>${e(row.title)}</h3>
-        <p>${row.nodes} 个知识点 · ${row.exercises} 道习题，尚未发布给学生。去「课程内容」补齐并发布。</p>
+        <p>${row.status === 'planned' ? '规划设计中的课程，还没有内容。导入资源包后即可建设。' : `${row.nodes} 个知识点 · ${row.exercises} 道习题，尚未发布给学生。去「课程内容」补齐并发布。`}</p>
         <div class="course-card-foot"><span>${A.icon('pen')} 打开课程内容</span><span class="circle-arrow">${A.icon('arrow')}</span></div>
       </div></a>`;
   }
