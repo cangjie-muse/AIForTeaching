@@ -11,8 +11,11 @@
 .catalog-stats{background:#fff;border:1px solid var(--line);border-radius:11px;margin:20px 0 26px;display:grid;grid-template-columns:repeat(4,1fr);padding:19px 5px}
 .catalog-stats>div{display:flex;align-items:center;justify-content:center;gap:13px;border-right:1px solid var(--line)}
 .catalog-stats>div:last-child{border:0}
-.catalog-stats strong{font-size:28px;font-family:Georgia,serif;font-weight:400;color:#355681;letter-spacing:.5px}
-.catalog-stats span{font-size:11px;color:#8b98aa}
+/* 四个数等宽对齐：Georgia 的数字不等宽，7 和 26 摆一起会一个宽一个窄，
+   看着像没对齐。tabular-nums + 固定最小宽度把它压平。 */
+.catalog-stats strong{font-size:28px;font-family:Georgia,serif;font-weight:400;color:#355681;
+  letter-spacing:.5px;font-variant-numeric:tabular-nums;min-width:2ch;text-align:center}
+.catalog-stats span{font-size:11px;color:#8b98aa;white-space:nowrap}
 .catalog-section .search-input{width:224px}
 .course-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px}
 .course-card{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;box-shadow:var(--shadow);transition:transform .2s,box-shadow .2s}

@@ -17,6 +17,11 @@
 /* 跳转过去时别让分组标题被吸顶条盖住 */
 .catalog-group{scroll-margin-top:138px}
 .catalog-filters{flex-wrap:wrap}
+/* 分类 chip 旁边的小 ✕：只在管理员下出现，点错了的后果是课回到「待归类」 */
+.filter-item{display:inline-flex;align-items:center;gap:2px}
+.chip-del{border:0;background:none;color:#b8c2d0;font-size:11px;line-height:1;padding:6px 3px;
+  cursor:pointer;border-radius:5px}
+.chip-del:hover{color:#b4433a;background:#fdeeec}
 .filter-chip[data-filter="ready"]{border-color:#dbe6f5;color:#4b78ae}
 .filter-chip[data-filter="ready"].active{background:#2854a0;color:white;border-color:#2854a0}
 .card-category{flex-wrap:wrap;gap:5px}

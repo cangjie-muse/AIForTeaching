@@ -201,6 +201,23 @@ check('管理员能看到「新建分类」', html.includes('catalog-add-directi
 App.state.auth = { status: 'ready', actor: { id: 'acc-t', role: 'teacher', display_name: '王老师' } };
 check('老师看不到「新建分类」', !App.views.catalog().includes('catalog-add-direction'), '');
 
+// 分类要能删：删除入口就在分类 chip 旁边，管理员可见。
+// 删除的后果是课回到「待归类」，所以按钮给到管理员而不是所有人。
+App.state.auth = { status: 'ready', actor: { id: 'acc-a', role: 'admin', display_name: '管理员' } };
+const adminHtml = App.views.catalog();
+const delButtons = adminHtml.match(/class="chip-del"/g) || [];
+check('每个学科分类 chip 旁都有删除按钮',
+  delButtons.length === CourseCatalog.groups.length,
+  `${delButtons.length} vs ${CourseCatalog.groups.length}`);
+check('删除按钮挂的是分类 id 而不是固定档',
+  CourseCatalog.groups.every(group => adminHtml.includes(`data-action="catalog-del-direction"
+      data-id="${group.id}"`.replace(/\s+/g, ' ')) || adminHtml.includes(`data-id="${group.id}"`)), '');
+check('「全部课程」「已接入」这类固定档没有删除按钮',
+  !/catalog-del-direction\s*\n?\s*data-id="all"/.test(adminHtml) &&
+  !/catalog-del-direction\s*\n?\s*data-id="ready"/.test(adminHtml), '');
+App.state.auth = { status: 'ready', actor: { id: 'acc-t', role: 'teacher', display_name: '王老师' } };
+check('老师看不到分类删除按钮', !App.views.catalog().includes('chip-del'), '');
+
 App.state.auth = { status: 'ready', actor: { id: 'acc-a', role: 'admin', display_name: '管理员' } };
 App.actions['catalog-add-direction']();
 check('弹窗里有分类名称输入框', element('dialog').innerHTML.includes('direction-label'), '');
@@ -286,6 +303,20 @@ App.state.auth = { status: 'ready', actor: { id: 'acc-s', role: 'student', displ
 html = App.views.catalog();
 check('不再出现建设批次', !/一期|二期/.test(html), '');
 check('统计条写"个学科方向"', html.includes('个学科方向'), '');
+
+// 统计条的四个数必须和筛选条同源：以前「门课程」取静态 entries（36），
+// 筛选条取渲染用的 all（40），同屏两个数打架。
+const statNumbers = [...html.matchAll(/<strong>(\d+)<\/strong><span>([^<]+)</g)]
+  .map(match => [match[2], Number(match[1])]);
+const statOf = label => (statNumbers.find(([name]) => name === label) || [])[1];
+check('统计条四个数都来自同一份课程列表', statOf('门课程') === App.allCourses().length,
+  `${statOf('门课程')} vs ${App.allCourses().length}`);
+check('已接入 + 待接入 = 门课程',
+  statOf('门已接入内容') + statOf('门待接入') === statOf('门课程'),
+  `${statOf('门已接入内容')}+${statOf('门待接入')} vs ${statOf('门课程')}`);
+check('数字不再补零', !/<strong>0\d<\/strong>/.test(html), '');
+check('没有两个「待归类」筛选项',
+  (html.match(/待归类<span>/g) || []).length <= 1, String((html.match(/待归类<span>/g) || []).length));
 check('六个方向分组都在',
   ['分析', '代数与数论', '几何与拓扑', '微分方程', '概率统计', '计算与应用']
     .every(label => html.includes(`data-group="${CourseGroupIdOf(label)}"`)), CourseCatalog.groups.map(g => g.label).join('、'));

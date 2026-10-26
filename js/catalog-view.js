@@ -216,22 +216,44 @@
     </section>`;
   }
 
+  /* 真实的学科分类（不是「全部 / 已接入 / 正在建设」这些固定档）才可删。
+     删除的后果是课回到「待归类」，所以按钮要小、要带提示、要二次确认。 */
+  function chip(filter, index, deletable) {
+    const active = index === 0 ? 'active' : '';
+    const main = `<button class="filter-chip ${active}" data-action="catalog-filter"
+      data-filter="${e(filter.id)}">${e(filter.label)}<span>${filter.count}</span></button>`;
+    if (!deletable || !deletable.has(filter.id)) return main;
+    return `<span class="filter-item">${main}<button class="chip-del" data-action="catalog-del-direction"
+      data-id="${e(filter.id)}" data-label="${e(filter.label)}"
+      title="删除「${e(filter.label)}」分类">✕</button></span>`;
+  }
+
   A.views.catalog = function () {
     A.state.catalogCategory = 'all';
     const all = A.allCourses(), ready = all.filter(course => course.status === 'ready').length;
     // 建设中：库里有、还没发布给学生的课。单独一档，老师不用滚到页面最底下找。
     const drafts = (A.dataSource === 'db' && A.draftCourses) ? A.draftCourses : [];
     const faculty = A.auth && A.auth.is('teacher', 'admin');
+    const isAdmin = !!A.auth && A.auth.is('admin');
+    const deletable = new Set(isAdmin ? CourseCatalog.groups.map(group => group.id) : []);
     // 没归类的课也要有自己的一档：它们在最底下单独一组，筛选条上却没有入口，
     // 人只看得到「全部 39」里差了几门，不知道差在哪。
     const imported = all.filter(course => course.groupId === 'imported');
+    // 分类是数据，可能有人真建了一个叫「待归类」的分类：它和下面合成的
+    // imported 档重名，筛选项会并排出现两个「待归类」。按 id 去重，只留一个。
+    const realGroups = CourseCatalog.groups.filter(group => group.label !== '待归类');
+    const seen = new Set(['all']);
     const filters = [
       { id: 'all', label: '全部课程', count: all.length },
-      ...CourseCatalog.groups.map(group => ({ ...group, count: all.filter(c => c.groupId === group.id).length })),
+      ...realGroups.map(group => ({ ...group, count: all.filter(c => c.groupId === group.id).length })),
       ...(imported.length ? [{ id: 'imported', label: '待归类', count: imported.length }] : []),
       { id: 'ready', label: '已接入', count: ready },
       ...(drafts.length && faculty ? [{ id: 'draft', label: '正在建设', count: drafts.length }] : [])
-    ];
+    ].filter(item => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
     const displayGroups = imported.length
       ? [...CourseCatalog.groups, { id: 'imported', label: '新导入课程（待归类）', number: String(CourseCatalog.groups.length + 1).padStart(2, '0') }]
       : CourseCatalog.groups;
@@ -239,9 +261,9 @@
     const addChip = A.auth && A.auth.is('admin')
       ? `<button class="filter-chip chip-add" data-action="catalog-add-direction">＋ 新建分类</button>` : '';
     return `<div class="catalog-hero"><div class="hero-copy"><div class="eyebrow">WUHAN UNIVERSITY · MATHEMATICS</div><h1>数学课程中心</h1><p>沿着定义、定理与习题，梳理数学的来龙去脉。</p><div class="hero-actions">${A.link('探索示范课程', 'overview', A.featuredCourse()?.id, 'arrow', 'primary')}${A.link('查看建设概览', 'construction', null, '', 'light')}</div><div class="hero-caption"><span class="tiny-dot"></span>数学与统计学院 · 智慧课程建设</div></div><div class="hero-photo" role="img" aria-label="武汉大学老图书馆"></div><div class="hero-corner">珞珈 · 求知</div></div>
-      <div class="catalog-stats"><div><strong>${CourseCatalog.entries.length}</strong><span>门课程</span></div><div><strong>${CourseCatalog.groups.length}</strong><span>个学科方向</span></div><div><strong>${String(ready).padStart(2, '0')}</strong><span>门已接入内容</span></div><div><strong>${String(CourseCatalog.entries.length - ready).padStart(2, '0')}</strong><span>门待接入</span></div></div>
+      <div class="catalog-stats"><div><strong>${all.length}</strong><span>门课程</span></div><div><strong>${realGroups.filter(group => all.some(course => course.groupId === group.id)).length}</strong><span>个学科方向</span></div><div><strong>${ready}</strong><span>门已接入内容</span></div><div><strong>${all.length - ready}</strong><span>门待接入</span></div></div>
       <section class="catalog-section"><div class="section-heading"><div><h2>发现课程</h2><p>按学科方向组织；新导入、还没归类的课程单列在末尾。</p></div></div>
-      <div class="catalog-toolbar"><div class="catalog-filters" role="group" aria-label="课程分类">${filters.map((filter, i) => `<button class="filter-chip ${i === 0 ? 'active' : ''}" data-action="catalog-filter" data-filter="${filter.id}">${filter.label}<span>${filter.count}</span></button>`).join('')}${addChip}</div><div class="search-input">${A.icon('search')}<input id="catalog-search" data-input="filter-catalog" aria-label="搜索课程" placeholder="搜索课程名称…"></div></div>
+      <div class="catalog-toolbar"><div class="catalog-filters" role="group" aria-label="课程分类">${filters.map((filter, i) => chip(filter, i, deletable)).join('')}${addChip}</div><div class="search-input">${A.icon('search')}<input id="catalog-search" data-input="filter-catalog" aria-label="搜索课程" placeholder="搜索课程名称…"></div></div>
       <div id="course-groups">${displayGroups.map(group => catalogGroup(group, all)).join('')}${draftSection()}</div><div id="catalog-empty" hidden>${A.empty('search', '没有找到课程', '试试其他关键词，或查看全部课程。')}</div></section>${studySequence()}<footer class="page-footer"><span>智慧武大 · 数学课程平台</span><button data-action="credits">代码与资料来源 ${A.icon('link')}</button></footer>`;
   };
   function filterCatalog() {
