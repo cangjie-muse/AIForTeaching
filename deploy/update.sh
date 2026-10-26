@@ -30,16 +30,52 @@ cd "$ROOT"
 set -a; . ./.env; set +a
 [ -n "${DATABASE_URL:-}" ] || die ".env 里没有 DATABASE_URL"
 
+# 从哪个远端拉：GitHub 在国内经常连不上，默认优先 gitee，其次 origin/github。
+# 想固定某一家就显式指定：GIT_REMOTE=gitee bash deploy/update.sh
+BRANCH="${GIT_BRANCH:-main}"
+REMOTE="${GIT_REMOTE:-}"
+if [ -z "$REMOTE" ]; then
+  for candidate in gitee origin github; do
+    if git remote get-url "$candidate" >/dev/null 2>&1; then REMOTE="$candidate"; break; fi
+  done
+fi
+[ -n "$REMOTE" ] || die "这个仓库没有配任何 git 远端，先 git remote add gitee <地址>"
+
+# 一个远端连不上就换下一个：服务器在国内，GitHub 超时是常态，不该因此卡住整次更新
+pull_from() {
+  local remote="$1"
+  git remote get-url "$remote" >/dev/null 2>&1 || return 1
+  git fetch --quiet "$remote" "$BRANCH" 2>/dev/null || return 1
+  git pull --ff-only "$remote" "$BRANCH" >/dev/null 2>&1 || return 1
+  return 0
+}
+
 BEFORE="$(git rev-parse --short HEAD)"
 say "1. 拉取代码（当前 $BEFORE）"
 if [ "$DRY" -eq 1 ]; then
-  git fetch --quiet origin main
-  git log --oneline "HEAD..origin/main" | sed 's/^/    /'
-  echo "    （dry-run：到此为止）"
-  exit 0
+  for candidate in "$REMOTE" gitee origin github; do
+    git remote get-url "$candidate" >/dev/null 2>&1 || continue
+    if git fetch --quiet "$candidate" "$BRANCH" 2>/dev/null; then
+      echo "    远端：$candidate"
+      git log --oneline "HEAD..$candidate/$BRANCH" | sed 's/^/    /'
+      echo "    （dry-run：到此为止）"
+      exit 0
+    fi
+    echo "    ！$candidate 连不上，换下一个"
+  done
+  die "所有远端都连不上；先修网络或改用 gitee"
 fi
-git fetch --quiet origin main
-git pull --ff-only origin main
+
+PULLED=0
+for candidate in "$REMOTE" gitee origin github; do
+  if pull_from "$candidate"; then
+    ok "已从 $candidate 更新"
+    PULLED=1
+    break
+  fi
+  git remote get-url "$candidate" >/dev/null 2>&1 && echo "  ！从 $candidate 拉取失败，换下一个"
+done
+[ "$PULLED" = 1 ] || die "所有远端都拉不下来。检查 GIT_REMOTE、网络，或手动 git status 看是否有本地改动挡住 ff-only"
 AFTER="$(git rev-parse --short HEAD)"
 if [ "$BEFORE" = "$AFTER" ]; then
   ok "已是最新（$AFTER），继续走完依赖与迁移检查"

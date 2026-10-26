@@ -194,3 +194,27 @@ npm run check          # 现在 818 项
 | `! [rejected] main -> main (fetch first)` | Gitee 仓库里已有初始提交 | `git pull --rebase origin main` 再 push |
 | push 卡在 `Writing objects` | 网络或体积 | 换 SSH；确认没提交大文件 |
 | 服务器 `git pull` 还去 GitHub | 远程没改 | 第 3 步的 `set-url` 没跑或跑在别的目录 |
+
+---
+
+## 7. 部署脚本自动选远端
+
+服务器上不必手写 `git pull`。`deploy/update.sh` 会按 **gitee → origin → github** 的顺序试，
+一个连不上自动换下一个——GitHub 超时不再卡住整次更新：
+
+```bash
+bash deploy/update.sh                    # 自动选，优先 gitee
+GIT_REMOTE=gitee bash deploy/update.sh   # 强制走 gitee
+GIT_BRANCH=main bash deploy/update.sh
+bash deploy/update.sh --dry-run          # 只列会拉到的提交，不改任何东西
+```
+
+三个远端全连不上时，脚本会明确报"所有远端都拉不下来"，而不是留一个半截状态。
+
+本机要一次推到两边，用：
+
+```bash
+bash scripts/sync-remotes.sh --tags
+```
+
+它逐个远端推、逐个报结果：Gitee 成功、GitHub 失败时，代码没丢，只提示补推哪一边。
