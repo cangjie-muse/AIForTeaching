@@ -283,6 +283,10 @@
     const items = (corpus && corpus.items) || [];
     const missing = items.filter(item => Number(item.nodes_with_text || 0) > 0
       && Number(item.chunks || 0) === 0);
+    // 有目录没正文：知识点行数不少（卡片上看是"有 123 个知识点"），但正文全空，
+    // 切块切不出东西。这种课补切没用，要补导 知识点.md——和"缺语料"是两回事。
+    const emptyBody = items.filter(item => Number(item.nodes || 0) > 0
+      && Number(item.nodes_with_text || 0) === 0);
     const head = `<div class="panel-heading">
         <h2>问答语料</h2>
         <div class="button-row">
@@ -312,6 +316,10 @@
       ${missing.length ? `<p class="corpus-note warn">有 ${missing.length} 门课导入了正文却没切过片段：
         ${missing.map(item => item.title || item.course_id).slice(0, 8).join('、')}
         ${missing.length > 8 ? '…' : ''}。这些课的问答会直接拒答，点「补齐缺语料的课」即可。</p>` : ''}
+      ${emptyBody.length ? `<p class="corpus-note warn">有 ${emptyBody.length} 门课只有目录、没有正文：
+        ${emptyBody.map(item => item.title || item.course_id).slice(0, 8).join('、')}
+        ${emptyBody.length > 8 ? '…' : ''}。知识点卡片上的数字是条目数，正文是空的，
+        所以切不出片段、问答无法引用。这类课要补导「知识点.md」，不是重建语料。</p>` : ''}
       ${note}
       ${items.length ? `<div class="api-table-wrap"><table class="api-table">
         <thead><tr><th>课程</th><th>有正文的知识点</th><th>片段</th><th>状态</th></tr></thead>

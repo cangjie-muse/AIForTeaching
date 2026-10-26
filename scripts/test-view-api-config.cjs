@@ -119,6 +119,20 @@ check('缺语料的课被点名', html.includes('门课导入了正文却没切�
   && html.includes('数学分析 I'), '');
 check('给出补齐按钮', html.includes('补齐缺语料的课（2）'), '');
 
+// 「有目录没正文」和「缺语料」是两回事：前者补切没用，要补导正文
+App.state.apiConfig.corpus = {
+  courses_ready: 1, total_chunks: 159,
+  items: [
+    { course_id: 'kp-finance', title: '金融数学', nodes: 123, nodes_with_text: 0, chunks: 0 },
+    { course_id: 'analysis', title: '数学分析 I', nodes: 216, nodes_with_text: 200, chunks: 159 }
+  ]
+};
+html = App.views['api-config']();
+check('点名只有目录没有正文的课', html.includes('只有目录、没有正文')
+  && html.includes('金融数学'), '');
+check('说清卡片数字是条目数不是正文', html.includes('条目数'), '');
+check('这类课不给「补齐」按钮', !html.includes('补齐缺语料的课'), '');
+
 
 // 8. 切完之后：块数与状态跟着变，管理员能点重建
 App.state.apiConfig.corpus = {

@@ -155,10 +155,12 @@ def rebuild_course(course_id: str) -> dict[str, Any]:
         if not course:
             raise KeyError(f"没有这门课：{course_id}")
 
+        # 停用（retired）的知识点不切：它已经从学生端撤下，但行还留在库里
+        # 供追溯。切进去的话，问答会引用"已经不存在的内容"，等于停用没生效。
         cur.execute(
             """SELECT id, title, path, content_md
                FROM knowledge_node
-               WHERE course_id = %s
+               WHERE course_id = %s AND review_status <> 'retired'
                ORDER BY level, array_to_string(path, ' / '), id""",
             (course_id,),
         )
@@ -260,8 +262,12 @@ def status() -> dict[str, Any]:
         """
         SELECT c.id AS course_id, c.title,
                (SELECT count(*) FROM knowledge_node k
-                 WHERE k.course_id = c.id AND length(btrim(k.content_md)) > 0) AS nodes_with_text,
-               (SELECT count(*) FROM knowledge_node k WHERE k.course_id = c.id) AS nodes,
+                 WHERE k.course_id = c.id AND k.kind = 'knowledge'
+                   AND k.review_status <> 'retired'
+                   AND length(btrim(k.content_md)) > 0) AS nodes_with_text,
+               (SELECT count(*) FROM knowledge_node k
+                 WHERE k.course_id = c.id AND k.kind = 'knowledge'
+                   AND k.review_status <> 'retired') AS nodes,
                (SELECT count(*) FROM textbook_chunk ch
                   JOIN textbook t ON t.id = ch.textbook_id
                  WHERE t.course_id = c.id) AS chunks,

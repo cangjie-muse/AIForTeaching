@@ -57,17 +57,19 @@ def main() -> int:
     items = status["items"]
     print(f"共 {len(items)} 门课，{status['courses_ready']} 门有语料，"
           f"{status['total_chunks']} 块。\n")
-    print(f"{'课程 id':<34}{'有正文':>8}{'片段':>8}  状态")
+    print(f"{'课程 id':<34}{'知识点':>8}{'有正文':>8}{'片段':>8}  状态")
     for row in items:
         chunks = int(row.get("chunks") or 0)
         if chunks:
             state = "有语料"
+        elif int(row.get("nodes") or 0) > 0 and int(row.get("nodes_with_text") or 0) == 0:
+            state = "知识点正文全是空的：切不出块，要先补正文"
         elif int(row.get("nodes_with_text") or 0) > 0:
             state = "缺语料（导入时切失败了，或早于自动切块上线）"
         else:
             state = "没有正文，不用切"
-        print(f"{str(row['course_id']):<34}{int(row.get('nodes_with_text') or 0):>8}"
-              f"{chunks:>8}  {state}")
+        print(f"{str(row['course_id']):<34}{int(row.get('nodes') or 0):>8}"
+              f"{int(row.get('nodes_with_text') or 0):>8}{chunks:>8}  {state}")
         if row.get("title"):
             print(f"{'':<34}{row['title']}")
 
