@@ -195,6 +195,7 @@ npm run check          # 现在 818 项
 | `! [rejected] main -> main (fetch first)` | Gitee 仓库里已有初始提交 | `git pull --rebase origin main` 再 push |
 | push 卡在 `Writing objects` | 网络或体积 | 换 SSH；确认没提交大文件 |
 | `remote: error: hook declined to update refs/heads/main` 且提示 `Push will publish a hidden email` | Gitee 账号把邮箱设成了「不公开」，而历史提交里带的是真实邮箱 | Gitee → 设置 → 邮箱管理 → 取消「不公开我的邮箱地址」（或把该邮箱设为公开）后重推。不要靠改写历史绕过：改邮箱会让所有提交哈希变化，GitHub 上的历史也跟着分叉 |
+| `deploy/update.sh` 输出里某一步整段消失（比如没有 `==> 4`） | 脚本正在运行时被这次 `git pull` 替换，bash 按字节偏移继续读，后半段读到了新文件 | 已修：脚本检测到自身变化会 `exec` 重跑一遍。手动绕过：先 `git fetch gitee && git merge --ff-only gitee/main`，再 `bash deploy/update.sh` |
 | 服务器 `git pull` 还去 GitHub | 远程没改 | 第 3 步的 `set-url` 没跑或跑在别的目录 |
 
 ---

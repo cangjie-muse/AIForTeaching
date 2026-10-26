@@ -50,6 +50,12 @@ pull_from() {
   return 0
 }
 
+# 脚本自己也可能被这次 pull 改掉。bash 是按字节偏移边读边执行的：
+# 文件在执行中途被替换，后半段就会按旧偏移读到新文件的内容——表现为"某一步整段消失"。
+# 所以先记下自己的指纹，拉完发现变了就从头重跑一遍。
+SELF="$ROOT/deploy/update.sh"
+SELF_SUM="$(sha1sum "$SELF" 2>/dev/null | cut -d' ' -f1 || true)"
+
 BEFORE="$(git rev-parse --short HEAD)"
 say "1. 拉取代码（当前 $BEFORE）"
 if [ "$DRY" -eq 1 ]; then
@@ -76,6 +82,14 @@ for candidate in "$REMOTE" gitee origin github; do
   git remote get-url "$candidate" >/dev/null 2>&1 && echo "  ！从 $candidate 拉取失败，换下一个"
 done
 [ "$PULLED" = 1 ] || die "所有远端都拉不下来。检查 GIT_REMOTE、网络，或手动 git status 看是否有本地改动挡住 ff-only"
+if [ "${UPDATE_REEXEC:-0}" != "1" ]; then
+  NEW_SUM="$(sha1sum "$SELF" 2>/dev/null | cut -d' ' -f1 || true)"
+  if [ -n "$SELF_SUM" ] && [ "$SELF_SUM" != "$NEW_SUM" ]; then
+    say "部署脚本自身在这次更新里改过，从头重跑一遍（避免按旧偏移读新文件）"
+    UPDATE_REEXEC=1 exec bash "$SELF" "$@"
+  fi
+fi
+
 AFTER="$(git rev-parse --short HEAD)"
 if [ "$BEFORE" = "$AFTER" ]; then
   ok "已是最新（$AFTER），继续走完依赖与迁移检查"
