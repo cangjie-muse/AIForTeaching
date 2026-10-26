@@ -102,7 +102,22 @@
     });
     return [...planned, ...additional];
   }
-  const api = { groups, entries, normalize, merge };
+  /* 分类清单以数据库为准（/api/v1/directions）。后端连不上、或迁移没跑时，
+     上面这六个就是兜底——离线包里本来也只有这六组。
+     原地替换而不是重新赋值：外部拿到的是 groups 这个数组本身的引用。 */
+  const setGroups = list => {
+    if (!Array.isArray(list) || !list.length) return;
+    groups.splice(0, groups.length, ...list.map((group, index) => ({
+      id: String(group.id),
+      label: String(group.label),
+      number: String(index + 1).padStart(2, '0'),
+      theme: group.theme || 'analysis',
+      description: group.description || ''
+    })));
+    byId.clear();
+    groups.forEach(group => byId.set(group.id, group));
+  };
+  const api = { groups, entries, normalize, merge, setGroups };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.CourseCatalog = api;
 })(typeof window === 'undefined' ? globalThis : window);

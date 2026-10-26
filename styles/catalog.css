@@ -45,3 +45,8 @@
 .source-chip{display:inline-flex;align-items:center;height:26px;padding:0 9px;border-radius:999px;
   background:#fff5e8;color:#9a6516;border:1px solid #f2d9b3;font-size:11px;letter-spacing:.02em;
   white-space:nowrap;margin-right:8px}
+
+/* 新建分类：虚线边框，和"筛选某一档"的实底 chip 区分开——
+   一个是挑一档看，一个是往分类法里加一条，不该长得一模一样。 */
+.chip-add{border-style:dashed;color:#2f6fd0;background:none}
+.chip-add:hover{background:#f2f7ff}

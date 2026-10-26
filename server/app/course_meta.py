@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -22,7 +23,9 @@ from .auth import Actor, require
 
 router = APIRouter()
 
-# 与前端 js/course-catalog.js 的 groups 一一对应。留空 = 待归类。
+# 分类现在是数据，不是常量：真正的清单在 course_direction 表里（0023 迁移建的）。
+# 这份常量只在两种情况下兜底：迁移还没跑、或者表被清空。它必须与
+# js/course-catalog.js 里的 groups 一致，否则离线包与库里的分组会对不上。
 DIRECTIONS = {
     "analysis": "分析",
     "algebra": "代数与数论",
@@ -31,6 +34,69 @@ DIRECTIONS = {
     "probability": "概率统计",
     "computing": "计算与应用",
 }
+
+
+def _directions() -> list[dict]:
+    rows = db.query(
+        "SELECT id, label, description, ord FROM course_direction ORDER BY ord, id"
+    )
+    if rows:
+        return rows
+    return [{"id": key, "label": label, "description": "", "ord": index + 1}
+            for index, (key, label) in enumerate(DIRECTIONS.items())]
+
+
+def _direction_ids() -> set[str]:
+    return {row["id"] for row in _directions()}
+
+
+class DirectionIn(BaseModel):
+    label: str = Field(..., min_length=1, max_length=20)
+    description: str | None = Field(default=None, max_length=80)
+
+
+@router.get("/api/v1/directions")
+def list_directions() -> dict:
+    """学科分类清单。课程中心的分组、筛选条、归类下拉都读它。
+
+    不要求登录：课程目录本来就允许匿名浏览，分类名算不上敏感信息。
+    """
+    return {"items": [
+        {"id": row["id"], "label": row["label"],
+         "description": row.get("description") or "", "number": index + 1}
+        for index, row in enumerate(_directions())
+    ]}
+
+
+@router.post("/api/v1/directions")
+def create_direction(body: DirectionIn,
+                     actor: Actor = Depends(require("admin"))) -> dict:
+    """新建一个学科分类。管理员专用。
+
+    id 由名称哈希得出：管理员只需要写「数理逻辑」，不必再想一个英文标识。
+    同一个名字永远得到同一个 id，重复提交会被下面的唯一约束挡住。
+    """
+    label = body.label.strip()
+    if not label:
+        raise HTTPException(400, "分类名称不能为空")
+    known = {row["label"] for row in _directions()}
+    if label in known:
+        raise HTTPException(400, f"已经有「{label}」这个分类了")
+    direction_id = "dir-" + hashlib.sha1(label.encode("utf-8")).hexdigest()[:8]
+    ord_value = db.query_one(
+        "SELECT coalesce(max(ord), 0) + 1 AS next FROM course_direction")
+    db.execute(
+        """INSERT INTO course_direction (id, label, description, ord, created_by)
+           VALUES (%s, %s, %s, %s, %s)""",
+        (direction_id, label, (body.description or "").strip() or None,
+         int(ord_value["next"]) if ord_value else 1, actor.id),
+    )
+    db.execute(
+        """INSERT INTO audit_log (actor, action, entity, entity_key, detail)
+           VALUES (%s, 'direction.create', 'course_direction', %s, %s::jsonb)""",
+        (actor.id, direction_id, json.dumps({"label": label}, ensure_ascii=False)),
+    )
+    return {"id": direction_id, "label": label}
 
 
 class CourseMetaIn(BaseModel):
@@ -72,9 +138,12 @@ def patch_course(course_id: str, body: CourseMetaIn,
 
     if body.direction is not None:
         direction = body.direction.strip()
-        if direction and direction not in DIRECTIONS:
-            allowed = "、".join(f"{key}（{label}）" for key, label in DIRECTIONS.items())
-            raise HTTPException(400, f"不认识的学科方向：{direction}；可选 {allowed}，留空表示待归类")
+        allowed_ids = _direction_ids()
+        if direction and direction not in allowed_ids:
+            allowed = "、".join(
+                f"{row['id']}（{row['label']}）" for row in _directions())
+            raise HTTPException(
+                400, f"不认识的学科方向：{direction}；可选 {allowed}，留空表示待归类")
         current = row.get("direction") or ""
         if direction != current:
             fields["direction"] = direction or None
@@ -98,9 +167,10 @@ def patch_course(course_id: str, body: CourseMetaIn,
 
 def _shape(course_id: str) -> dict:
     row = _current(course_id)
+    labels = {item["id"]: item["label"] for item in _directions()}
     return {
         "id": row["id"],
         "title": row["title"],
         "direction": row.get("direction") or "",
-        "direction_label": DIRECTIONS.get(row.get("direction") or "", "待归类"),
+        "direction_label": labels.get(row.get("direction") or "", "待归类"),
     }

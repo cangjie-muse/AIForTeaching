@@ -108,6 +108,9 @@ App.toast = message => calls.push(['toast', message]);
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 (async () => {
+  // 页面启动时会先探一次身份（A.auth.load）。这一步在测试里注定失败（不发真实请求），
+  // 失败后会把 actor 置空；不等它跑完就摆好身份，两者会互相覆盖。
+  await wait(0);
   console.log('学生视角：');
   App.state.auth = { actor: { id: 'acc-s', role: 'student', display_name: '李同学' } };
   check('学生打不开班级页', App.auth.can('classes') === false);

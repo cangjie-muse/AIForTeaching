@@ -22,7 +22,7 @@ if (!fs.existsSync(python)) {
 
 const suites = ['server/tests/test_policy.py', 'server/tests/test_source_parse.py', 'server/tests/test_generation.py', 'server/tests/test_chapters.py', 'server/tests/test_content.py', 'server/tests/test_catalog.py', 'server/tests/test_visibility.py', 'server/tests/test_lean_service.py', 'server/tests/test_auth.py', 'server/tests/test_exercise_tags.py', 'server/tests/test_admin_bootstrap.py', 'server/tests/test_cookie_secure.py', 'server/tests/test_reset_password.py', 'server/tests/test_publish_courses.py', 'server/tests/test_script_env.py', 'server/tests/test_llm_endpoint_resolution.py', 'server/tests/test_qa_fallback.py', 'server/tests/test_settings.py', 'server/tests/test_repo_hosting.py', 'server/tests/test_approved_hosts.py',
   'server/tests/test_pack_merge.py',
-  'server/tests/test_course_meta.py', 'server/tests/test_import_bulk.py', 'server/tests/test_import_course.py',
+  'server/tests/test_directions.py', 'server/tests/test_course_meta.py', 'server/tests/test_import_bulk.py', 'server/tests/test_import_course.py',
   'server/tests/test_publish_flow.py'];
 let failed = 0;
 

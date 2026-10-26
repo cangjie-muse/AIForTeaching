@@ -125,6 +125,15 @@
     return courseCache;
   }
 
+  async function directions() {
+    const data = await request('GET', '/api/v1/directions');
+    return data.items || [];
+  }
+
+  async function createDirection(label) {
+    return request('POST', '/api/v1/directions', { body: { label } });
+  }
+
   async function updateCourse(courseId, patch) {
     const result = await request('PATCH', `/api/v1/courses/${encodeURIComponent(courseId)}`, { body: patch });
     courseCache = null;   // 改了名字/归类，课程列表整个都旧了
@@ -474,7 +483,7 @@
     base,
     courseList,
     matchCourse,
-    updateCourse, submitAttempt,
+    updateCourse, directions, createDirection, submitAttempt,
     uploadTextbook,
     startGeneration,
     textbookChapters,

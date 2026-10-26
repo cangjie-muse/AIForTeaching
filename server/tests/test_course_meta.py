@@ -46,6 +46,11 @@ class FakeDB:
                     "direction": direction, "created_by": created_by}
         self.statements: list[tuple[str, tuple | None]] = []
 
+    def query(self, sql, params=None):
+        self.statements.append((sql, params))
+        # 分类表：返回空表，_directions() 会退回到内置的六个方向
+        return []
+
     def query_one(self, sql, params=None):
         self.statements.append((sql, params))
         if "FROM course WHERE id" in sql:

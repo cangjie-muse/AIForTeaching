@@ -160,6 +160,39 @@ await App.actions['catalog-tag-pick']({ dataset: { id: 'analysis-ii', direction:
 check('选中方向后写库', saved.length === 1 && saved[0][1].direction === 'geometry', JSON.stringify(saved));
 check('改完重拉目录（分组要跟着变）', reloads === 1, String(reloads));
 
+console.log('\n新建学科分类：');
+const groupsBefore = CourseCatalog.groups.map(group => ({ ...group }));
+App.state.auth = { status: 'ready', actor: { id: 'acc-a', role: 'admin', display_name: '管理员' } };
+html = App.views.catalog();
+check('管理员能看到「新建分类」', html.includes('catalog-add-direction'), '');
+App.state.auth = { status: 'ready', actor: { id: 'acc-t', role: 'teacher', display_name: '王老师' } };
+check('老师看不到「新建分类」', !App.views.catalog().includes('catalog-add-direction'), '');
+
+App.state.auth = { status: 'ready', actor: { id: 'acc-a', role: 'admin', display_name: '管理员' } };
+App.actions['catalog-add-direction']();
+check('弹窗里有分类名称输入框', element('dialog').innerHTML.includes('direction-label'), '');
+App.inputs['direction-label']({ value: '数理逻辑' });
+
+const made = [];
+App.api.createDirection = async label => { made.push(label); return { id: 'dir-x', label }; };
+let directionsReloaded = 0, catalogReloaded = 0;
+App.loadDirections = async () => {
+  directionsReloaded += 1;
+  CourseCatalog.setGroups([...groupsBefore, { id: 'dir-x', label: '数理逻辑' }]);
+};
+App.loadCatalog = async () => { catalogReloaded += 1; };
+App.render = () => {};
+await App.actions['catalog-direction-save']({ disabled: false });
+check('保存时提交的是输入的名字', made[0] === '数理逻辑', JSON.stringify(made));
+check('建完重拉分类清单', directionsReloaded === 1, String(directionsReloaded));
+check('建完重拉课程目录', catalogReloaded === 1, String(catalogReloaded));
+check('新分类立刻出现在筛选条', App.views.catalog().includes('数理逻辑'), '');
+check('新分类编号排在最后', CourseCatalog.groups[CourseCatalog.groups.length - 1].number === '07',
+  CourseCatalog.groups.map(group => group.number).join(','));
+
+// 收尾：恢复成六组，后面的断言按六组算
+CourseCatalog.setGroups(groupsBefore);
+
 App.state.auth = { status: 'ready', actor: { id: 'acc-s', role: 'student', display_name: '小明' } };
 console.log('\n学生端目录：');
 html = App.views.catalog();

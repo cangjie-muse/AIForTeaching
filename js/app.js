@@ -160,8 +160,22 @@
   //
   // 抽成 A.loadCatalog 是为了"发布完就地刷新"：发布课程后如果目录不跟着变，
   // 人只会以为发布没成功，然后去点第二次。
+  // 分类清单也是库里的（管理员能在界面上新建分类）。先拿分类再拿课：
+  // 目录一渲染就要按分组摆，晚一步就会出现"先按旧分组画一遍再跳一下"。
+  async function loadDirections() {
+    try {
+      const items = await A.api.directions();
+      if (items.length) window.CourseCatalog.setGroups(items);
+    } catch (error) {
+      // 连不上就沿用静态包里那六组：分类不该阻塞课程浏览
+      console.warn('[directions]', error);
+    }
+  }
+  A.loadDirections = loadDirections;
+
   async function loadCatalog() {
     try {
+      await loadDirections();
       const rows = await A.api.courses();
       const published = rows.filter(row => row.review_status === 'published');
       const courses = await Promise.all(

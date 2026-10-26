@@ -58,8 +58,7 @@
       <div class="button-row">${rows}</div>`);
   };
 
-  A.actions['catalog-tag-pick'] = async function (button) {
-    const courseId = button.dataset.id;
+  A.actions['catalog-tag-pick'] = async function (button) {    const courseId = button.dataset.id;
     const direction = button.dataset.direction || '';
     const label = button.dataset.label || '待归类';
     button.disabled = true;
@@ -74,6 +73,40 @@
     } catch (error) {
       button.disabled = false;
       A.toast(`没保存成功：${error.message}`);
+    }
+  };
+
+  /* 新建学科分类：只让管理员做。分类是全校共用的分类法，
+     老师各建各的会把目录拆成互不相认的一堆小格子。 */
+  A.actions['catalog-add-direction'] = function () {
+    A.state.newDirection = { label: '' };
+    A.openDialog('新建学科分类', `<div class="field">
+      <label for="direction-label">分类名称</label>
+      <input id="direction-label" data-input="direction-label" maxlength="20" placeholder="例如：数理逻辑">
+      <small>新分类会出现在筛选条与「归类」列表里；已有课程不会自动搬过去。</small></div>
+      <div class="button-row"><button class="btn primary" data-action="catalog-direction-save">创建分类</button></div>`);
+    const input = document.getElementById('direction-label');
+    if (input && input.focus) input.focus();
+  };
+
+  A.inputs['direction-label'] = function (input) {
+    A.state.newDirection = Object.assign(A.state.newDirection || {}, { label: input.value });
+  };
+
+  A.actions['catalog-direction-save'] = async function (button) {
+    const label = String((A.state.newDirection || {}).label || '').trim();
+    if (!label) { A.toast('先给分类起个名字'); return; }
+    button.disabled = true;
+    try {
+      await A.api.createDirection(label);
+      const dialog = document.getElementById('dialog');
+      if (dialog && dialog.open) dialog.close();
+      A.toast(`已新建分类「${label}」`);
+      await A.loadDirections();
+      await A.loadCatalog();
+    } catch (error) {
+      button.disabled = false;
+      A.toast(`没建成：${error.message}`);
     }
   };
   // 库里存在但没发布的课：学生看不到，教师要知道"它在，只是还没放出去"。
@@ -126,10 +159,13 @@
     ];
     const imported = all.filter(course => course.groupId === 'imported');
     const displayGroups = imported.length ? [...CourseCatalog.groups, { id: 'imported', label: '新导入课程（待归类）', number: '03' }] : CourseCatalog.groups;
+    // 分类是运营数据，管理员在界面上加：改代码 + 部署才多一档，等于这个决定只属于程序员。
+    const addChip = A.auth && A.auth.is('admin')
+      ? `<button class="filter-chip chip-add" data-action="catalog-add-direction">＋ 新建分类</button>` : '';
     return `<div class="catalog-hero"><div class="hero-copy"><div class="eyebrow">WUHAN UNIVERSITY · MATHEMATICS</div><h1>数学课程中心</h1><p>沿着定义、定理与习题，梳理数学的来龙去脉。</p><div class="hero-actions">${A.link('探索示范课程', 'overview', A.featuredCourse()?.id, 'arrow', 'primary')}${A.link('查看建设概览', 'construction', null, '', 'light')}</div><div class="hero-caption"><span class="tiny-dot"></span>数学与统计学院 · 智慧课程建设</div></div><div class="hero-photo" role="img" aria-label="武汉大学老图书馆"></div><div class="hero-corner">珞珈 · 求知</div></div>
       <div class="catalog-stats"><div><strong>${CourseCatalog.entries.length}</strong><span>门课程</span></div><div><strong>${CourseCatalog.groups.length}</strong><span>个学科方向</span></div><div><strong>${String(ready).padStart(2, '0')}</strong><span>门已接入内容</span></div><div><strong>${String(CourseCatalog.entries.length - ready).padStart(2, '0')}</strong><span>门待接入</span></div></div>
       <section class="catalog-section"><div class="section-heading"><div><h2>发现课程</h2><p>按学科方向组织；新导入、还没归类的课程单列在末尾。</p></div></div>
-      <div class="catalog-toolbar"><div class="catalog-filters" role="group" aria-label="课程分类">${filters.map((filter, i) => `<button class="filter-chip ${i === 0 ? 'active' : ''}" data-action="catalog-filter" data-filter="${filter.id}">${filter.label}<span>${filter.count}</span></button>`).join('')}</div><div class="search-input">${A.icon('search')}<input id="catalog-search" data-input="filter-catalog" aria-label="搜索课程" placeholder="搜索课程名称…"></div></div>
+      <div class="catalog-toolbar"><div class="catalog-filters" role="group" aria-label="课程分类">${filters.map((filter, i) => `<button class="filter-chip ${i === 0 ? 'active' : ''}" data-action="catalog-filter" data-filter="${filter.id}">${filter.label}<span>${filter.count}</span></button>`).join('')}${addChip}</div><div class="search-input">${A.icon('search')}<input id="catalog-search" data-input="filter-catalog" aria-label="搜索课程" placeholder="搜索课程名称…"></div></div>
       <div id="course-groups">${displayGroups.map(group => catalogGroup(group, all)).join('')}${draftSection()}</div><div id="catalog-empty" hidden>${A.empty('search', '没有找到课程', '试试其他关键词，或查看全部课程。')}</div></section>${studySequence()}<footer class="page-footer"><span>智慧武大 · 数学课程平台</span><button data-action="credits">代码与资料来源 ${A.icon('link')}</button></footer>`;
   };
   function filterCatalog() {

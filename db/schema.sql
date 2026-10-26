@@ -59,6 +59,15 @@ CREATE TYPE relation_type AS ENUM (
 -- -----------------------------------------------------------------------------
 -- 1. 课程
 -- -----------------------------------------------------------------------------
+CREATE TABLE course_direction (
+    id text PRIMARY KEY,
+    label text NOT NULL UNIQUE,
+    description text,
+    ord integer NOT NULL DEFAULT 0,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    created_by text
+);
+
 CREATE TABLE course (
   id              text PRIMARY KEY,
   title           text NOT NULL,
