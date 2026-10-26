@@ -33,7 +33,8 @@ def check(name: str, ok: bool, detail: str = "") -> None:
         print(f"  ✗ {name}{('：' + detail) if detail else ''}")
 
 
-def health(queued: int, running: int, since_seconds: float | None) -> dict:
+def health(queued: int, running: int, since_seconds: float | None,
+           stale: int = 0, beat_age: float | None = 5) -> dict:
     """用假数据跑一遍 _queue_health，不动真库。"""
 
     def fake_query_one(sql: str, params: tuple | dict = ()) -> dict:
@@ -45,6 +46,8 @@ def health(queued: int, running: int, since_seconds: float | None) -> dict:
                            datetime.now(timezone.utc) - timedelta(seconds=since_seconds)),
             "oldest_age_seconds": 100 if queued else None,
             "since_claim_seconds": since_seconds,
+            "stale_running": stale,
+            "heartbeat_age_seconds": beat_age,
         }
 
     original = db.query_one
@@ -60,6 +63,16 @@ def main_() -> int:
     result = health(queued=0, running=1, since_seconds=4000)
     check("跑了 66 分钟仍在跑也判活着", result["worker_alive"] is True, str(result["worker_alive"]))
     check("running 如实返回", result["running"] == 1)
+
+    print("running 但心跳停了")
+    result = health(queued=0, running=2, since_seconds=3000, stale=2, beat_age=2800)
+    check("心跳全停就不再算活着", result["worker_alive"] is False, str(result["worker_alive"]))
+    check("如实报出僵尸任务数", result["stale_running"] == 2, str(result["stale_running"]))
+    check("报出心跳多久没刷", result["worker_heartbeat_age_seconds"] == 2800,
+          str(result["worker_heartbeat_age_seconds"]))
+    check("两个任务里只有一个僵住 → 仍算活着",
+          health(queued=0, running=2, since_seconds=3000, stale=1)["worker_alive"] is True)
+    check("僵尸任务数为 0 时状态字段照旧", health(0, 1, 60)["stale_running"] == 0)
 
     print("有积压、没人取")
     check("刚取过任务 → 活着", health(3, 0, 30)["worker_alive"] is True)

@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -28,6 +29,26 @@ if hasattr(sys.stdout, "reconfigure"):
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 
 from app import db, generation  # noqa: E402
+
+
+class Heartbeat(threading.Thread):
+    """跑任务期间每 15 秒刷一次心跳，死了就停——别人的巡检靠它判断生死。"""
+
+    def __init__(self, job_id: int, interval: float = 15.0) -> None:
+        super().__init__(daemon=True)
+        self.job_id = job_id
+        self.interval = interval
+        self._stop = threading.Event()
+
+    def run(self) -> None:
+        while not self._stop.wait(self.interval):
+            try:
+                generation.touch(self.job_id)
+            except Exception as error:  # noqa: BLE001 — 心跳失败不该打断任务
+                print(f"[心跳] 任务 {self.job_id} 刷新失败：{error}", flush=True)
+
+    def stop(self) -> None:
+        self._stop.set()
 
 
 def describe(job: dict) -> str:
@@ -53,14 +74,33 @@ def main() -> int:
         print(f"[任务 {job['id']}] {describe(job)}")
         return 0 if job["status"] == "succeeded" else 1
 
+    # 启动先收一次尸：进程被重启时正在跑的任务会一直挂在 running。
+    # 不收的话它们永远占着状态，前端一直转圈，也没人会重试。
+    for job_id, action in generation.recover_stale():
+        print(f"[回收] 任务 {job_id} 心跳超时，已{'重新排队' if action == 'requeued' else '判为失败'}",
+              flush=True)
+
+    last_sweep = time.time()
     while True:
-        job = generation.process_once()
+        job = generation.claim_next()
         if job:
-            print(f"[任务 {job['id']}] {describe(job)}", flush=True)
+            beat = Heartbeat(job["id"])
+            beat.start()
+            try:
+                done = generation.run_job(job["id"])
+            finally:
+                beat.stop()
+            print(f"[任务 {done['id']}] {describe(done)}", flush=True)
         elif args.once:
             print("队列里没有待处理任务。")
             return 0
         else:
+            # 空闲时也定期收尸：卡住的任务可能是在两次巡检之间超时的
+            if time.time() - last_sweep > 60:
+                last_sweep = time.time()
+                for job_id, action in generation.recover_stale():
+                    print(f"[回收] 任务 {job_id} 心跳超时，"
+                          f"已{'重新排队' if action == 'requeued' else '判为失败'}", flush=True)
             time.sleep(args.interval)
 
 

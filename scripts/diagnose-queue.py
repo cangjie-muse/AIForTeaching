@@ -58,8 +58,13 @@ try:
           (SELECT max(started_at) FROM pipeline_job) AS last_claim,
           (SELECT extract(epoch FROM (now() - max(started_at))) FROM pipeline_job) AS since_claim,
           (SELECT extract(epoch FROM (now() - min(created_at)))
-             FROM pipeline_job WHERE status = 'queued') AS oldest_age
-        """
+             FROM pipeline_job WHERE status = 'queued') AS oldest_age,
+          (SELECT count(*) FROM pipeline_job
+            WHERE status = 'running'
+              AND coalesce(heartbeat_at, started_at)
+                  < now() - make_interval(secs => %s)) AS stale_running
+        """,
+        (int(__import__("os").environ.get("JOB_STALE_SECONDS", "180")),)
     ) or {}
     connected = True
 except Exception as exc:  # 连库都失败时，先把这个原因说清楚
@@ -73,7 +78,9 @@ running = int(summary.get("running") or 0)
 since = summary.get("since_claim")
 oldest = summary.get("oldest_age")
 
-print(f"\n排队 {queued} 个，执行中 {running} 个")
+stale = int(summary.get("stale_running") or 0)
+print(f"\n排队 {queued} 个，执行中 {running} 个"
+      + (f"，其中 {stale} 个心跳已停（跑它的进程没了，worker 会自己回收重排）" if stale else ""))
 print(f"最近一次取任务：{summary.get('last_claim') or '从未有过'}"
       + (f"（{int(since)} 秒前）" if since is not None else ""))
 if oldest is not None:
@@ -82,14 +89,21 @@ if oldest is not None:
 print("\n最近 12 个任务：")
 rows = db.query(
     """SELECT id, kind, status, attempts, created_at, started_at, finished_at,
-              left(coalesce(error, ''), 70) AS error
+              left(coalesce(error, ''), 70) AS error,
+              extract(epoch FROM (now() - heartbeat_at)) AS heartbeat_age
          FROM pipeline_job ORDER BY id DESC LIMIT 12"""
 )
 if not rows:
     print("  （一条都没有：任务根本没进队列，问题在接口那一侧）")
 for row in rows:
+    beat = ""
+    if row["status"] == "running":
+        age = row.get("heartbeat_age")
+        beat = ("  心跳 " + (f"{int(age)} 秒前" if age is not None else "从未"))
+        if age is not None and age > int(__import__("os").environ.get("JOB_STALE_SECONDS", "180")):
+            beat += "（已判为僵尸）"
     print(f"  #{row['id']:<5} {(KIND_LABEL.get(row['kind']) or row['kind']):<8} "
-          f"{row['status']:<9} 尝试{row['attempts']} 建于 {row['created_at']}"
+          f"{row['status']:<9} 尝试{row['attempts']} 建于 {row['created_at']}{beat}"
           + (f"\n         错误：{row['error']}" if row.get("error") else ""))
 
 print("\n依赖与配置：")

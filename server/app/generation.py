@@ -542,13 +542,76 @@ def claim_next() -> dict | None:
         return None
     return db.query_one(
         """UPDATE pipeline_job
-              SET status = 'running', started_at = now(), attempts = attempts + 1,
-                  progress = 5
+              SET status = 'running', started_at = now(), heartbeat_at = now(),
+                  attempts = attempts + 1, progress = 5
             WHERE id = %s AND status = 'queued'
         RETURNING *""",
         (candidate["id"],),
     )
 
+
+
+# 超过这么久没刷心跳，就认定跑它的进程已经不在了。
+# 15 秒刷一次，180 秒 = 连着漏 12 次，网络抖动或 GC 停顿都不至于误判。
+STALE_SECONDS = int(os.environ.get("JOB_STALE_SECONDS", "180"))
+# 排队重试到这个次数还失败，就不再重排，直接判死——否则一个必然崩的任务
+# 会在队列里反复把 worker 拖进崩溃循环。
+MAX_ATTEMPTS = int(os.environ.get("JOB_MAX_ATTEMPTS", "2"))
+
+
+def touch(job_id: int) -> None:
+    """worker 的心跳：证明"这个任务还有人在跑"。"""
+    db.execute(
+        "UPDATE pipeline_job SET heartbeat_at = now() WHERE id = %s AND status = 'running'",
+        (job_id,),
+    )
+
+
+def stale_jobs() -> list[dict]:
+    """running 里已经没人管的那些：心跳停了，或者从来没打过心跳。
+
+    只看 started_at 不够：worker 重启后新任务会写 started_at，
+    而僵尸任务的 started_at 也可能是刚写的（领完就被 kill）。
+    """
+    return db.query(
+        """SELECT id, kind, attempts, started_at, heartbeat_at, progress,
+                  extract(epoch FROM (now() - coalesce(heartbeat_at, started_at))) AS age
+             FROM pipeline_job
+            WHERE status = 'running'
+              AND coalesce(heartbeat_at, started_at) < now() - make_interval(secs => %s)
+            ORDER BY id""",
+        (STALE_SECONDS,),
+    )
+
+
+def recover_stale() -> list[tuple[int, str]]:
+    """把僵尸任务重新排队，重试太多次的判死。返回 [(id, 'requeued'|'failed')]。
+
+    "重新排队"而不是直接标失败：任务本身没毛病，是跑它的进程没了。
+    直接判死等于让用户为一次重启重做所有工作。
+    """
+    recovered: list[tuple[int, str]] = []
+    for job in stale_jobs():
+        if int(job.get("attempts") or 0) < MAX_ATTEMPTS:
+            db.execute(
+                """UPDATE pipeline_job
+                      SET status = 'queued', started_at = NULL, heartbeat_at = NULL,
+                          progress = 0,
+                          error = %s
+                    WHERE id = %s AND status = 'running'""",
+                (f"worker 中断（{int(job['age'])} 秒没有心跳），已重新排队", job["id"]),
+            )
+            recovered.append((int(job["id"]), "requeued"))
+        else:
+            db.execute(
+                """UPDATE pipeline_job
+                      SET status = 'failed', finished_at = now(), error = %s
+                    WHERE id = %s AND status = 'running'""",
+                (f"worker 中断（{int(job['age'])} 秒没有心跳），已重试 "
+                 f"{int(job.get('attempts') or 0)} 次仍失败", job["id"]),
+            )
+            recovered.append((int(job["id"]), "failed"))
+    return recovered
 
 
 def _step(job_id: int, progress: int, **fields) -> None:

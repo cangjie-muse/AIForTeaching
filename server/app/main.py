@@ -157,11 +157,22 @@ def _queue_health() -> dict:
           (SELECT extract(epoch FROM (now() - min(created_at)))
              FROM pipeline_job WHERE status = 'queued') AS oldest_age_seconds,
           (SELECT extract(epoch FROM (now() - max(started_at)))
-             FROM pipeline_job) AS since_claim_seconds
-        """
+             FROM pipeline_job) AS since_claim_seconds,
+          -- 心跳停了的 running：跑它的进程已经不在了，任务其实没人在干
+          (SELECT count(*) FROM pipeline_job
+            WHERE status = 'running'
+              AND coalesce(heartbeat_at, started_at) < now() - make_interval(secs => %s))
+              AS stale_running,
+          (SELECT extract(epoch FROM (now() - max(heartbeat_at)))
+             FROM pipeline_job WHERE status = 'running') AS heartbeat_age_seconds
+        """,
+        ((int(os.environ.get("JOB_STALE_SECONDS", "180"))),),
     ) or {}
     queued = int(row.get("queued") or 0)
     running = int(row.get("running") or 0)
+    stale = int(row.get("stale_running") or 0)
+    beat_age = row.get("heartbeat_age_seconds")
+    beat_age = int(beat_age) if beat_age is not None else None
     since = row.get("since_claim_seconds")
     since = int(since) if since is not None else None
     last_claim = row.get("last_claim")
@@ -169,7 +180,9 @@ def _queue_health() -> dict:
     # 一个任务跑十几分钟很正常，超过阈值就会被误报成 worker 死了
     # （而它正忙着）。有任务在跑本身就是活着的最强证据。
     if running > 0:
-        alive = True
+        # 有任务在跑还不够：心跳全停说明跑它的进程已经死了，任务只是挂在
+        # running 上。worker 会自己回收，但 health 要如实说"没人在干"。
+        alive = stale < running
     elif queued == 0:
         alive = None  # 队列空时无从判断，不编造结论
     else:
@@ -180,6 +193,8 @@ def _queue_health() -> dict:
         "failed_24h": int(row.get("failed_24h") or 0),
         "last_claim": last_claim.isoformat() if hasattr(last_claim, "isoformat") else last_claim,
         "since_last_claim_seconds": since,
+        "stale_running": stale,
+        "worker_heartbeat_age_seconds": beat_age,
         "oldest_queued_seconds": (int(row["oldest_age_seconds"])
                                   if row.get("oldest_age_seconds") is not None else None),
         "worker_alive": alive,
