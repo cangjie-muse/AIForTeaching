@@ -186,7 +186,15 @@ reset({ tab: 'import', importResult: {
 html = App.views.content();
 check('导入结果给批次号', html.includes('abc123'));
 check('导入结果说清停用了多少题', html.includes('4') && html.includes('习题停用'));
-check('导入结果能跳到图谱与审核', html.includes('#/course/analysis-ii/graph') || html.includes('/graph'));
+check('导入结果里有问答语料块数', html.includes('问答语料'), '');
+reset({ tab: 'import', importResult: {
+  course_id: 'analysis-iii', batch: 'b2', mode: 'replace',
+  nodes_upserted: 120, nodes_retired: 0, exercises_upserted: 8424, exercises_retired: 0,
+  corpus_chunks: 159
+} });
+html = App.views.content();
+check('导入结果报出切了多少块', html.includes('159 块') && html.includes('问答已可检索'), '');
+check('导入结果能跳到图谱与审核' , html.includes('#/course/analysis-ii/graph') || html.includes('/graph'));
 
 // 5. 修改与导出：知识点、习题都能改，停用走 retired
 reset({ tab: 'edit', content: {

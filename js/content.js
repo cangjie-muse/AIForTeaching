@@ -260,6 +260,9 @@
         <tr><th>课程</th><td>${e(result.course_title || result.course_id)}（id：${e(result.course_id)}）</td></tr>
         <tr><th>课程状态</th><td>${created ? '新建' : '已存在，本次为更新'}</td></tr>
         ${rows.map(([label, value]) => `<tr><th>${label}</th><td>${Number(value) || 0}</td></tr>`).join('')}
+        <tr><th>问答语料</th><td>${typeof result.corpus_chunks === 'number'
+          ? `${result.corpus_chunks} 块${result.corpus_chunks ? '（问答已可检索）' : '（没切出块：知识点正文可能是空的）'}`
+          : '未重建'}</td></tr>
       </tbody></table>
       <p class="muted small">${result.mode === 'replace'
         ? '整体更新：文件里没有的旧内容已标记为「已停用」，仍在库里可追溯，学生端不再出现。'
