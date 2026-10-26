@@ -216,14 +216,30 @@
   };
 
   // ------------------------------------------------------------------ 交互
+  // 这两个回调都**不能**调 A.render()。
+  // 重渲染会重建 <input type="file">，浏览器随即把已选文件清掉：
+  // 用户看到的是"选了照片，页面还是『未选择文件』『还没选择照片』"，
+  // 而且先前选的照片在提交时已经没了。文件对象存在 state 里，
+  // 只需要就地改一行提示文字。
   A.actions['homework-course'] = function (select) {
     S().form.courseId = select.value;
-    A.render();
   };
   A.actions['homework-files'] = function (input) {
-    S().form.files = Array.from(input.files || []);
-    A.render();
+    const files = Array.from(input.files || []);
+    S().form.files = files;
+    showPicked(files);
   };
+
+  function showPicked(files) {
+    const hint = typeof document !== 'undefined' ? document.querySelector('.hw-picked') : null;
+    if (!hint) return;
+    const names = files.slice(0, 2).map(file => file.name).join('、');
+    hint.textContent = files.length
+      ? `已选 ${files.length} 页${names ? `：${names}${files.length > 2 ? ' 等' : ''}` : ''}`
+      : '还没选择照片';
+    hint.classList.toggle('is-picked', files.length > 0);
+  }
+
   A.inputs['homework-title'] = function (input) {
     S().form.title = input.value;
   };

@@ -27,6 +27,7 @@ function element(id) {
   return elements.get(id);
 }
 
+const picked = { textContent: '', classList: { toggle() {} } };
 const store = new Map();
 const toasts = [];
 const sandbox = {
@@ -46,7 +47,8 @@ const sandbox = {
   document: {
     getElementById: element,
     querySelectorAll: () => [],
-    querySelector: () => null,
+    // 只在找 .hw-picked 时给节点：这是「已选 N 页」那行提示
+    querySelector: selector => (selector === '.hw-picked' ? picked : null),
     addEventListener() {},
     createElement: () => element('tmp'),
     title: '',
@@ -144,13 +146,18 @@ App.toast = message => { toasts.push(message); };
   App.inputs['homework-title']({ value: '第三章习题' });
   calls.length = 0;
   await App.actions['homework-submit']({ disabled: false });
-  const order = calls.map(call => call[0]);
-  check('先建提交再上传', order[0] === 'create', order.join(','));
-  check('创建时带上课程与标题', calls[0][1] === 'analysis-ii' && calls[0][2] === '第三章习题',
-    JSON.stringify(calls[0]));
+  // 只断言"提交类"请求的先后：页面重渲染会顺带拉一次列表（list），
+  // 那不属于提交流程，把它算进来会让断言随渲染时机抖动。
+  const submitted = calls.filter(call => ['create', 'page', 'grade'].includes(call[0]));
+  check('先建提交再上传', submitted[0][0] === 'create', submitted.map(call => call[0]).join(','));
+  check('创建时带上课程与标题',
+    submitted[0][1] === 'analysis-ii' && submitted[0][2] === '第三章习题',
+    JSON.stringify(submitted[0]));
   check('两张图按 1、2 页上传', calls.filter(c => c[0] === 'page').map(c => c[2]).join(',') === '1,2',
     JSON.stringify(calls.filter(c => c[0] === 'page').map(c => c[2])));
-  check('上传完才排队批改', order.indexOf('grade') > order.lastIndexOf('page'), order.join(','));
+  const subOrder = submitted.map(call => call[0]);
+  check('上传完才排队批改', subOrder.indexOf('grade') > subOrder.lastIndexOf('page'),
+    subOrder.join(','));
   check('提交后打开详情', calls.some(c => c[0] === 'get' && c[1] === 'sub-new'), '');
 
   console.log('\n结果展示：');
@@ -227,6 +234,29 @@ App.toast = message => { toasts.push(message); };
   check('学生可以打开作业页', /homework:\s*\['student'/.test(auth), '');
   App.state.auth = { status: 'anonymous', actor: null };
   check('没登录打不开', App.auth.can('homework') === false, String(App.auth.can('homework')));
+
+  console.log('\n选择照片：');
+  let renders = 0;
+  const realRender = App.render;
+  App.render = () => { renders += 1; };
+  App.state.homework = null;            // 回到干净状态，避免前面用例的残留
+  App.views.homework();                 // 生成带 .hw-picked 的页面
+  picked.textContent = '还没选择照片';
+  App.actions['homework-files']({ files: [{ name: 'a.jpg' }, { name: 'b.jpg' }] });
+  check('提示改成已选页数', picked.textContent.includes('已选 2 页'), picked.textContent);
+  check('提示带上文件名', picked.textContent.includes('a.jpg'), picked.textContent);
+  check('选照片不触发整页重渲染', renders === 0, `渲染了 ${renders} 次`);
+  check('文件名存进 state 供提交用', App.state.homework.form.files.length === 2, '');
+
+  renders = 0;
+  App.actions['homework-course']({ value: 'analysis-ii' });
+  check('选课程也不重渲染（否则会清掉已选照片）', renders === 0, `渲染了 ${renders} 次`);
+  check('课程存进 state', App.state.homework.form.courseId === 'analysis-ii', '');
+  check('选课程之后照片还在', App.state.homework.form.files.length === 2, '');
+
+  App.actions['homework-files']({ files: [] });
+  check('取消选择后提示复原', picked.textContent === '还没选择照片', picked.textContent);
+  App.render = realRender;
 
   console.log('');
   if (failures.length) {

@@ -78,6 +78,13 @@
   color: #64748b;
 }
 
+/* 选完照片就地变一下颜色：整页重渲染会把 file input 的选择清掉，
+   所以状态只能靠这一行文字告诉用户"确实选上了"。 */
+.hw-picked.is-picked {
+  color: #0f766e;
+  font-weight: 600;
+}
+
 /* 列表：一行一门课的一次提交，右侧放状态 */
 .hw-list {
   display: flex;
