@@ -1,6 +1,6 @@
 (function () {
   const A = App, e = A.escape;
-  const labels = { catalog: '课程中心', overview: '课程概览', outline: '课程大纲', graph: '知识图谱', exercises: '习题与测验', ai: 'AI 学习助手', resources: '课程资源', teaching: '教学工作台', courseware: '课件生成与修改', analytics: '建设与学习分析', study: '我的学习', content: '课程内容', import: '课程内容', generate: '课程内容', construction: '建设进度汇总', 'api-config': '模型接口配置', review: '内容审核', classes: '班级与选课', visibility: '学生可见范围', accounts: '账号管理', login: '登录', pick: '选择课程' };
+  const labels = { catalog: '课程中心', overview: '课程概览', outline: '课程大纲', graph: '知识图谱', exercises: '习题与测验', ai: 'AI 学习助手', resources: '课程资源', teaching: '教学工作台', courseware: '课件生成与修改', analytics: '建设与学习分析', study: '我的学习', content: '课程内容', import: '课程内容', generate: '课程内容', construction: '建设进度汇总', 'api-config': '模型接口配置', review: '内容审核', classes: '班级与选课', visibility: '学生可见范围', accounts: '账号管理', login: '登录', pick: '选择课程', homework: '作业批改' };
   function navItem(page, title, icon, courseId, tag = '') {
     // 没权限的入口直接不渲染：菜单里留一堆 403 入口比不显示更糟。
     if (A.auth && !A.auth.can(page)) return '';
@@ -18,7 +18,7 @@
     // 菜单形状固定（课程概览/大纲一直存在），选课前后位置不变——菜单跳来跳去
     // 会让人以为是两套系统。
     const id = A.course?.id || null;
-    return `<aside class="sidebar"><a href="#/catalog" class="brand"><img src="assets/mark.svg" alt=""><span><b>智慧武大</b><small>MATHEMATICS LEARNING</small></span></a><nav aria-label="主导航">${navGroup('课程与学习', [navItem('catalog', '课程中心', 'grid', null), navItem('overview', '课程概览', 'book', id), navItem('outline', '课程大纲', 'layers', id), navItem('graph', '知识图谱', 'graph', id), navItem('exercises', '习题与测验', 'pen', id), navItem('ai', 'AI 学习助手', 'ai', id, 'AI'), navItem('qa', 'AI 问答', 'ai', id, '新')])}${navGroup('教学与建设', [navItem('teaching', '教学工作台', 'activity', id), navItem('classes', '班级与选课', 'user', null), navItem('courseware', '课件生成与修改', 'layers', id), navItem('resources', '课程资源', 'folder', id), navItem('review', '内容审核', 'check', null), navItem('analytics', '建设与学习分析', 'chart', id)])}${navGroup('工作空间', [navItem('study', '我的学习', 'bookmark', null), navItem('content', '课程内容', 'upload', null)])}${navGroup('系统管理', [navItem('visibility', '学生可见范围', 'eye', null, '管理'), navItem('accounts', '账号管理', 'user', null, '管理'), navItem('api-config', '模型接口配置', 'settings', null, '管理')])}${navGroup('信息汇总(仅建设过程用)', [navItem('construction', '建设进度汇总', 'chart', null)], 'construction-group-label')}</nav><div class="sidebar-bottom"><div class="sidebar-note">${A.icon('graph')}<b>以数学知识，连接教与学</b><p>课程 · 图谱 · 习题 · 智能助教</p></div><div class="sidebar-foot"><span class="tiny-dot"></span>本地展示版 <span>v${A.version}</span></div></div></aside>`;
+    return `<aside class="sidebar"><a href="#/catalog" class="brand"><img src="assets/mark.svg" alt=""><span><b>智慧武大</b><small>MATHEMATICS LEARNING</small></span></a><nav aria-label="主导航">${navGroup('课程与学习', [navItem('catalog', '课程中心', 'grid', null), navItem('overview', '课程概览', 'book', id), navItem('outline', '课程大纲', 'layers', id), navItem('graph', '知识图谱', 'graph', id), navItem('exercises', '习题与测验', 'pen', id), navItem('ai', 'AI 学习助手', 'ai', id, 'AI'), navItem('qa', 'AI 问答', 'ai', id, '新'), navItem('homework', '作业批改', 'pen', null, 'AI')])}${navGroup('教学与建设', [navItem('teaching', '教学工作台', 'activity', id), navItem('classes', '班级与选课', 'user', null), navItem('courseware', '课件生成与修改', 'layers', id), navItem('resources', '课程资源', 'folder', id), navItem('review', '内容审核', 'check', null), navItem('analytics', '建设与学习分析', 'chart', id)])}${navGroup('工作空间', [navItem('study', '我的学习', 'bookmark', null), navItem('content', '课程内容', 'upload', null)])}${navGroup('系统管理', [navItem('visibility', '学生可见范围', 'eye', null, '管理'), navItem('accounts', '账号管理', 'user', null, '管理'), navItem('api-config', '模型接口配置', 'settings', null, '管理')])}${navGroup('信息汇总(仅建设过程用)', [navItem('construction', '建设进度汇总', 'chart', null)], 'construction-group-label')}</nav><div class="sidebar-bottom"><div class="sidebar-note">${A.icon('graph')}<b>以数学知识，连接教与学</b><p>课程 · 图谱 · 习题 · 智能助教</p></div><div class="sidebar-foot"><span class="tiny-dot"></span>本地展示版 <span>v${A.version}</span></div></div></aside>`;
   }
   function authArea() {
     if (!A.auth) return '';
@@ -121,6 +121,13 @@
   });
   document.addEventListener('input', event => {
     const input = event.target.closest('[data-input]'); if (input) A.inputs[input.dataset.input]?.(input);
+  });
+  // 文件选择、下拉框用 change 而不是 input：input 事件在 <select> 上能触发，
+  // 但 <input type=file> 只在 change 时才拿到文件，两处统一走这条分支。
+  document.addEventListener('change', event => {
+    const target = event.target.closest('[data-change]');
+    if (!target) return;
+    A.actions[target.dataset.change]?.(target);
   });
   document.addEventListener('submit', event => {
     if (event.target.matches('[data-form="chat"]')) { event.preventDefault(); A.actions['send-chat'](); }

@@ -30,6 +30,7 @@ from .classes import router as classes_router
 from .content import router as content_router
 from .course_meta import router as course_meta_router
 from .generation import router as generation_router
+from .homework import router as homework_router
 from .imports import router as imports_router
 from .qa import router as qa_router
 from .qa_corpus import router as qa_corpus_router
@@ -96,6 +97,7 @@ app.include_router(qa_router)
 app.include_router(qa_corpus_router)
 app.include_router(attempts_router)
 app.include_router(generation_router)
+app.include_router(homework_router)
 app.include_router(content_router)
 app.include_router(course_meta_router)
 app.include_router(catalog_router)

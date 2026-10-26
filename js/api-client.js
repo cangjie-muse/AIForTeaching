@@ -91,6 +91,41 @@
   // 的是"模型不会答"。所以统一在这里做标题归一化匹配。
   // ---------------------------------------------------------------------
 
+  // ---------------------------------------------------------------- 作业批改
+  // 图片走原始字节（与教材 PDF 上传同一套路），不用 multipart：
+  // 服务器上少一个 python-multipart 依赖，前端 fetch(file) 直接传。
+  async function homeworkPageBlob(submissionId, pageNo) {
+    const url = `${base()}/api/v1/homework/${encodeURIComponent(submissionId)}/pages/${pageNo}/image`;
+    const response = await fetch(url, { credentials: 'same-origin' });
+    if (!response.ok) throw new ApiError(`打不开这一页（HTTP ${response.status}）`, response.status, null);
+    return response.blob();
+  }
+
+  async function uploadHomeworkPage(submissionId, pageNo, blob) {
+    const url = `${base()}/api/v1/homework/${encodeURIComponent(submissionId)}/pages/${pageNo}`;
+    let response;
+    try {
+      response = await fetch(url, {
+        method: 'PUT',
+        headers: headers({ 'Content-Type': blob.type || 'image/jpeg' }),
+        credentials: 'same-origin',
+        body: blob
+      });
+    } catch (cause) {
+      throw new ApiError(`无法连接后端（${base() || '同源'}）：${cause.message}`, 0, '');
+    }
+    const text = await response.text();
+    let data = {};
+    try { data = text ? JSON.parse(text) : {}; } catch { data = { detail: text.slice(0, 300) }; }
+    if (!response.ok) {
+      const raw = data.detail;
+      const message = typeof raw === 'string' ? raw
+        : (raw && typeof raw.detail === 'string' ? raw.detail : `上传失败（HTTP ${response.status}）`);
+      throw new ApiError(message, response.status, raw);
+    }
+    return data;
+  }
+
   function courseTitle(courseId) {
     // 课程包没加载时（测试环境、导入前）不能因此报错
     try {
@@ -533,6 +568,18 @@
     logout,
     changePassword,
     accounts,
+    homeworkList: (params) => request('GET', `/api/v1/homework${queryString(params || {})}`),
+    homeworkGet: (id) => request('GET', `/api/v1/homework/${encodeURIComponent(id)}`),
+    homeworkCreate: (courseId, title) =>
+      request('POST', '/api/v1/homework', { body: { course_id: courseId, title } }),
+    homeworkGrade: (id) =>
+      request('POST', `/api/v1/homework/${encodeURIComponent(id)}/grade`, { body: {} }),
+    homeworkReview: (id, ord, patch) =>
+      request('PATCH', `/api/v1/homework/${encodeURIComponent(id)}/items/${ord}`, { body: patch }),
+    homeworkConfirm: (id) =>
+      request('POST', `/api/v1/homework/${encodeURIComponent(id)}/confirm`, { body: {} }),
+    homeworkDelete: (id) => request('DELETE', `/api/v1/homework/${encodeURIComponent(id)}`),
+    uploadHomeworkPage, homeworkPageBlob,
     classes, createClass, patchClass, deleteClass,
     classStudents, addStudents, removeStudent, students,
     createAccount,

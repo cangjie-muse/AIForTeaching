@@ -22,6 +22,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import urllib.error
@@ -200,6 +201,28 @@ def chat_endpoint() -> Endpoint:
     )
 
 
+def vision_endpoint() -> Endpoint:
+    """能收图片的端点。
+
+    视觉单独一行配置（kind='vision'），没配时按环境变量，再没有就退回 chat
+    端点。现在主流的国内对话模型（DeepSeek flash、Qwen、GLM）大多能收图，
+    所以"回落到对话端点"常常是能用的；但转写和判分的出错方式不同，
+    分开配能单独换模型。
+    """
+    found = _db_endpoint("vision")
+    if found:
+        return found
+    base = os.environ.get("VISION_BASE_URL", "").strip()
+    if base:
+        return Endpoint(
+            name=os.environ.get("VISION_NAME", "vision"),
+            base_url=base,
+            model=os.environ.get("VISION_MODEL", "qwen3-vl-plus"),
+            kind="vision",
+        )
+    return chat_endpoint()
+
+
 def embedding_endpoint() -> Endpoint:
     found = _db_endpoint("embedding")
     if found:
@@ -244,7 +267,9 @@ def _api_key(endpoint: Endpoint) -> str | None:
         stored = None
     if stored:
         return stored
-    specific = "LLM_API_KEY" if endpoint.kind == "chat" else "EMBEDDING_API_KEY"
+    # 视觉模型和对话模型通常是同一家（百炼/智谱），共用同一把密钥。
+    specific = ("LLM_API_KEY" if endpoint.kind in ("chat", "vision")
+                else "EMBEDDING_API_KEY")
     return os.environ.get(specific) or os.environ.get("MODEL_API_KEY")
 
 
@@ -260,7 +285,7 @@ def require_key(endpoint: Endpoint) -> str:
         return key
     raise MissingKey(
         f"端点 {endpoint.name} 没有可用密钥：secrets/{endpoint.name}.key 不存在或读不到，"
-        f"环境变量 {('LLM_API_KEY' if endpoint.kind == 'chat' else 'EMBEDDING_API_KEY')}"
+        f"环境变量 {('LLM_API_KEY' if endpoint.kind in ('chat', 'vision') else 'EMBEDDING_API_KEY')}"
         " 与 MODEL_API_KEY 也没有配。先到「模型配置」里点「设置密钥」。"
     )
 
@@ -288,6 +313,41 @@ def chat(messages: list[dict], temperature: float = 0.2) -> dict:
         f"{endpoint.base_url.rstrip('/')}/chat/completions",
         payload,
         api_key=require_key(endpoint),
+    )
+    return {
+        "provider": endpoint.name,
+        "model": endpoint.model,
+        "data_scope": classify(endpoint.base_url),
+        "content": result["choices"][0]["message"]["content"],
+        "usage": result.get("usage", {}),
+    }
+
+
+def image_part(data: bytes, mime: str = "image/jpeg") -> dict:
+    """把图片编成 OpenAI 兼容的 image_url 片段（base64 data URL）。
+
+    用 data URL 而不是先传到某个公网桶：作业图片是学生的手写卷面，
+    多传一处就多一处能留存它的地方。
+    """
+    encoded = base64.b64encode(data).decode("ascii")
+    return {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{encoded}"}}
+
+
+def chat_vision(parts: list[dict], temperature: float = 0.1,
+                timeout: int = 240) -> dict:
+    """多模态对话：messages 的 content 由调用方给（文本段 + image_part()）。
+
+    单独一个函数而不是给 chat() 加参数：视觉端点和文本端点可能不是同一家，
+    混在一个入口里迟早会把图片发给看不了图的模型。
+    """
+    endpoint = vision_endpoint()
+    assert_egress_allowed(endpoint)
+    payload = build_chat_request(endpoint, parts, temperature)
+    result = post_json(
+        f"{endpoint.base_url.rstrip('/')}/chat/completions",
+        payload,
+        api_key=require_key(endpoint),
+        timeout=timeout,
     )
     return {
         "provider": endpoint.name,
@@ -331,6 +391,11 @@ def describe() -> dict[str, Any]:
             "name": chat_ep.name,
             "model": chat_ep.model,
             "data_scope": classify(chat_ep.base_url),
+        },
+        "vision": {
+            "name": vision_endpoint().name,
+            "model": vision_endpoint().model,
+            "data_scope": classify(vision_endpoint().base_url),
         },
         "embedding": {
             "name": emb_ep.name,

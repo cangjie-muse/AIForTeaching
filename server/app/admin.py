@@ -57,7 +57,7 @@ RETURNING_COLUMNS = f"{_SHARED_COLUMNS}, (api_key_path IS NOT NULL) AS key_confi
 
 class EndpointIn(BaseModel):
     name: str = Field(..., min_length=1, max_length=64)
-    kind: str = Field(..., pattern="^(chat|embedding)$")
+    kind: str = Field(..., pattern="^(chat|embedding|vision)$")
     base_url: str = Field(..., min_length=1)
     model: str = Field(..., min_length=1, max_length=200)
     data_scope: str = Field("external", pattern="^(internal|external)$")
@@ -327,7 +327,7 @@ def test_endpoint(name: str, actor: Actor = Depends(require("admin"))) -> dict:
 
     ok, note = False, ""
     try:
-        if row["kind"] == "chat":
+        if row["kind"] in ("chat", "vision"):
             result = llm.post_json(
                 f"{row['base_url'].rstrip('/')}/chat/completions",
                 {"model": row["model"], "messages": [{"role": "user", "content": "ping"}], "max_tokens": 8},

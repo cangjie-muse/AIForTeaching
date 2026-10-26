@@ -59,15 +59,6 @@ CREATE TYPE relation_type AS ENUM (
 -- -----------------------------------------------------------------------------
 -- 1. 课程
 -- -----------------------------------------------------------------------------
-CREATE TABLE course_direction (
-    id text PRIMARY KEY,
-    label text NOT NULL UNIQUE,
-    description text,
-    ord integer NOT NULL DEFAULT 0,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    created_by text
-);
-
 CREATE TABLE course (
   id              text PRIMARY KEY,
   title           text NOT NULL,
@@ -80,8 +71,6 @@ CREATE TABLE course (
   source_files    text[],                      -- 原始三件套文件名
   review_status   review_status NOT NULL DEFAULT 'draft',
   source_imported_at timestamptz,              -- 来源数据里的 importedAt
-  direction       text,                        -- 学科方向 id（课程中心六组之一），空 = 待归类
-  created_by      text,                        -- 导入人（教师可改自己导入的课）
   created_at      timestamptz NOT NULL DEFAULT now(),
   updated_at      timestamptz NOT NULL DEFAULT now()
 );
@@ -1697,5 +1686,161 @@ CREATE TABLE blocked_host (
 
 COMMENT ON TABLE blocked_host IS '管理员屏蔽的出校域名；优先于 .env 与 approved_host，判定见 server/app/egress.py' ;
 COMMENT ON COLUMN blocked_host.note IS '为什么屏蔽；出处不明的合规要求也要写下来，否则以后没人敢恢复';
+
+-- ---------------------------------------------------------------
+-- 0022_course_meta.sql
+-- ---------------------------------------------------------------
+-- 课程名称与学科方向可以改。
+--
+-- 原来这两件事都没有入口：
+--   · 名称只能靠重新导入改（会重写整门课、把审核打回 draft，为三个字赔掉几百道题的审核记录）；
+--   · 学科方向数据库里根本没有这一列，课程中心的分组靠前端静态表 js/course-catalog.js，
+--     新导入的课一律进"待归类"，要归位只能改代码再部署。
+--
+-- direction 存的是课程中心那六个方向的 id（analysis/algebra/geometry/pde/probability/computing），
+-- 留空表示待归类；前端遇到不认识的 id 也按待归类处理，不会让课凭空消失。
+ALTER TABLE course ADD COLUMN IF NOT EXISTS direction text;
+
+-- 谁导入的。用于"教师改自己导入的课"这条规则；
+-- 早期导入的课没有这一列的值，视为无主，教师可改。
+ALTER TABLE course ADD COLUMN IF NOT EXISTS created_by text;
+
+-- ---------------------------------------------------------------
+-- 0023_course_direction.sql
+-- ---------------------------------------------------------------
+-- 学科分类从代码里搬进数据库。
+--
+-- 原来六个方向硬编码在 js/course-catalog.js 与 server/app/course_meta.py 两处：
+-- 想多加一个「数理逻辑」，得同时改前端、改后端、重新部署。分类属于运营数据，
+-- 不是程序结构，管理员在界面上加一条就应该生效。
+--
+-- 课程表上的 course.direction 存的就是这里的 id；没有外键约束：
+-- 方向被删掉时课不该跟着消失，读不到 id 就按「待归类」显示。
+CREATE TABLE IF NOT EXISTS course_direction (
+    id          text PRIMARY KEY,
+    label       text NOT NULL UNIQUE,
+    description text,
+    ord         int  NOT NULL DEFAULT 0,
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    created_by  text
+);
+
+INSERT INTO course_direction (id, label, description, ord) VALUES
+    ('analysis',    '分析',       '极限、连续、微分与积分，以及测度与泛函', 1),
+    ('algebra',     '代数与数论', '线性结构、群环域与数论',               2),
+    ('geometry',    '几何与拓扑', '空间、流形与不变量',                   3),
+    ('pde',         '微分方程',   '常微分方程、偏微分方程与数学建模',     4),
+    ('probability', '概率统计',   '随机现象、统计推断与金融应用',         5),
+    ('computing',   '计算与应用', '数值方法、机器学习与运筹',             6)
+ON CONFLICT (id) DO NOTHING;
+
+-- ---------------------------------------------------------------
+-- 0024_homework_grading.sql
+-- ---------------------------------------------------------------
+-- 0024：作业拍照批改
+--
+-- 原来的结构里，submission 必须挂在一个 assignment 上（教师布置、题号固定）。
+-- 但现实里学生最常见的动作是"我把今天的作业拍下来，让它看看对不对"——没有布置、
+-- 没有题号表，题目是拍完才被识别出来的。所以这一版把 submission 放开成两种来源：
+--
+--   有 assignment  ：班级作业，题号由 assignment_item.ord 决定（原样不动）
+--   没有 assignment：自由作业，course_id 必填，题目由识别结果决定
+--
+-- 为什么不另建一张 homework 表：批改状态机、AI 初评分与教师确认分、审计全都在
+-- submission/submission_item 上，另起一张表等于把"AI 初评不进成绩"这条规则抄两遍，
+-- 早晚有一遍会失效。
+--
+-- 另外：作业批改是分钟级任务（一页一次视觉模型调用），必须走 pipeline_job，
+-- 所以 kind 里补 'grade-homework'；视觉模型要能单独配一个端点，model_endpoint.kind
+-- 里补 'vision'。
+
+
+-- -----------------------------------------------------------------------------
+-- 1. 任务类型：作业批改
+-- -----------------------------------------------------------------------------
+ALTER TABLE pipeline_job DROP CONSTRAINT IF EXISTS pipeline_job_kind_check;
+ALTER TABLE pipeline_job
+  ADD CONSTRAINT pipeline_job_kind_check
+  CHECK (kind IN ('upload','probe','extract','chunk','anchor','embed','ocr',
+                  'generate','generate-book','grade-homework'));
+
+-- -----------------------------------------------------------------------------
+-- 2. 模型端点：视觉
+-- -----------------------------------------------------------------------------
+-- 视觉能力要能单独指向某个模型：即使同一个供应商既给文本又给视觉，
+-- 两件事的出错方式完全不同（转写错 vs 判分错），配置上也该分得开。
+-- 没有单独配时，调用层回落到对话端点。
+ALTER TABLE model_endpoint DROP CONSTRAINT IF EXISTS model_endpoint_kind_check;
+ALTER TABLE model_endpoint
+  ADD CONSTRAINT model_endpoint_kind_check
+  CHECK (kind IN ('chat','embedding','rerank','vision'));
+
+-- -----------------------------------------------------------------------------
+-- 3. submission 放开：允许"学生自己拍照交上来的作业"
+-- -----------------------------------------------------------------------------
+ALTER TABLE submission ALTER COLUMN assignment_id DROP NOT NULL;
+ALTER TABLE submission
+  ADD COLUMN course_id  text REFERENCES course(id) ON DELETE CASCADE,
+  ADD COLUMN title      text,                  -- 学生自己起的名字，可空
+  ADD COLUMN page_count int NOT NULL DEFAULT 0,
+  ADD COLUMN model      text,                  -- 这次批改用的视觉/文本模型
+  ADD COLUMN error      text,                  -- 批改失败原因，学生能看到
+  ADD COLUMN job_id     bigint;                -- 对应的 pipeline_job
+
+-- 原来的唯一约束要求 (assignment_id, student_id) 全表唯一；
+-- 自由作业 assignment_id 是 NULL，多条记录会被当成同一个 NULL 而互相冲突。
+ALTER TABLE submission DROP CONSTRAINT IF EXISTS submission_assignment_id_student_id_key;
+CREATE UNIQUE INDEX submission_assignment_student_uniq
+  ON submission (assignment_id, student_id)
+  WHERE assignment_id IS NOT NULL;
+CREATE INDEX submission_student_idx ON submission (student_id, submitted_at DESC);
+CREATE INDEX submission_course_idx  ON submission (course_id, submitted_at DESC);
+
+-- 两种来源至少要有一个：既没布置也没课程，这批作业没法判分，也没处显示
+ALTER TABLE submission ADD CONSTRAINT submission_needs_target
+  CHECK (assignment_id IS NOT NULL OR course_id IS NOT NULL);
+
+-- 批改失败要能说出来。原状态机只有"提交/已初评/教师确认/退回"，
+-- 失败只能停在 submitted，学生看到的是"一直在批改中"。
+ALTER TABLE submission DROP CONSTRAINT IF EXISTS submission_status_check;
+ALTER TABLE submission
+  ADD CONSTRAINT submission_status_check
+  CHECK (status IN ('submitted','grading','ai-graded','teacher-confirmed','returned','failed'));
+
+-- -----------------------------------------------------------------------------
+-- 4. 作业页面图
+-- -----------------------------------------------------------------------------
+-- 一张图一行，而不是把图塞进 submission_item：一页纸上常有好几道题，
+-- 图片属于页面，题目属于页面上的条目，两者是 1:N。
+CREATE TABLE submission_page (
+  submission_id uuid NOT NULL REFERENCES submission(id) ON DELETE CASCADE,
+  page_no       int  NOT NULL CHECK (page_no BETWEEN 1 AND 20),
+  sha256        text NOT NULL,
+  bytes         int  NOT NULL,
+  mime          text NOT NULL,
+  transcript    jsonb,                        -- 视觉模型对这一页的原始输出，留证用
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (submission_id, page_no)
+);
+
+COMMENT ON COLUMN submission_page.transcript IS
+  '视觉模型的原始输出。判分有争议时要能回看"当初识别成了什么"，只存最终分数是查不清的。';
+
+-- -----------------------------------------------------------------------------
+-- 5. submission_item 补"自由作业"需要的列
+-- -----------------------------------------------------------------------------
+-- 有 assignment 时题号来自 assignment_item；自由作业没有那张表，
+-- 题号、题干、学生作答、匹配到的题库题都得自己记。
+ALTER TABLE submission_item
+  ADD COLUMN exercise_id      text,           -- 匹配到的题库题；空表示没匹配上
+  ADD COLUMN page_no          int,
+  ADD COLUMN question_no      text,           -- 卷面上的题号，如 "3(2)"
+  ADD COLUMN question_md      text,           -- 识别出的题干
+  ADD COLUMN student_answer_md text,          -- 识别出的学生作答（含步骤）
+  ADD COLUMN confidence       numeric(3,2),   -- 模型自评置信度，低于 0.6 提醒教师看
+  ADD COLUMN auto_comment     text;           -- AI 点评（一段话，指明第一处问题）
+
+COMMENT ON COLUMN submission_item.confidence IS
+  '模型自评置信度。它不是准确率，只用来排序——教师复核时先看低置信的那几题。';
 
 COMMIT;

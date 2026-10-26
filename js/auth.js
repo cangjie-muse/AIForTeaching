@@ -22,6 +22,7 @@
   classes: ['teacher', 'admin'],
   visibility: ['teacher', 'admin'],
     construction: ['teacher', 'admin'],
+    homework: ['student', 'teacher', 'admin'],
     accounts: ['admin'],
     'api-config': ['admin']
   };

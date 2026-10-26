@@ -1,0 +1,314 @@
+/* 作业批改页。
+ *
+ * 排版原则和别处一致：能一行的不要两行，窄屏自己折。
+ * 这页特有的两件事：
+ *   · 识别出的题干与学生作答都要显示原文——学生要能判断"是它认错了"还是"我真错了"；
+ *   · 分数分两列并排（AI 初评 / 教师确认），视觉上就要分得开，
+ *     不能让人把初评当成成绩。
+ */
+
+.hw-card,
+.hw-detail {
+  border: 1px solid #e3e8ef;
+  border-radius: 14px;
+  background: #fff;
+  padding: 20px 22px;
+  margin-bottom: 18px;
+}
+
+.hw-card h3,
+.hw-detail h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+}
+
+.hw-hint {
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.hw-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  align-items: flex-end;
+}
+
+.hw-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+  color: #475569;
+}
+
+.hw-form select,
+.hw-form input[type="text"],
+.hw-form input:not([type]) {
+  min-width: 190px;
+  padding: 8px 10px;
+  border: 1px solid #d7dee8;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  background: #fff;
+}
+
+.hw-file {
+  flex: 1 1 220px;
+}
+
+.hw-file input[type="file"] {
+  font-size: 12px;
+  color: #475569;
+}
+
+.hw-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.hw-picked {
+  font-size: 12.5px;
+  color: #64748b;
+}
+
+/* 列表：一行一门课的一次提交，右侧放状态 */
+.hw-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hw-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid #e3e8ef;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.hw-row:hover {
+  border-color: #b8cdf0;
+  background: #f8fbff;
+}
+
+.hw-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hw-row-main small {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.hw-row-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.hw-error {
+  color: #b42318;
+  font-size: 12px;
+  margin: 6px 0;
+}
+
+/* 分数：两列并排，不要竖着堆成一大块 */
+.hw-scores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.hw-scores > div {
+  flex: 1 1 150px;
+  min-width: 140px;
+  padding: 12px 14px;
+  border: 1px solid #e3e8ef;
+  border-radius: 12px;
+  background: #fafcff;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hw-scores span {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.hw-scores b {
+  font-size: 24px;
+  line-height: 1.2;
+  color: #1f2d3d;
+}
+
+.hw-scores small {
+  font-size: 11.5px;
+  color: #94a3b8;
+}
+
+.hw-scores .confirmed {
+  border-color: #b7e1c4;
+  background: #f4fbf6;
+}
+
+.hw-scores .hw-flag {
+  border-color: #f3d6a8;
+  background: #fffaf2;
+}
+
+.hw-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.hw-grading {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f4f8ff;
+  color: #2f6fd0;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.hw-pages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 4px;
+}
+
+.hw-page {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px dashed #cbd6e6;
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  color: #2f6fd0;
+  cursor: pointer;
+}
+
+/* 单题：左标签右内容不好读，改成上下两块，题目与作答各占一行 */
+.hw-item {
+  border: 1px solid #e8edf4;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-top: 12px;
+}
+
+.hw-item header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.hw-no {
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.hw-item-score {
+  font-size: 12.5px;
+  color: #475569;
+  margin-left: auto;
+}
+
+.hw-teacher {
+  font-size: 12px;
+  color: #0f7b3f;
+}
+
+.hw-low {
+  font-size: 11.5px;
+  color: #b45309;
+  border: 1px solid #f3d6a8;
+  border-radius: 6px;
+  padding: 1px 6px;
+  background: #fffaf2;
+}
+
+.hw-q {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 760px) {
+  .hw-q {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.hw-q p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #1f2d3d;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.hw-label {
+  font-size: 11.5px;
+  letter-spacing: .04em;
+  color: #94a3b8;
+}
+
+.hw-comment {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f7f9fc;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #334155;
+}
+
+.hw-comment.teacher {
+  background: #f4fbf6;
+  color: #14532d;
+}
+
+.hw-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.hw-bank {
+  font-size: 11.5px;
+  color: #64748b;
+}

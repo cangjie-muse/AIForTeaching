@@ -87,8 +87,11 @@
 
   function row(item) {
     const disabled = canEdit() ? '' : 'disabled';
+  const KIND_LABEL = { chat: '对话', embedding: '向量', vision: '视觉', rerank: '重排' };
+  const kindLabel = kind => KIND_LABEL[kind] || kind;
+
     return `<tr>
-      <td><b>${e(item.name)}</b><small>${item.kind === 'chat' ? '对话' : '向量'}${item.enabled ? ' · 启用中' : ''}</small></td>
+      <td><b>${e(item.name)}</b><small>${kindLabel(item.kind)}${item.enabled ? ' · 启用中' : ''}</small></td>
       <td><code>${e(item.model)}</code><small>${e(item.base_url)}</small></td>
       <td>${scopeBadge(item)}${item.kind === 'embedding' ? `<small>${e(item.dim || 1024)} 维</small>` : ''}</td>
       <td>${keyCell(item)}</td>
@@ -529,6 +532,7 @@
       <label>名称<input id="f-name" value="${value('name')}" ${isNew ? '' : 'disabled'} placeholder="deepseek-chat / bailian-embedding"></label>
       <label>用途<select id="f-kind" ${isNew ? '' : 'disabled'}>
         <option value="chat" ${item?.kind === 'chat' ? 'selected' : ''}>对话（生成回答）</option>
+        <option value="vision" ${item?.kind === 'vision' ? 'selected' : ''}>视觉（作业拍照转写）</option>
         <option value="embedding" ${item?.kind === 'embedding' ? 'selected' : ''}>向量（教材检索）</option>
       </select></label>
       <label>接口地址<input id="f-base-url" value="${value('base_url')}" placeholder="https://api.deepseek.com"></label>
