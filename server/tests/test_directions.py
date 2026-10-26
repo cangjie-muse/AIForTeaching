@@ -25,7 +25,8 @@ from fastapi import HTTPException  # noqa: E402
 from app import course_meta  # noqa: E402
 from app.auth import Actor  # noqa: E402
 from app.course_meta import (  # noqa: E402
-    CourseMetaIn, DirectionIn, create_direction, list_directions, patch_course,
+    CourseMetaIn, DirectionIn, create_direction, delete_direction, list_directions,
+    patch_course,
 )
 
 failures: list[str] = []
@@ -42,6 +43,7 @@ def check(name: str, ok: bool, detail: str = "") -> None:
 class FakeDB:
     def __init__(self, rows: list[dict] | None = None) -> None:
         self.rows = list(rows if rows is not None else [])
+        self.course_count: dict[str, int] = {}   # direction id → 有几门课在用
         self.statements: list[tuple[str, tuple | None]] = []
 
     def query(self, sql, params=None):
@@ -54,6 +56,11 @@ class FakeDB:
         self.statements.append((sql, params))
         if "max(ord)" in sql:
             return {"next": (max((row["ord"] for row in self.rows), default=0) + 1)}
+        if "FROM course_direction WHERE id" in sql:
+            match = [row for row in self.rows if row["id"] == params[0]]
+            return dict(match[0]) if match else None
+        if "count(*) AS n FROM course" in sql:
+            return {"n": self.course_count.get(params[0], 0)}
         return None
 
     def execute(self, sql, params=None):
@@ -61,6 +68,8 @@ class FakeDB:
         if sql.strip().startswith("INSERT INTO course_direction"):
             self.rows.append({"id": params[0], "label": params[1],
                               "description": params[2], "ord": params[3]})
+        if sql.strip().startswith("DELETE FROM course_direction"):
+            self.rows = [row for row in self.rows if row["id"] != params[0]]
         return 1
 
 
@@ -120,12 +129,60 @@ try:
     except HTTPException as exc:
         check("空白名称被拒绝", exc.status_code == 400, exc.detail)
 
+    print("\n保留名：")
+    db = FakeDB(seed())
+    course_meta.db = db
+    for reserved in ("待归类", "新导入课程（待归类）"):
+        try:
+            create_direction(DirectionIn(label=reserved), admin())
+            check(f"「{reserved}」不能当分类名", False, "居然建成了")
+        except HTTPException as exc:
+            check(f"「{reserved}」不能当分类名", exc.status_code == 400 and "内置" in exc.detail,
+                  exc.detail[:40])
+
+    print("\n删除分类：")
+    db = FakeDB(seed())
+    course_meta.db = db
+    try:
+        delete_direction("no-such", False, admin())
+        check("删不存在的分类返回 404", False, "居然删掉了")
+    except HTTPException as exc:
+        check("删不存在的分类返回 404", exc.status_code == 404, exc.detail)
+
+    # 有人用着：先 409 报课数，带 force 才连课一起改
+    db = FakeDB(seed())
+    db.course_count["pde"] = 3
+    course_meta.db = db
+    try:
+        delete_direction("pde", False, admin())
+        check("有课在用 → 409 并报课数", False, "居然直接删了")
+    except HTTPException as exc:
+        check("有课在用 → 409 并报课数",
+              exc.status_code == 409 and exc.detail.get("courses") == 3, str(exc.detail))
+    check("409 时没有动分类", any(row["id"] == "pde" for row in db.rows), "")
+
+    result = delete_direction("pde", True, admin())
+    check("force 后分类真的删了", not any(row["id"] == "pde" for row in db.rows), "")
+    check("force 后报告搬走了几门课", result["courses_moved"] == 3, str(result["courses_moved"]))
+    check("课被改成待归类而不是删掉",
+          any("UPDATE course SET direction = NULL" in sql for sql, _ in db.statements), "")
+    check("写了删除审计", any("direction.delete" in sql for sql, _ in db.statements), "")
+
+    # 没人用：直接删
+    db = FakeDB(seed())
+    course_meta.db = db
+    result = delete_direction("computing", False, admin())
+    check("没人用就能直接删", result["label"] == "计算与应用", str(result))
+    check("没课时不写 UPDATE course",
+          not any("UPDATE course SET direction = NULL" in sql for sql, _ in db.statements), "")
+
     print("\n权限：")
     # 权限挂在依赖注入上（Depends(require("admin"))），直接调函数是绕过它的。
     # 所以要对着路由声明断言，而不是"调用一下看看 403"。
     source = inspect.getsource(create_direction)
     check("建分类要管理员", 'require("admin")' in source, "缺了 Depends(require(\"admin\"))")
     check("清单接口不需要登录", "Depends" not in inspect.getsource(list_directions), "清单不该要身份")
+    check("删分类要管理员", 'require("admin")' in inspect.getsource(delete_direction), "")
 
     print("\n课程改用新分类：")
     # 直接调底层校验：patch_course 依赖注入的 actor 是普通参数，可以直接传

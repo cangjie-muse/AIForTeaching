@@ -193,6 +193,54 @@ check('新分类编号排在最后', CourseCatalog.groups[CourseCatalog.groups.l
 // 收尾：恢复成六组，后面的断言按六组算
 CourseCatalog.setGroups(groupsBefore);
 
+console.log('\n删除分类：');
+App.state.auth = { status: 'ready', actor: { id: 'acc-a', role: 'admin', display_name: '管理员' } };
+App.actions['catalog-add-direction']();
+check('管理弹窗里列出已有分类',
+  /catalog-del-direction[\s\S]{0,80}data-id="analysis"/.test(element('dialog').innerHTML), '');
+
+const deleted = [];
+App.api.deleteDirection = async (id, force) => {
+  deleted.push([id, force]);
+  return { deleted: id, label: '数理逻辑', courses_moved: force ? 2 : 0 };
+};
+App.loadDirections = async () => { CourseCatalog.setGroups(groupsBefore); };
+App.loadCatalog = async () => {};
+let confirms = [];
+sandbox.confirm = message => { confirms.push(message); return true; };
+
+await App.actions['catalog-del-direction']({ dataset: { id: 'dir-x', label: '数理逻辑' }, disabled: false });
+check('删除前问一次，说清课会回到待归类',
+  confirms.length === 1 && confirms[0].includes('回到「待归类」'), JSON.stringify(confirms));
+check('直接删不传 force', deleted.length === 1 && !deleted[0][1], JSON.stringify(deleted));
+
+// 有人用着：服务端 409 报课数，再问一次才连课一起改
+deleted.length = 0; confirms = [];
+App.api.deleteDirection = async (id, force) => {
+  deleted.push([id, force]);
+  if (!force) {
+    const error = new Error('还有 2 门课归在「数理逻辑」下');
+    error.status = 409;
+    error.detail = { detail: '还有 2 门课归在「数理逻辑」下', courses: 2 };
+    throw error;
+  }
+  return { deleted: id, courses_moved: 2 };
+};
+await App.actions['catalog-del-direction']({ dataset: { id: 'dir-x', label: '数理逻辑' }, disabled: false });
+check('409 后带 force 再删一次', deleted.length === 2 && deleted[1][1] === true, JSON.stringify(deleted));
+check('第二次提示里写明几门课', confirms.length === 2 && confirms[1].includes('2 门课'),
+  JSON.stringify(confirms));
+
+// 用户在第二次提示上点取消：不该强删
+deleted.length = 0; confirms = [];
+let asked = 0;
+sandbox.confirm = message => { confirms.push(message); asked += 1; return asked === 1; };
+await App.actions['catalog-del-direction']({ dataset: { id: 'dir-x', label: '数理逻辑' }, disabled: false });
+check('取消就不再强删', deleted.length === 1 && !deleted.some(call => call[1]), JSON.stringify(deleted));
+sandbox.confirm = () => true;
+
+
+
 App.state.auth = { status: 'ready', actor: { id: 'acc-s', role: 'student', display_name: '小明' } };
 console.log('\n学生端目录：');
 html = App.views.catalog();
@@ -221,6 +269,21 @@ check('离线时静态包照常可用', html.includes('数学分析II'));
 const shell = read('js/app.js');
 check('顶栏有离线数据提示', shell.includes('离线演示数据'));
 check('离线提示写清审核此时不生效', shell.includes('审核与可见范围此时不生效'));
+
+console.log('\n待归类也有一档可筛：');
+const coursesBefore = App.courses;
+App.dataSource = 'db';
+// 一门没归类的课：内容接口拿回来的课 direction 是空的，merge 会给它 groupId=imported
+App.courses = [{
+  ...course('new-import', '新导入的课'),
+  groupId: 'imported', directionId: '', direction: '待归类', categoryLabel: '新导入课程'
+}];
+App.draftCourses = [];
+html = App.views.catalog();
+check('筛选条里有「待归类」', /data-filter="imported"[^>]*>待归类/.test(html), '');
+check('「待归类」也带课数', /data-filter="imported"[^>]*>待归类<span>1</.test(html), '');
+check('待归类那一组还在页面上', /data-group="imported"/.test(html), '');
+App.courses = coursesBefore;
 
 console.log('');
 if (failures.length) {

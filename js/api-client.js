@@ -130,6 +130,11 @@
     return data.items || [];
   }
 
+  async function deleteDirection(id, force = false) {
+    const query = force ? '?force=true' : '';
+    return request('DELETE', `/api/v1/directions/${encodeURIComponent(id)}${query}`);
+  }
+
   async function createDirection(label) {
     return request('POST', '/api/v1/directions', { body: { label } });
   }
@@ -483,7 +488,7 @@
     base,
     courseList,
     matchCourse,
-    updateCourse, directions, createDirection, submitAttempt,
+    updateCourse, directions, createDirection, deleteDirection, submitAttempt,
     uploadTextbook,
     startGeneration,
     textbookChapters,

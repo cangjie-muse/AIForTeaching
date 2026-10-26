@@ -36,6 +36,11 @@ DIRECTIONS = {
 }
 
 
+# 这两个是界面上的内置分组（新导入、还没归类的课），不是可以增删的分类。
+# 有人建了一个同名的「待归类」之后，筛选条上会出现两个一样的名字，谁也分不清。
+RESERVED_LABELS = {"待归类", "新导入课程", "新导入课程（待归类）"}
+
+
 def _directions() -> list[dict]:
     rows = db.query(
         "SELECT id, label, description, ord FROM course_direction ORDER BY ord, id"
@@ -68,6 +73,42 @@ def list_directions() -> dict:
     ]}
 
 
+@router.delete("/api/v1/directions/{direction_id}")
+def delete_direction(direction_id: str, force: bool = False,
+                     actor: Actor = Depends(require("admin"))) -> dict:
+    """删除一个学科分类。
+
+    还有课归在它名下时默认拒绝（409，带上课数）——直接删掉会让那些课悄悄
+    变成「待归类」，而人以为只是删了个分类。带 force=true 才连课一起改。
+    """
+    row = db.query_one(
+        "SELECT id, label FROM course_direction WHERE id = %s", (direction_id,))
+    if not row:
+        raise HTTPException(404, f"没有这个分类：{direction_id}")
+    used = db.query_one(
+        "SELECT count(*) AS n FROM course WHERE direction = %s", (direction_id,))
+    count = int(used["n"]) if used else 0
+    if count and not force:
+        raise HTTPException(409, {
+            "detail": f"还有 {count} 门课归在「{row['label']}」下",
+            "courses": count,
+            "hint": "把它们改成待归类后再删，或者带 force=true 一起处理",
+        })
+    if count:
+        db.execute(
+            "UPDATE course SET direction = NULL, updated_at = now() WHERE direction = %s",
+            (direction_id,),
+        )
+    db.execute("DELETE FROM course_direction WHERE id = %s", (direction_id,))
+    db.execute(
+        """INSERT INTO audit_log (actor, action, entity, entity_key, detail)
+           VALUES (%s, 'direction.delete', 'course_direction', %s, %s::jsonb)""",
+        (actor.id, direction_id,
+         json.dumps({"label": row["label"], "courses_moved": count}, ensure_ascii=False)),
+    )
+    return {"deleted": direction_id, "label": row["label"], "courses_moved": count}
+
+
 @router.post("/api/v1/directions")
 def create_direction(body: DirectionIn,
                      actor: Actor = Depends(require("admin"))) -> dict:
@@ -79,6 +120,11 @@ def create_direction(body: DirectionIn,
     label = body.label.strip()
     if not label:
         raise HTTPException(400, "分类名称不能为空")
+    if label in RESERVED_LABELS:
+        raise HTTPException(
+            400,
+            f"「{label}」是内置分组：没有归类的课本来就落在那里，不用再建一个同名的分类",
+        )
     known = {row["label"] for row in _directions()}
     if label in known:
         raise HTTPException(400, f"已经有「{label}」这个分类了")

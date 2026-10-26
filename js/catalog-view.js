@@ -80,13 +80,56 @@
      老师各建各的会把目录拆成互不相认的一堆小格子。 */
   A.actions['catalog-add-direction'] = function () {
     A.state.newDirection = { label: '' };
-    A.openDialog('新建学科分类', `<div class="field">
+    const existing = groups().map(group => `<button class="btn" data-action="catalog-del-direction"
+      data-id="${e(group.id)}" data-label="${e(group.label)}">${e(group.label)} ✕</button>`).join('');
+    A.openDialog('新建 / 管理学科分类', `<div class="field">
       <label for="direction-label">分类名称</label>
       <input id="direction-label" data-input="direction-label" maxlength="20" placeholder="例如：数理逻辑">
       <small>新分类会出现在筛选条与「归类」列表里；已有课程不会自动搬过去。</small></div>
-      <div class="button-row"><button class="btn primary" data-action="catalog-direction-save">创建分类</button></div>`);
+      <div class="button-row"><button class="btn primary" data-action="catalog-direction-save">创建分类</button></div>
+      <div class="field"><label>已有分类</label>
+      <div class="button-row">${existing}</div>
+      <small>点分类右边的 ✕ 删除。归在里面的课会回到「待归类」，不会丢。</small></div>`);
     const input = document.getElementById('direction-label');
     if (input && input.focus) input.focus();
+  };
+
+  /* 删除分类：还有课归在它名下时，服务端先回 409（带课数），
+     问一句「这些课会回到待归类」再带着 force 删——不让人以为只是删了个名字。 */
+  A.actions['catalog-del-direction'] = async function (button) {
+    const id = button.dataset.id;
+    const label = button.dataset.label || '';
+    if (!window.confirm(`删除分类「${label}」？归在里面的课会回到「待归类」。`)) return;
+    button.disabled = true;
+    let moved = 0;
+    try {
+      const result = await A.api.deleteDirection(id);
+      moved = result.courses_moved || 0;
+    } catch (error) {
+      if (error.status !== 409) {
+        button.disabled = false;
+        A.toast(`没删掉：${error.message}`);
+        return;
+      }
+      const count = (error.detail && error.detail.courses) || 0;
+      if (!window.confirm(`还有 ${count} 门课归在「${label}」下。删除后它们回到「待归类」，继续？`)) {
+        button.disabled = false;
+        return;
+      }
+      try {
+        const forced = await A.api.deleteDirection(id, true);
+        moved = forced.courses_moved || 0;
+      } catch (second) {
+        button.disabled = false;
+        A.toast(`没删掉：${second.message}`);
+        return;
+      }
+    }
+    const dialog = document.getElementById('dialog');
+    if (dialog && dialog.open) dialog.close();
+    A.toast(moved ? `已删除「${label}」，${moved} 门课回到待归类` : `已删除分类「${label}」`);
+    await A.loadDirections();
+    await A.loadCatalog();
   };
 
   A.inputs['direction-label'] = function (input) {
@@ -151,14 +194,19 @@
     // 建设中：库里有、还没发布给学生的课。单独一档，老师不用滚到页面最底下找。
     const drafts = (A.dataSource === 'db' && A.draftCourses) ? A.draftCourses : [];
     const faculty = A.auth && A.auth.is('teacher', 'admin');
+    // 没归类的课也要有自己的一档：它们在最底下单独一组，筛选条上却没有入口，
+    // 人只看得到「全部 39」里差了几门，不知道差在哪。
+    const imported = all.filter(course => course.groupId === 'imported');
     const filters = [
       { id: 'all', label: '全部课程', count: all.length },
       ...CourseCatalog.groups.map(group => ({ ...group, count: all.filter(c => c.groupId === group.id).length })),
+      ...(imported.length ? [{ id: 'imported', label: '待归类', count: imported.length }] : []),
       { id: 'ready', label: '已接入', count: ready },
       ...(drafts.length && faculty ? [{ id: 'draft', label: '正在建设', count: drafts.length }] : [])
     ];
-    const imported = all.filter(course => course.groupId === 'imported');
-    const displayGroups = imported.length ? [...CourseCatalog.groups, { id: 'imported', label: '新导入课程（待归类）', number: '03' }] : CourseCatalog.groups;
+    const displayGroups = imported.length
+      ? [...CourseCatalog.groups, { id: 'imported', label: '新导入课程（待归类）', number: String(CourseCatalog.groups.length + 1).padStart(2, '0') }]
+      : CourseCatalog.groups;
     // 分类是运营数据，管理员在界面上加：改代码 + 部署才多一档，等于这个决定只属于程序员。
     const addChip = A.auth && A.auth.is('admin')
       ? `<button class="filter-chip chip-add" data-action="catalog-add-direction">＋ 新建分类</button>` : '';
