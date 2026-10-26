@@ -140,6 +140,45 @@ if APP_ENV != "prod":
     _mount_dev_static(app)
 
 
+def _queue_health() -> dict:
+    """队列里有没有人干活。
+
+    这是"点了没反应"的根因所在：worker 没跑时任务一直停在 queued，前端只能转圈。
+    把"最后一个任务被取走是多久以前"暴露出来，一次 GET 就能分清是模型慢还是没人干。
+    """
+    row = db.query_one(
+        """
+        SELECT
+          (SELECT count(*) FROM pipeline_job WHERE status = 'queued')  AS queued,
+          (SELECT count(*) FROM pipeline_job WHERE status = 'running') AS running,
+          (SELECT count(*) FROM pipeline_job
+            WHERE status = 'failed' AND finished_at > now() - interval '1 day') AS failed_24h,
+          (SELECT max(started_at) FROM pipeline_job) AS last_claim,
+          (SELECT extract(epoch FROM (now() - min(created_at)))
+             FROM pipeline_job WHERE status = 'queued') AS oldest_age_seconds,
+          (SELECT extract(epoch FROM (now() - max(started_at)))
+             FROM pipeline_job) AS since_claim_seconds
+        """
+    ) or {}
+    queued = int(row.get("queued") or 0)
+    running = int(row.get("running") or 0)
+    since = row.get("since_claim_seconds")
+    since = int(since) if since is not None else None
+    last_claim = row.get("last_claim")
+    # 队列空时无从判断 worker 是否活着；有积压才需要心跳
+    alive = None if queued == 0 and running == 0 else bool(since is not None and since < 600)
+    return {
+        "queued": queued,
+        "running": running,
+        "failed_24h": int(row.get("failed_24h") or 0),
+        "last_claim": last_claim.isoformat() if hasattr(last_claim, "isoformat") else last_claim,
+        "since_last_claim_seconds": since,
+        "oldest_queued_seconds": (int(row["oldest_age_seconds"])
+                                  if row.get("oldest_age_seconds") is not None else None),
+        "worker_alive": alive,
+    }
+
+
 @app.get("/api/v1/health")
 def health() -> dict:
     try:
@@ -150,6 +189,8 @@ def health() -> dict:
             "courses": row["n"] if row else 0,
             # 模型配置自检：不泄露密钥，只报端点在内网还是外网
             "models": llm.describe(),
+            # 队列自检：谁在等、等了多久、最近一次被取走是什么时候
+            "queue": _queue_health(),
         }
     except Exception as exc:  # 数据库不可用时仍返回结构化结果，便于探活
         return {"status": "degraded", "db": False, "error": str(exc), "models": llm.describe()}

@@ -312,3 +312,47 @@
 .cw-revise label {
   flex: 1 1 420px;
 }
+
+/* 队列提示条：横跨整页，先说结论（谁没干活），再给命令 */
+.queue-notice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.queue-notice.bad {
+  background: #fef3f2;
+  border: 1px solid #f5c2bd;
+  color: #912018;
+}
+
+.queue-notice.warn {
+  background: #fffaeb;
+  border: 1px solid #f3d6a8;
+  color: #93370d;
+}
+
+.queue-notice b {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.queue-notice p {
+  margin: 0;
+}
+
+.queue-notice code {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(15, 42, 76, 0.08);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 12px;
+  color: #142a4c;
+}

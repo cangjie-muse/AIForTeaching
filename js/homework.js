@@ -203,8 +203,9 @@
   }
 
   A.views.homework = function () {
+    const queue = A.queueNotice ? A.queueNotice() : '';
     const state = S();
-    return `${A.sectionTitle('HOMEWORK · AI 初评', '作业批改',
+    return queue + `${A.sectionTitle('HOMEWORK · AI 初评', '作业批改',
       '拍照上传，AI 先把卷面转写成文字，再逐题对照题库里的参考答案给初评；教师确认后才计入成绩。')}
       ${state.detail ? detailView(state) : `${uploadCard(state)}${listCard(state)}`}`;
   };

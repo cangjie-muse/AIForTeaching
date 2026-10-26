@@ -92,6 +92,7 @@ for (const [label, ok] of [
   ['课程中心', typeof views.catalog === 'function'],
   ['课件生成与修改', typeof views.courseware === 'function'],
   ['课件工坊', typeof A.coursewareStudio === 'function'],
+  ['队列提示', typeof A.queueNotice === 'function'],
   ['作业批改', typeof views.homework === 'function'],
   ['内容审核', typeof views.review === 'function']
 ]) check(label, ok);

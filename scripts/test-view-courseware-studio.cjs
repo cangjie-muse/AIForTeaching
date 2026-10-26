@@ -64,7 +64,7 @@ vm.createContext(sandbox);
 
 const files = ['js/course-catalog.js', 'js/course-cover-art.js', 'js/core.js',
   'js/visual-identity.js', 'js/storage.js', 'js/api-client.js', 'js/auth.js',
-  'js/pages.js', 'js/courseware-studio.js', 'js/courseware-view.js', 'js/app.js'];
+  'js/pages.js', 'js/queue-health.js', 'js/courseware-studio.js', 'js/courseware-view.js', 'js/app.js'];
 vm.runInContext(files.map(read).join('\n;\n'), sandbox, { filename: 'courseware-studio.js' });
 
 const App = sandbox.window.App;

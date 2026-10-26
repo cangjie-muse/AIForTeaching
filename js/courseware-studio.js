@@ -168,6 +168,7 @@
         <div><div class="eyebrow">AI COURSEWARE STUDIO</div><h2>按章/节生成与修订</h2></div>
         <span>只读本地知识库：本章知识点正文 + 已发布习题</span>
       </div>
+      ${A.queueNotice ? A.queueNotice() : ''}
       <div class="cw-form">
         <label>生成范围<select data-change="studio-target">${chapterOptions(state)}</select></label>
         <label>目标页数<input data-input="studio-pages" value="${e(state.form.pages)}" inputmode="numeric" maxlength="2"></label>

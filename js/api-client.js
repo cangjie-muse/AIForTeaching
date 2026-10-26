@@ -568,6 +568,7 @@
     logout,
     changePassword,
     accounts,
+    health: () => request('GET', '/api/v1/health'),
     coursewareChapters: (courseId) =>
       request('GET', `/api/v1/courseware/chapters${queryString({ course_id: courseId })}`),
     coursewareDeck: (deckId, version) =>
