@@ -31,6 +31,14 @@ def check(name: str, ok: bool, detail: str = "") -> None:
         print(f"  ✗ {name}  — {detail}")
 
 
+def _message(call) -> str:
+    try:
+        call()
+        return ""
+    except Exception as error:  # noqa: BLE001 — 测试里只想看文案
+        return str(error)
+
+
 def raises(call, fragment: str) -> bool:
     try:
         call()
@@ -83,6 +91,19 @@ check("出处保留", question["source_raw"] == "教材")
 check("缺答案报错", raises(lambda: parse_question("1. 只有题干。", "ex-2"), "缺少"))
 check("缺难度报错",
       raises(lambda: parse_question("1. 题干。\n\n   **答案：** 略。", "ex-3"), "缺少"))
+check("缺答案时说清缺「答案」，并带出题面",
+      raises(lambda: parse_question("1. 证明紧集是闭集。\n\n   **难度：1/5；出处：** 教材",
+                                    "ex-5"), "缺少「**答案：**」")
+      and "证明紧集是闭集" in _message(lambda: parse_question(
+          "1. 证明紧集是闭集。\n\n   **难度：1/5；出处：** 教材", "ex-5")))
+check("缺难度出处时说清缺的是哪一段",
+      raises(lambda: parse_question("1. 题干。\n\n   **答案：** 略。", "ex-6"),
+             "缺少「**难度：n/5；出处：**」"))
+check("顺序倒了提示对调",
+      raises(lambda: parse_question(
+          "1. 题干。\n\n   **难度：1/5；出处：** 教材\n\n   **答案：** 略。", "ex-7"),
+          "对调"))
+
 check("难度越界报错",
       raises(lambda: parse_question("1. 题干。\n\n   **答案：** 略。\n\n"
                                     "   **难度：7/5；出处：** 教材", "ex-4"), "1–5"))

@@ -66,7 +66,14 @@
     const body = raw.trim().replace(/^\d+\.\s*/, '').replace(/^ {3}/gm, '');
     const answer = /\*\*答案：\*\*/.exec(body);
     const meta = /\*\*难度：(\d)\/5；出处：\*\*/.exec(body);
-    assert(answer && meta && meta.index > answer.index, `习题 ${id} 缺少“答案”或“难度：n/5；出处”字段。`);
+    const head = (body.split('\n').find(line => line.trim()) || '').trim().slice(0, 40);
+    const missing = [];
+    if (!answer) missing.push('缺少「**答案：**」这一行');
+    if (!meta) missing.push('缺少「**难度：n/5；出处：**」这一行（全角「：」「；」，冒号后面用「；」接到「出处：」）');
+    assert(!missing.length, `习题 ${id} ${missing.join('，')}。这道题开头是「${head}」。`
+      + '三段顺序必须是：题干 → **答案：**… → **难度：3/5；出处：**…');
+    assert(meta.index > answer.index, `习题 ${id} 的「**难度：n/5；出处：**」写在了「**答案：**」前面，两者需要对调。`
+      + `这道题开头是「${head}」。`);
     const difficulty = Number(meta[1]);
     assert(difficulty >= 1 && difficulty <= 5, `习题 ${id} 难度须在 1–5 之间。`);
     return {
@@ -104,6 +111,13 @@
     const synthesizedIds = new Set();
     let associationCount = 0;
 
+    // 逐题收集问题再一起抛：一个资源包常有几道题格式不对，
+    // 一次只报第一道的话，老师得改一轮导一轮，来回好几趟。
+    const problems = [];
+    const guard = (node, id, raw) => {
+      try { ingest(node, id, raw); } catch (error) { problems.push(error.message); }
+    };
+
     const ingest = (node, id, raw) => {
       const parsed = parseExercise(raw, id), old = unique.get(id);
       if (!old) unique.set(id, { ...parsed, nodeIds: [], _variants: [{ ...parsed, nodeIds: [] }] });
@@ -121,7 +135,7 @@
       if (marks.length) {
         marks.forEach((mark, index) => {
           const raw = section.slice(mark.index + mark[0].length, marks[index + 1]?.index ?? section.length);
-          ingest(node, mark[1], raw);
+          guard(node, mark[1], raw);
         });
         return;
       }
@@ -135,9 +149,16 @@
       blocks.forEach(raw => {
         const id = stableQuestionId(raw);
         synthesizedIds.add(id);
-        ingest(node, id, raw);
+        guard(node, id, raw);
       });
     });
+
+    if (problems.length) {
+      const detail = problems.length === 1
+        ? problems[0]
+        : `有 ${problems.length} 道习题格式不对：\n· ${problems.join('\n· ')}`;
+      assert(false, detail);
+    }
 
     let variantGroups = 0, variantCopies = 0;
     const exercises = [...unique.values()].map(exercise => {

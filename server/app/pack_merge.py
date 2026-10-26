@@ -76,8 +76,22 @@ def parse_question(raw: str, exercise_id: str) -> dict[str, Any]:
     body = INDENT.sub("", NUMBERED.sub("", raw.strip(), count=1))
     answer = ANSWER.search(body)
     meta = META.search(body)
-    if not answer or not meta or meta.start() <= answer.start():
-        raise ValueError(f"习题 {exercise_id} 缺少「答案」或「难度：n/5；出处」字段。")
+    head = next((line.strip() for line in body.splitlines() if line.strip()), "")[:40]
+    missing = []
+    if not answer:
+        missing.append("缺少「**答案：**」这一行")
+    if not meta:
+        missing.append("缺少「**难度：n/5；出处：**」这一行（全角「：」「；」）")
+    if missing:
+        raise ValueError(
+            f"习题 {exercise_id} " + "，".join(missing)
+            + f"。这道题开头是「{head}」。三段顺序必须是：题干 → **答案：**… → **难度：3/5；出处：**…"
+        )
+    if meta.start() <= answer.start():
+        raise ValueError(
+            f"习题 {exercise_id} 的「**难度：n/5；出处：**」写在了「**答案：**」前面，两者需要对调。"
+            f"这道题开头是「{head}」。"
+        )
     difficulty = int(meta.group(1))
     if not 1 <= difficulty <= 5:
         raise ValueError(f"习题 {exercise_id} 难度须在 1–5 之间。")

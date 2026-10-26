@@ -97,6 +97,37 @@ const sharedPack = parsePackage(rows, book, shared);
 check('同一道题两处出现只算一条', sharedPack.exercises.length === 1);
 check('两处都挂了关联', sharedPack.stats.associations === 2);
 
+// 7. 题目缺字段时，报错要说清缺哪一段、是哪道题，并且一次列全
+const noAnswer = shell +
+  section('kp-def', '拓扑空间的定义',
+    '<!-- source-exercise:book-p020-1 -->\n证明紧集是闭集。\n\n   **难度：1/5；出处：** 教材 2.1\n') +
+  section('kp-open', '开集与闭集', '');
+const noAnswerError = (() => {
+  try { parsePackage(rows, book, noAnswer); return ''; } catch (error) { return error.message; }
+})();
+check('缺答案时点名缺的是答案', /缺少「\*\*答案：\*\*」/.test(noAnswerError));
+check('缺答案时带出题面开头', noAnswerError.includes('证明紧集是闭集'));
+
+const swapped = shell +
+  section('kp-def', '拓扑空间的定义',
+    '<!-- source-exercise:book-p021-1 -->\n证明开集补集是闭集。\n\n   **难度：1/5；出处：** 教材。\n\n   **答案：** 略。\n') +
+  section('kp-open', '开集与闭集', '');
+const swappedError = (() => {
+  try { parsePackage(rows, book, swapped); return ''; } catch (error) { return error.message; }
+})();
+check('顺序倒了说清要对调', /写在了.*前面/.test(swappedError) && /对调/.test(swappedError));
+
+const twoBad = shell +
+  section('kp-def', '拓扑空间的定义',
+    '<!-- source-exercise:book-p022-1 -->\n第一道坏题。\n\n   **难度：1/5；出处：** 教材。\n' +
+    '<!-- source-exercise:book-p022-2 -->\n第二道坏题。\n\n   **难度：2/5；出处：** 教材。\n') +
+  section('kp-open', '开集与闭集', '');
+const twoBadError = (() => {
+  try { parsePackage(rows, book, twoBad); return ''; } catch (error) { return error.message; }
+})();
+check('两道坏题一次列全', /有 2 道习题格式不对/.test(twoBadError) &&
+  twoBadError.includes('第一道坏题') && twoBadError.includes('第二道坏题'));
+
 let failures = 0;
 for (const [name, ok] of checks) {
   if (!ok) failures += 1;
