@@ -1,6 +1,7 @@
 [Unit]
 Description=WHU math teaching platform generation worker (教材生成队列)
-Documentation=file:///home/aiformath/AIForTeaching/docs/教材生成流水线.md
+# 文档路径带中文，systemd 会判成 Invalid URL 刷警告，所以不写 Documentation，
+# 需要时看 docs/教材生成流水线.md。
 After=network.target postgresql.service
 Wants=postgresql.service
 
@@ -10,6 +11,10 @@ User=aiformath
 Group=aiformath
 WorkingDirectory=/home/aiformath/AIForTeaching
 EnvironmentFile=/home/aiformath/AIForTeaching/.env
+# 不缓冲：worker 空闲时本来就不打印，一旦打印必须立刻进 journal，
+# 否则 `journalctl -u whu-worker` 半天没输出，看起来像没跑。
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONIOENCODING=utf-8
 # 不要开多个实例：领取任务用的是 FOR UPDATE SKIP LOCKED，多开会各自领到不同的章，
 # 同时调模型——限流会被打满，而且同一本书的章节进度更难判断。要并行请先改限流策略。
 ExecStart=/home/aiformath/AIForTeaching/.venv/bin/python scripts/run_worker.py

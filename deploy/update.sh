@@ -116,12 +116,18 @@ fi
 
 say "5. 重启服务"
 sudo systemctl restart "$SERVICE"
-# worker 是可选的：没装它的机器上 systemctl 会报 not found，不该因此中断更新
-if systemctl list-unit-files | grep -q '^whu-worker.service'; then
+# worker 不是可选的：教材生成、课件生成与修订、作业批改全靠它取任务。
+# 也不能用 `systemctl enable --now` 代替重启——服务已经在跑时那是空操作，
+# 它会继续用启动那一刻加载的旧代码，新加的任务类型永远轮不到。
+if [ -f /etc/systemd/system/whu-worker.service ] \
+   || systemctl list-unit-files 2>/dev/null | grep -q '^whu-worker\.service'; then
   sudo systemctl restart whu-worker
   sleep 1
-  systemctl is-active --quiet whu-worker && ok "whu-worker 运行中" \
-    || echo "  ！whu-worker 没起来，教材生成任务会排队不动：sudo journalctl -u whu-worker -n 40"
+  systemctl is-active --quiet whu-worker && ok "whu-worker 已重启并运行中" \
+    || echo "  ！whu-worker 没起来：sudo journalctl -u whu-worker -n 40 --no-pager"
+else
+  echo "  ！没有安装 whu-worker：课件生成、作业批改、教材生成都会一直排队"
+  echo "    安装：sudo cp deploy/whu-worker.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now whu-worker"
 fi
 sleep 2
 systemctl is-active --quiet "$SERVICE" && ok "$SERVICE 运行中" || {
