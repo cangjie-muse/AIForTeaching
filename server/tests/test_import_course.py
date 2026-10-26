@@ -30,26 +30,63 @@ def check(name: str, ok: bool, detail: str = "") -> None:
         failures.append(name)
 
 
+class FakeCursor:
+    """事务里的 cursor：记下 execute 与 executemany 各自的参数。"""
+
+    def __init__(self) -> None:
+        self.statements: list[tuple[str, tuple | None]] = []
+        self.batches: list[tuple[str, list]] = []
+        self.rowcount = 0
+
+    def execute(self, sql, params=None):
+        self.statements.append((sql, params))
+        self.rowcount = 1
+        return self
+
+    def executemany(self, sql, seq):
+        rows = list(seq)
+        self.batches.append((sql, rows))
+        self.rowcount = len(rows)
+        return self
+
+
 class FakeDB:
     """只回答两件事：这门课在不在、执行了哪些写语句。"""
 
     def __init__(self, exists: bool = True) -> None:
         self.exists = exists
-        self.statements: list[tuple[str, tuple | None]] = []
+        self.cursor = FakeCursor()
+
+    # import_pack 把整包写在一个事务里（db.transaction()）
+    def transaction(self):
+        from contextlib import contextmanager
+
+        @contextmanager
+        def _open():
+            yield self.cursor
+        return _open()
+
+    @property
+    def statements(self):
+        return self.cursor.statements
+
+    @property
+    def batches(self):
+        return self.cursor.batches
 
     def query_one(self, sql, params=None):
-        self.statements.append((sql, params))
+        self.cursor.statements.append((sql, params))
         if "FROM course WHERE id" in sql:
             return {"ok": 1} if self.exists else None
         return None
 
     def execute(self, sql, params=None):
-        self.statements.append((sql, params))
+        self.cursor.statements.append((sql, params))
         return 1
 
     def courses_insert(self):
         """找出写入 course 表的那条语句的参数。"""
-        for sql, params in self.statements:
+        for sql, params in self.cursor.statements:
             if "INSERT INTO course" in sql:
                 return params
         return None

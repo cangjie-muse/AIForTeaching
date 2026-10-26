@@ -40,7 +40,10 @@ from build_seed import parse_source  # noqa: E402
 router = APIRouter(prefix="/api/v1", tags=["content"])
 
 MAX_NODES = 3000
-MAX_EXERCISES = 10000
+# 一万道题放不进的真实原因从来不是"太多"，而是当时每条语句各自提交：
+# 一万题 = 三万余次往返，导入要跑几分钟。改批量写入后一万题几秒就完了，
+# 上限只当"解析器跑飞了"的兜底（比如把一整本书的编号都当成题）。
+MAX_EXERCISES = 50000
 
 
 # ---------------------------------------------------------------------------
@@ -121,6 +124,13 @@ def validate_pack(pack: PackIn) -> dict:
     """把前端解析出来的包校验成可落库的形状。报错要具体到哪一行。"""
     if not pack.nodes:
         raise HTTPException(400, "资源包里没有知识点")
+    # 先查题量再逐题解析：几万题解析一遍要好几秒，结果只是为了一句"太多了"
+    if len(pack.exercises) > MAX_EXERCISES:
+        raise HTTPException(
+            400,
+            f"题目 {len(pack.exercises)} 道，超过单包上限 {MAX_EXERCISES} 道。"
+            "按册或按章拆成几个资源包再导入。",
+        )
     if len(pack.nodes) > MAX_NODES:
         raise HTTPException(400, f"知识点超过 {MAX_NODES} 个，请拆分资源包")
 
@@ -200,9 +210,6 @@ def validate_pack(pack: PackIn) -> dict:
                 "provenance", "provenance_note")},
         }
 
-    if len(exercises) > MAX_EXERCISES:
-        raise HTTPException(400, f"题目超过 {MAX_EXERCISES} 道，请拆分资源包")
-
     orphans = [node["title"] for node in nodes.values()
                if node["kind"] == "knowledge"
                and not any(node["id"] in ex["node_ids"] for ex in exercises.values())]
@@ -229,135 +236,155 @@ def import_pack(course_id: str, pack: PackIn, actor: str) -> dict:
         "SELECT 1 AS ok FROM course WHERE id = %s", (course_id,)))
     title = (pack.title_override or meta["title"] or "").strip() or meta["title"]
 
-    db.execute(
-        """INSERT INTO course (id, title, description, audience, subject, status,
-                               schema_version, review_status, content_source,
-                               content_batch, content_updated_at, created_by)
-           VALUES (%s, %s, %s, %s, %s, 'ready', %s, 'draft', 'import', %s, now(), %s)
-           ON CONFLICT (id) DO UPDATE
-             SET title = EXCLUDED.title,
-                 description = coalesce(EXCLUDED.description, course.description),
-                 audience = coalesce(EXCLUDED.audience, course.audience),
-                 subject = coalesce(EXCLUDED.subject, course.subject),
-                 content_source = CASE WHEN course.content_source = 'generated'
-                                       THEN 'mixed' ELSE 'import' END,
-                 content_batch = EXCLUDED.content_batch,
-                 content_updated_at = now(),
-                 updated_at = now()""",
-        (course_id, title, meta.get("description"), meta.get("audience"),
-         meta.get("subject"), meta.get("schema_version") or "1.0", batch, actor),
-    )
-
-    for index, chapter in enumerate(plan["chapters"], start=1):
-        db.execute(
-            """INSERT INTO chapter (id, course_id, title, ord, path, content_batch)
-               VALUES (%s, %s, %s, %s, %s, %s)
-               ON CONFLICT (course_id, id) DO UPDATE
-                 SET title = EXCLUDED.title, ord = EXCLUDED.ord,
-                     path = EXCLUDED.path, content_batch = EXCLUDED.content_batch""",
-            (chapter["id"], course_id, chapter["title"], index,
-             chapter["path"], batch),
-        )
-
-    for node in plan["nodes"]:
-        db.execute(
-            """INSERT INTO knowledge_node
-                 (course_id, id, chapter_id, parent_id, title, level, kind, path,
-                  content_md, exercise_anchor, source_raw, tags, review_status,
-                  content_batch)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'draft', %s)
-               ON CONFLICT (course_id, id) DO UPDATE
-                 SET chapter_id = EXCLUDED.chapter_id, parent_id = EXCLUDED.parent_id,
-                     title = EXCLUDED.title, level = EXCLUDED.level, kind = EXCLUDED.kind,
-                     path = EXCLUDED.path, content_md = EXCLUDED.content_md,
-                     exercise_anchor = EXCLUDED.exercise_anchor,
-                     source_raw = EXCLUDED.source_raw, tags = EXCLUDED.tags,
-                     content_batch = EXCLUDED.content_batch,
-                     content_version = knowledge_node.content_version + 1,
-                     updated_at = now()""",
-            (course_id, node["id"], node["chapter_id"], node["parent_id"], node["title"],
-             node["level"], node["kind"], node["path"], node["content_md"],
-             node["exercise_anchor"], node["source_raw"], node["tags"], batch),
-        )
-
-    for ex in plan["exercises"]:
-        db.execute(
-            """INSERT INTO exercise
-                 (course_id, id, chapter_id, prompt_md, answer_md, difficulty,
-                  source_raw, source_book, source_page, source_pdf_page, source_no,
-                  provenance, provenance_note, review_status, content_batch)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'draft', %s)
-               ON CONFLICT (course_id, id) DO UPDATE
-                 SET chapter_id = EXCLUDED.chapter_id, prompt_md = EXCLUDED.prompt_md,
-                     answer_md = EXCLUDED.answer_md, difficulty = EXCLUDED.difficulty,
-                     source_raw = EXCLUDED.source_raw, source_book = EXCLUDED.source_book,
-                     source_page = EXCLUDED.source_page,
-                     source_pdf_page = EXCLUDED.source_pdf_page,
-                     source_no = EXCLUDED.source_no, provenance = EXCLUDED.provenance,
-                     provenance_note = EXCLUDED.provenance_note,
-                     content_batch = EXCLUDED.content_batch,
-                     review_status = CASE WHEN exercise.review_status = 'published'
-                                          THEN 'published'::review_status
-                                          ELSE 'draft'::review_status END,
-                     content_version = exercise.content_version + 1,
-                     updated_at = now()""",
-            (course_id, ex["id"], _chapter_of(plan, ex), ex["prompt_md"], ex["answer_md"],
-             ex["difficulty"], ex["source_raw"], ex["source_book"], ex["source_page"],
-             ex["source_pdf_page"], ex["source_no"], ex["provenance"],
-             ex["provenance_note"], batch),
-        )
-        db.execute(
-            "DELETE FROM exercise_node WHERE course_id = %s AND exercise_id = %s",
-            (course_id, ex["id"]),
-        )
-        for node_id in ex["node_ids"]:
-            db.execute(
-                """INSERT INTO exercise_node (course_id, exercise_id, node_id)
-                   VALUES (%s, %s, %s) ON CONFLICT DO NOTHING""",
-                (course_id, ex["id"], node_id),
-            )
-
     nodes_retired = exercises_retired = 0
-    if mode == "replace":
-        nodes_retired = db.execute(
-            """UPDATE knowledge_node SET review_status = 'retired', updated_at = now()
-                WHERE course_id = %s AND content_batch IS NOT NULL
-                  AND content_batch <> %s AND review_status <> 'retired'""",
-            (course_id, batch),
+    chapter_of = {node["id"]: node["chapter_id"] for node in plan["nodes"]}
+    exercises = plan["exercises"]
+
+    # 一个事务写完整包。逐条提交时一万题要跑几分钟，这也是旧上限 10000 的由来；
+    # 批量之后一万题几秒，中途出错整包回滚，不会留下"课在、内容没有"。
+    batch_nodes = [(course_id, node["id"], node["chapter_id"], node["parent_id"],
+                    node["title"], node["level"], node["kind"], node["path"],
+                    node["content_md"], node["exercise_anchor"], node["source_raw"],
+                    node["tags"], batch)
+                   for node in plan["nodes"]]
+    batch_exercises = [(course_id, ex["id"], _chapter_of(ex, chapter_of), ex["prompt_md"],
+                        ex["answer_md"], ex["difficulty"], ex["source_raw"],
+                        ex["source_book"], ex["source_page"], ex["source_pdf_page"],
+                        ex["source_no"], ex["provenance"], ex["provenance_note"], batch)
+                       for ex in exercises]
+    links = [(course_id, ex["id"], node_id)
+             for ex in exercises for node_id in ex["node_ids"]]
+    exercises_retired = 0
+
+    with db.transaction() as cur:
+        cur.execute(
+            """INSERT INTO course (id, title, description, audience, subject, status,
+                                   schema_version, review_status, content_source,
+                                   content_batch, content_updated_at, created_by)
+               VALUES (%s, %s, %s, %s, %s, 'ready', %s, 'draft', 'import', %s, now(), %s)
+               ON CONFLICT (id) DO UPDATE
+                 SET title = EXCLUDED.title,
+                     description = coalesce(EXCLUDED.description, course.description),
+                     audience = coalesce(EXCLUDED.audience, course.audience),
+                     subject = coalesce(EXCLUDED.subject, course.subject),
+                     content_source = CASE WHEN course.content_source = 'generated'
+                                           THEN 'mixed' ELSE 'import' END,
+                     content_batch = EXCLUDED.content_batch,
+                     content_updated_at = now(),
+                     updated_at = now()""",
+            (course_id, title, meta.get("description"), meta.get("audience"),
+             meta.get("subject"), meta.get("schema_version") or "1.0", batch, actor),
         )
-        exercises_retired = db.execute(
-            """UPDATE exercise SET review_status = 'retired', updated_at = now()
-                WHERE course_id = %s AND content_batch IS NOT NULL
-                  AND content_batch <> %s AND review_status <> 'retired'""",
-            (course_id, batch),
+        if plan["chapters"]:
+            cur.executemany(
+                """INSERT INTO chapter (id, course_id, title, ord, path, content_batch)
+                   VALUES (%s, %s, %s, %s, %s, %s)
+                   ON CONFLICT (course_id, id) DO UPDATE
+                     SET title = EXCLUDED.title, ord = EXCLUDED.ord,
+                         path = EXCLUDED.path, content_batch = EXCLUDED.content_batch""",
+                [(chapter["id"], course_id, chapter["title"], index,
+                  chapter["path"], batch)
+                 for index, chapter in enumerate(plan["chapters"], start=1)],
+            )
+        if batch_nodes:
+            cur.executemany(
+                """INSERT INTO knowledge_node
+                     (course_id, id, chapter_id, parent_id, title, level, kind, path,
+                      content_md, exercise_anchor, source_raw, tags, review_status,
+                      content_batch)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'draft', %s)
+                   ON CONFLICT (course_id, id) DO UPDATE
+                     SET chapter_id = EXCLUDED.chapter_id, parent_id = EXCLUDED.parent_id,
+                         title = EXCLUDED.title, level = EXCLUDED.level, kind = EXCLUDED.kind,
+                         path = EXCLUDED.path, content_md = EXCLUDED.content_md,
+                         exercise_anchor = EXCLUDED.exercise_anchor,
+                         source_raw = EXCLUDED.source_raw, tags = EXCLUDED.tags,
+                         content_batch = EXCLUDED.content_batch,
+                         content_version = knowledge_node.content_version + 1,
+                         updated_at = now()""",
+                batch_nodes,
+            )
+        if batch_exercises:
+            cur.executemany(
+                """INSERT INTO exercise
+                     (course_id, id, chapter_id, prompt_md, answer_md, difficulty,
+                      source_raw, source_book, source_page, source_pdf_page, source_no,
+                      provenance, provenance_note, review_status, content_batch)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'draft', %s)
+                   ON CONFLICT (course_id, id) DO UPDATE
+                     SET chapter_id = EXCLUDED.chapter_id, prompt_md = EXCLUDED.prompt_md,
+                         answer_md = EXCLUDED.answer_md, difficulty = EXCLUDED.difficulty,
+                         source_raw = EXCLUDED.source_raw, source_book = EXCLUDED.source_book,
+                         source_page = EXCLUDED.source_page,
+                         source_pdf_page = EXCLUDED.source_pdf_page,
+                         source_no = EXCLUDED.source_no, provenance = EXCLUDED.provenance,
+                         provenance_note = EXCLUDED.provenance_note,
+                         content_batch = EXCLUDED.content_batch,
+                         review_status = CASE WHEN exercise.review_status = 'published'
+                                              THEN 'published'::review_status
+                                              ELSE 'draft'::review_status END,
+                         content_version = exercise.content_version + 1,
+                         updated_at = now()""",
+                batch_exercises,
+            )
+            # 一次删掉整包题目的旧关联，再批量重建：逐题 DELETE 是几千次往返
+            cur.execute(
+                "DELETE FROM exercise_node WHERE course_id = %s AND exercise_id = ANY(%s)",
+                (course_id, [ex["id"] for ex in exercises]),
+            )
+            if links:
+                cur.executemany(
+                    """INSERT INTO exercise_node (course_id, exercise_id, node_id)
+                       VALUES (%s, %s, %s) ON CONFLICT DO NOTHING""",
+                    links,
+                )
+
+        if mode == "replace":
+            cur.execute(
+                """UPDATE knowledge_node SET review_status = 'retired', updated_at = now()
+                    WHERE course_id = %s AND content_batch IS NOT NULL
+                      AND content_batch <> %s AND review_status <> 'retired'""",
+                (course_id, batch),
+            )
+            nodes_retired = cur.rowcount
+            cur.execute(
+                """UPDATE exercise SET review_status = 'retired', updated_at = now()
+                    WHERE course_id = %s AND content_batch IS NOT NULL
+                      AND content_batch <> %s AND review_status <> 'retired'""",
+                (course_id, batch),
+            )
+            exercises_retired = cur.rowcount
+
+        counts = {
+            "course_id": course_id, "batch": batch, "mode": mode,
+            "course_title": title, "course_created": not existed,
+            "nodes_upserted": len(plan["nodes"]),
+            "chapters_upserted": len(plan["chapters"]),
+            "exercises_upserted": len(exercises),
+            "nodes_retired": nodes_retired, "exercises_retired": exercises_retired,
+            "warnings": plan["warnings"],
+        }
+        cur.execute(
+            """INSERT INTO content_import
+                 (course_id, batch, actor, mode, nodes_upserted, nodes_retired,
+                  exercises_upserted, exercises_retired, warnings)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)""",
+            (course_id, batch, actor, mode, counts["nodes_upserted"], nodes_retired,
+             counts["exercises_upserted"], exercises_retired,
+             json.dumps(plan["warnings"], ensure_ascii=False)),
         )
 
-    counts = {
-        "course_id": course_id, "batch": batch, "mode": mode,
-        "course_title": title, "course_created": not existed,
-        "nodes_upserted": len(plan["nodes"]),
-        "chapters_upserted": len(plan["chapters"]),
-        "exercises_upserted": len(plan["exercises"]),
-        "nodes_retired": nodes_retired, "exercises_retired": exercises_retired,
-        "warnings": plan["warnings"],
-    }
-    db.execute(
-        """INSERT INTO content_import
-             (course_id, batch, actor, mode, nodes_upserted, nodes_retired,
-              exercises_upserted, exercises_retired, warnings)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)""",
-        (course_id, batch, actor, mode, counts["nodes_upserted"], nodes_retired,
-         counts["exercises_upserted"], exercises_retired,
-         json.dumps(plan["warnings"], ensure_ascii=False)),
-    )
     return counts
 
 
-def _chapter_of(plan: dict, ex: dict) -> str | None:
-    """题目落在哪一章：取它关联的第一个知识点的章节。"""
-    by_id = {node["id"]: node for node in plan["nodes"]}
+def _chapter_of(ex: dict, chapter_of: dict[str, str | None]) -> str | None:
+    """题目落在哪一章：取它关联的第一个知识点的章节。
+
+    章节映射由调用方算一次传进来——原来每题重建一次 {"id": node} 字典，
+    一万题乘几千节点在纯 Python 里就要跑很久。
+    """
     for node_id in ex["node_ids"]:
-        chapter = by_id.get(node_id, {}).get("chapter_id")
+        chapter = chapter_of.get(node_id)
         if chapter:
             return chapter
     return None

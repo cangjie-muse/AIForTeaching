@@ -37,6 +37,19 @@ def cursor() -> Iterator[Any]:
         yield cur
 
 
+@contextmanager
+def transaction() -> Iterator[Any]:
+    """一个事务里做完一批写操作。
+
+    execute() 每条语句都自己提交：整包导入一万道题就是三万余次往返，
+    几分钟起步——所以旧代码干脆把题量上限定在 10000。批量导入走这里：
+    拿一个 cursor，executemany 写完，退出时一次提交。
+    顺带的好处是原子性：中途抛错整包回滚，不会留下半个课程。
+    """
+    with pool.connection() as conn, conn.cursor() as cur:
+        yield cur
+
+
 def query(sql: str, params: tuple | dict = ()) -> list[dict]:
     with cursor() as cur:
         cur.execute(sql, params)
