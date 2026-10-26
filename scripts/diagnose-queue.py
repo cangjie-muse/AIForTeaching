@@ -22,6 +22,13 @@ print("=" * 66)
 
 from app import db, llm  # noqa: E402
 
+# 连接池是懒打开的：不显式 open，第一条查询就报 "pool is not open yet"，
+# 看起来像数据库连不上，其实是脚本自己的问题。run_worker.py 同样是先 open。
+try:
+    db.pool.open()
+except Exception:  # 已经打开过（被 import 的模块开启）不算错
+    pass
+
 KIND_LABEL = {
     "generate": "教材生成", "generate-book": "整本教材",
     "grade-homework": "作业批改",
