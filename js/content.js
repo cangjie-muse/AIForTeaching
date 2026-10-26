@@ -209,10 +209,20 @@
       <div class="panel-heading"><h2>提交到哪门课</h2>${A.badge(`${preview.nodes.length} 知识点 / ${preview.exercises.length} 题`, 'blue')}</div>
       <div class="field">
         <label for="content-name">课程名称</label>
-        <input id="content-name" data-input="content-name" value="${e(S().courseName || preview.title)}"
+        <input id="content-name" data-input="content-name" list="content-course-names"
+               value="${e(S().courseName || preview.title)}"
                placeholder="例如 数学分析 I" autocomplete="off">
+        <datalist id="content-course-names">${(S().courses || []).map(course =>
+          `<option value="${e(course.title)}"></option>`).join('')}</datalist>
         <small>${nameHint(preview)}</small>
       </div>
+      ${(S().courses || []).length ? `<div class="field">
+        <label>或者直接选库里已有的课</label>
+        <div class="button-row">${(S().courses || []).slice(0, 12).map(course =>
+          `<button class="btn small" data-action="content-pick-course" data-title="${e(course.title)}"
+            title="把课程名称填成《${e(course.title)}》（id：${e(course.id)}）">${e(course.title)}</button>`).join('')}</div>
+        <small>点一下就填好名字，下面那行提示会立刻告诉你它是不是要对这门课动手。</small>
+      </div>` : ''}
       <div class="field">
         <label>更新方式</label>
         <div class="button-row">
@@ -599,6 +609,13 @@
       S().importing = false;
       A.render();
     }
+  };
+
+  /* 选已有课程：只把名字填进去，不新增"目标课程"这个状态。
+     两套口径一定会打架——下拉说 A、名字框说 B，到底更新谁就说不清了。 */
+  A.actions['content-pick-course'] = function (button) {
+    S().courseName = button.dataset.title || '';
+    A.render();
   };
 
   A.inputs['content-name'] = input => {

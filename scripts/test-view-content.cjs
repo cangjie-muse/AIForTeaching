@@ -144,6 +144,19 @@ check('不再有"目标课程"下拉（避免两套口径打架）', !html.inclu
 check('两种更新方式都在', html.includes('整体更新') && html.includes('只增改'));
 check('提示项可展开', html.includes('1 条提示'));
 
+// 选标准文件（没有 course.json）时，名字只能从 md 标题里抄，
+// 所以要把库里已有的课摆出来让人点——点一下只改名字，不引入第二套口径。
+check('名字框挂着已有课程名的 datalist',
+  /list="content-course-names"/.test(html) && html.includes('<option value="拓扑学">'), '');
+check('已有课程列成可点按钮',
+  /data-action="content-pick-course" data-title="拓扑学"/.test(html), '');
+App.actions['content-pick-course']({ dataset: { title: '拓扑学' } });
+check('点一下就把课程名填好', App.state.content.courseName === '拓扑学',
+  App.state.content.courseName);
+check('填好后提示立刻说会更新哪门课',
+  App.views.content().includes('已经有《拓扑学》'), '');
+check('仍然只有一个口径：没有独立的课程下拉', !App.views.content().includes('content-target'), '');
+
 // 3b. 单文件增量导入：要写明写入哪门课，别让人对着 id 猜
 reset({ tab: 'import', docPreview: {
   course_id: 'analysis-ii', knowledge: { changed: 2, unchanged: 5 },
