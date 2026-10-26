@@ -165,8 +165,15 @@ def _queue_health() -> dict:
     since = row.get("since_claim_seconds")
     since = int(since) if since is not None else None
     last_claim = row.get("last_claim")
-    # 队列空时无从判断 worker 是否活着；有积压才需要心跳
-    alive = None if queued == 0 and running == 0 else bool(since is not None and since < 600)
+    # 判活不能只看"上次取任务距今多久"：课件是一节一次模型调用，
+    # 一个任务跑十几分钟很正常，超过阈值就会被误报成 worker 死了
+    # （而它正忙着）。有任务在跑本身就是活着的最强证据。
+    if running > 0:
+        alive = True
+    elif queued == 0:
+        alive = None  # 队列空时无从判断，不编造结论
+    else:
+        alive = bool(since is not None and since < 600)
     return {
         "queued": queued,
         "running": running,
