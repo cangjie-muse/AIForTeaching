@@ -20,7 +20,8 @@ if hasattr(sys.stdout, "reconfigure"):
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "server"))
 
-from app.qa_ingest import MAX_CHUNK_CHARS, split_content  # noqa: E402
+from app import content, qa_ingest  # noqa: E402
+from app.qa_ingest import MAX_CHUNK_CHARS, needs_corpus, split_content  # noqa: E402
 
 failures: list[str] = []
 
@@ -32,7 +33,29 @@ def check(name: str, cond: bool, detail: str = "") -> None:
 
 
 def main() -> int:
-    print("切块：基本形态")
+    print("该不该补语料")
+
+    check("有正文没片段 → 要补",
+          needs_corpus({"nodes_with_text": 120, "chunks": 0}))
+    check("已经有片段 → 不补",
+          not needs_corpus({"nodes_with_text": 120, "chunks": 96}))
+    check("没有正文 → 不补（补了也是 0 块）",
+          not needs_corpus({"nodes_with_text": 0, "chunks": 0}))
+    check("字段缺失当 0 处理", not needs_corpus({}))
+
+    # 导入时重建语料失败，不能把已经写进去的内容一起判失败
+    original = qa_ingest.rebuild_course
+    qa_ingest.rebuild_course = lambda course_id: {"chunks": 320}
+    check("重建成功返回块数", content._rebuild_corpus("c-1") == 320)
+
+    def boom(course_id):
+        raise RuntimeError("库连不上")
+
+    qa_ingest.rebuild_course = boom
+    check("重建失败不连累导入（返回 None 而不是抛）", content._rebuild_corpus("c-1") is None)
+    qa_ingest.rebuild_course = original
+
+    print("\n切块：基本形态")
 
     check("空正文不产出片段", split_content("") == [])
     check("只有空白也不产出片段", split_content("   \n\n\t ") == [])

@@ -278,10 +278,18 @@
     const state = A.state.apiConfig;
     const corpus = state.corpus;
     const disabled = canEdit() ? '' : 'disabled';
+    // 缺语料 = 有正文的知识点，但一块都没切出来。这些课问答一律拒答，
+    // 而它们看起来"导入成功了"，最容易被当成模型不 work。
+    const items = (corpus && corpus.items) || [];
+    const missing = items.filter(item => Number(item.nodes_with_text || 0) > 0
+      && Number(item.chunks || 0) === 0);
     const head = `<div class="panel-heading">
         <h2>问答语料</h2>
         <div class="button-row">
-          ${A.button('全部重建', 'api-config-corpus-rebuild', 'refresh', state.corpusBusy ? 'disabled' : disabled, 'primary')}
+          ${missing.length ? A.button(`补齐缺语料的课（${missing.length}）`,
+            'api-config-corpus-fill', 'refresh',
+            state.corpusBusy ? 'disabled' : disabled, 'primary') : ''}
+          ${A.button('全部重建', 'api-config-corpus-rebuild', 'refresh', state.corpusBusy ? 'disabled' : disabled, missing.length ? 'light' : 'primary')}
         </div>
       </div>`;
 
@@ -293,7 +301,7 @@
       </section>`;
     }
 
-    const items = corpus.items || [];
+
     const note = state.corpusNote
       ? `<p class="corpus-note">${e(state.corpusNote)}</p>`
       : '';
@@ -301,6 +309,9 @@
       <p class="muted">问答只会引用这里切出来的片段：教材 PDF 切片带页码，知识点正文切成
         「知识点」块（没有精确页码，引用只标知识点路径）。一门课一块都没有时，
         问答会直接说"没有依据"，不猜。<b>当前 ${corpus.courses_ready} / ${items.length} 门课有语料，共 ${corpus.total_chunks} 块。</b></p>
+      ${missing.length ? `<p class="corpus-note warn">有 ${missing.length} 门课导入了正文却没切过片段：
+        ${missing.map(item => item.title || item.course_id).slice(0, 8).join('、')}
+        ${missing.length > 8 ? '…' : ''}。这些课的问答会直接拒答，点「补齐缺语料的课」即可。</p>` : ''}
       ${note}
       ${items.length ? `<div class="api-table-wrap"><table class="api-table">
         <thead><tr><th>课程</th><th>有正文的知识点</th><th>片段</th><th>状态</th></tr></thead>
@@ -415,6 +426,27 @@
   A.actions['api-config-refresh'] = function () {
     reload();
   };
+  A.actions['api-config-corpus-fill'] = async function () {
+    const state = A.state.apiConfig;
+    if (state.corpusBusy) return;
+    state.corpusBusy = true;
+    state.corpusNote = '正在给缺语料的课切分…';
+    A.render();
+    try {
+      const result = await A.api.post('/api/v1/admin/qa-corpus/fill-missing', {});
+      const failed = (result.failed || []).length;
+      state.corpusNote = result.courses
+        ? `已补 ${result.courses} 门课，共 ${result.chunks} 块`
+          + (failed ? `；${failed} 门失败：${(result.failed || []).map(item => item.course_id).join('、')}` : '。')
+        : '没有缺语料的课，不用补。';
+      reload();
+    } catch (error) {
+      state.corpusBusy = false;
+      state.corpusNote = `补齐失败：${error.message}`;
+      A.render();
+    }
+  };
+
   A.actions['api-config-corpus-rebuild'] = async function () {
     const state = A.state.apiConfig;
     if (state.corpusBusy) return;

@@ -37,6 +37,26 @@ def corpus_status(actor: Actor = Depends(require("reviewer", "teacher", "admin")
     return qa_ingest.status()
 
 
+@router.post("/fill-missing")
+def fill_missing(actor: Actor = Depends(require("admin"))) -> dict[str, Any]:
+    """只给"有正文但 0 片段"的课建语料，已有的不动。
+
+    资源包导入不产生片段，早期导入的课就停在这个状态：导入看着成功，
+    问答却一律拒答。全部重建能修，但会连已有语料一起删了重建；
+    这个接口只碰空着的那几门。
+    """
+    results = qa_ingest.rebuild_missing()
+    chunks = sum(int(item.get("chunks") or 0) for item in results)
+    failed = [item for item in results if item.get("error")]
+    db.query(
+        """INSERT INTO audit_log (actor, action, entity, entity_key, detail)
+           VALUES (%s, 'qa-corpus-fill-missing', 'qa_corpus', 'missing',
+                   jsonb_build_object('chunks', %s::int, 'courses', %s::int, 'failed', %s::int))""",
+        (actor.id, chunks, len(results), len(failed)),
+    )
+    return {"items": results, "chunks": chunks, "courses": len(results), "failed": failed}
+
+
 @router.post("/rebuild")
 def rebuild(body: RebuildIn, actor: Actor = Depends(require("admin"))) -> dict[str, Any]:
     if body.course_id:

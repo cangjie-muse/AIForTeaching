@@ -114,6 +114,12 @@ check('每门课列出知识点数与片段数', html.includes('数学分析 I')
 check('一块都没有时标未入库', html.includes('未入库'));
 check('说明没有语料时会拒答而不是乱答', html.includes('没有依据'));
 
+// 7b. 缺语料的课要点名并可一键补齐：被拒答时人才知道该点哪里
+check('缺语料的课被点名', html.includes('门课导入了正文却没切过片段')
+  && html.includes('数学分析 I'), '');
+check('给出补齐按钮', html.includes('补齐缺语料的课（2）'), '');
+
+
 // 8. 切完之后：块数与状态跟着变，管理员能点重建
 App.state.apiConfig.corpus = {
   courses_ready: 2,
@@ -145,9 +151,25 @@ html = App.views['api-config']();
 check('语料读失败时端点表照常显示', html.includes('deepseek-flash'));
 check('语料读失败时说明原因', html.includes('读取语料状态失败') && html.includes('不影响上面的端点配置'));
 
-console.log();
-if (failures.length) {
+(async () => {
+  const corpusCalls = [];
+  const realPost = App.api.post;
+  const realGet = App.api.get;
+  // 动作里会重绘，测试不需要；不还原，reload() 的异步尾巴还会再调一次
+  App.render = () => {};
+  App.api.get = async () => ({ items: [] });   // reload() 读状态，给个空壳
+  App.api.post = async (url) => { corpusCalls.push(url); return { courses: 2, chunks: 531, failed: [] }; };
+  await App.actions['api-config-corpus-fill']();
+  App.api.post = realPost;
+  App.api.get = realGet;
+  await new Promise(resolve => setTimeout(resolve, 0));   // 让 reload() 的尾巴跑完
+  check('补齐走 fill-missing 接口', corpusCalls.some(url => url.includes('qa-corpus/fill-missing')),
+    JSON.stringify(corpusCalls));
+
+  console.log();
+  if (failures.length) {
   console.log(`失败 ${failures.length} 项：${failures.join(', ')}`);
-  process.exit(1);
-}
-console.log('渲染冒烟测试全部通过。');
+    process.exit(1);
+  }
+  console.log('渲染冒烟测试全部通过。');
+})();

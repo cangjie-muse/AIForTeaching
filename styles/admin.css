@@ -267,3 +267,9 @@
   color: var(--muted);
   font-weight: 600;
 }
+
+/* 问答语料面板的提示行：正常一句灰字，缺语料时换成琥珀色——
+   这是"导入成功但问答一律拒答"的唯一提示，不能和普通说明长得一样 */
+.corpus-note{margin:10px 0 0;font-size:12.5px;color:#6b7a90;
+  background:#f6f8fb;border:1px solid #e6ebf3;border-radius:8px;padding:9px 12px}
+.corpus-note.warn{background:#fbf5ea;border-color:#f0e4cf;color:#8a6d3b}

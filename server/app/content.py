@@ -748,6 +748,25 @@ def retire(course_id: str, kind: str, item_id: str, actor: str) -> dict:
 # 接口
 # ---------------------------------------------------------------------------
 
+def _rebuild_corpus(course_id: str) -> int | None:
+    """导入/写入之后把问答语料跟着重建。
+
+    不重建的后果很具体：内容导进去了、知识点看得见，但学生一问就被拒答
+    （0 片段），而"重建语料"藏在管理员设置页里，没人会想到要去点。
+    纯 SQL 插块，不调模型，一门课几千块也就几秒。
+
+    失败不能把导入一起判失败：内容已经写进去了，语料是可以用
+    「补齐缺语料的课」再补的。所以这里只吞掉异常并返回 None。
+    """
+    from . import qa_ingest
+
+    try:
+        return int(qa_ingest.rebuild_course(course_id).get("chunks") or 0)
+    except Exception as error:  # noqa: BLE001
+        print(f"[corpus] {course_id} 重建失败：{error}", flush=True)
+        return None
+
+
 @router.post("/courses/{course_id}/content/import")
 def import_course_content(course_id: str, body: PackIn,
                           actor: Actor = Depends(require("admin"))) -> dict:
@@ -757,7 +776,7 @@ def import_course_content(course_id: str, body: PackIn,
         raise
     except Exception as error:  # noqa: BLE001 - 导入失败要让老师看到具体原因
         raise HTTPException(400, f"导入失败：{type(error).__name__}: {error}") from error
-    return {"ok": True, **counts}
+    return {"ok": True, **counts, "corpus_chunks": _rebuild_corpus(course_id)}
 
 
 class DocsIn(BaseModel):
@@ -783,9 +802,10 @@ def import_documents(course_id: str, body: DocsIn,
         if body.dry_run:
             report = pack_merge.plan_changes(course_id, body.knowledge_md, body.exercises_md)
             return {"ok": True, "dry_run": True, **pack_merge.public(report)}
-        return {"ok": True, "dry_run": False,
-                **pack_merge.apply_changes(course_id, body.knowledge_md,
-                                           body.exercises_md, actor.id)}
+        applied = pack_merge.apply_changes(course_id, body.knowledge_md,
+                                           body.exercises_md, actor.id)
+        return {"ok": True, "dry_run": False, **applied,
+                "corpus_chunks": _rebuild_corpus(course_id)}
     except HTTPException:
         raise
     except ValueError as error:

@@ -226,6 +226,34 @@ def rebuild_all() -> list[dict[str, Any]]:
     return results
 
 
+def needs_corpus(row: dict[str, Any]) -> bool:
+    """这门课该有语料却没有：有正文的知识点 > 0，但块数是 0。
+
+    为什么要单独判：资源包导入只写 knowledge_node，不写 textbook_chunk。
+    导入完不复建，问答里这门课永远是「0 片段」，学生一问就拒答。
+    """
+    return int(row.get("nodes_with_text") or 0) > 0 and int(row.get("chunks") or 0) == 0
+
+
+def missing_courses() -> list[dict[str, Any]]:
+    return [row for row in status()["items"] if needs_corpus(row)]
+
+
+def rebuild_missing() -> list[dict[str, Any]]:
+    """只补该有语料却没有的课，已经有的不动。
+
+    比"全部重建"安全：全量重建会删掉已有块重建，正在被引用的答案会短暂无依据；
+    补缺只碰空的那几门。
+    """
+    results: list[dict[str, Any]] = []
+    for row in missing_courses():
+        try:
+            results.append(rebuild_course(row["course_id"]))
+        except Exception as error:                       # noqa: BLE001 —— 汇总后一起报
+            results.append({"course_id": row["course_id"], "error": str(error)[:200]})
+    return results
+
+
 def status() -> dict[str, Any]:
     """每门课：多少知识点有正文、切了多少块、问答现在能不能检索到。"""
     rows = db.query(
