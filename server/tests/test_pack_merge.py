@@ -165,8 +165,13 @@ class FakeDB:
         self.nodes: list[dict] = []
         self.exercises: list[dict] = []
         self.links: list[dict] = []
+        self.hits: list[dict] = []
+        self.titles: dict[str, dict] = {}
 
     def query(self, sql: str, params: tuple = ()) -> list[dict]:
+        # 锚点归属查询带 count(*) AS hits，必须排在 FROM knowledge_node 之前判断
+        if "count(*) AS hits" in sql:
+            return self.hits
         if "FROM knowledge_node" in sql:
             return self.nodes
         if "FROM exercise_node" in sql:
@@ -174,6 +179,13 @@ class FakeDB:
         if "FROM exercise" in sql:
             return self.exercises
         return []
+
+    def query_one(self, sql: str, params: tuple = ()) -> dict | None:
+        if "SELECT title FROM course" in sql:
+            return self.titles.get(params[0])
+        if "FROM course WHERE id" in sql:
+            return {"ok": 1}
+        return None
 
     def cursor(self):
         return fake_cursor()
@@ -219,6 +231,32 @@ check("找不到的锚点被点名", report["unknown_anchors"] == ["kp-ghost"])
 check("警告里说明跳过", any("找不到" in text for text in report["warnings"]))
 check("预览不写库", CURRENT_CURSOR.statements == [])
 check("内部字段不外泄", "_content_updates" in report and "_content_updates" not in public(report))
+
+print("\n选错课程：锚点属于另一门课时要说清是哪门")
+reset(NODES, EXERCISES, LINKS)
+FAKE.hits = [{"course_id": "course-3", "hits": 42}]
+FAKE.titles = {"course-3": {"title": "数学分析III"}}
+report = plan_changes("course-1", knowledge_md=KNOW)
+check("报告里指出锚点属于哪门课",
+      report["other_course"] and report["other_course"]["course_id"] == "course-3",
+      str(report["other_course"]))
+check("带出那门课的课程名", report["other_course"]["title"] == "数学分析III")
+check("带上命中数，便于判断是不是全中", report["other_course"]["matched"] == 42
+      and report["other_course"]["total"] == 1)
+check("确认给前端时这个字段还在", public(report).get("other_course", {}).get("course_id") == "course-3")
+
+reset(NODES, EXERCISES, LINKS)
+FAKE.hits = []
+report = plan_changes("course-1", knowledge_md=KNOW)
+check("锚点谁都不认时不给误导", report["other_course"] is None, str(report["other_course"]))
+
+reset(NODES, EXERCISES, LINKS)
+FAKE.hits = [{"course_id": "course-2", "hits": 3}, {"course_id": "course-3", "hits": 9}]
+FAKE.titles = {"course-2": {"title": "数学分析II"}, "course-3": {"title": "数学分析III"}}
+report = plan_changes("course-1", knowledge_md=KNOW)
+check("多门课都命中时取命中最多的", report["other_course"]["course_id"] == "course-3",
+      str(report["other_course"]))
+FAKE.hits = []
 
 print("\n预览：习题.md 增改删各算各的")
 reset(NODES, EXERCISES, LINKS)

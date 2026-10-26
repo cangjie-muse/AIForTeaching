@@ -161,6 +161,45 @@ def _existing(course_id: str) -> tuple[dict[str, dict], dict[str, set[str]]]:
     return exercises, links
 
 
+def owner_of_anchors(anchors: list[str], course_id: str) -> dict[str, Any] | None:
+    """这些锚点其实属于哪门课？
+
+    为什么要问：单文件导入只按锚点改内容，课选错了不会报错——
+    报告里全是 0，只在折叠的「提示」里提一句"锚点在本课找不到"。
+    人看到的是"我导了 8424 道题，结果改了 0 道"，却不知道是选错了课。
+
+    返回命中最多的那门课（不含当前课），一个都没命中就返回 None。
+    """
+    if not anchors:
+        return None
+    rows = db.query(
+        """
+        SELECT course_id, count(*) AS hits FROM knowledge_node
+         WHERE id = ANY(%s) AND course_id <> %s GROUP BY course_id
+        UNION ALL
+        SELECT course_id, count(*) AS hits FROM exercise
+         WHERE id = ANY(%s) AND course_id <> %s GROUP BY course_id
+        """,
+        (anchors, course_id, anchors, course_id),
+    )
+    totals: dict[str, int] = {}
+    for row in rows:
+        owner_id = row.get("course_id")
+        if not owner_id:
+            continue
+        totals[str(owner_id)] = totals.get(str(owner_id), 0) + int(row.get("hits") or 0)
+    if not totals:
+        return None
+    best = max(totals.items(), key=lambda item: item[1])  # 命中最多的那门
+    title = db.query_one("SELECT title FROM course WHERE id = %s", (best[0],))
+    return {
+        "course_id": best[0],
+        "title": (title or {}).get("title") or best[0],
+        "matched": best[1],
+        "total": len(anchors),
+    }
+
+
 def plan_changes(course_id: str, knowledge_md: str | None = None,
                  exercises_md: str | None = None) -> dict[str, Any]:
     """算出"会改什么"，不写库。预览和落库共用这一份计算。"""
@@ -176,7 +215,7 @@ def plan_changes(course_id: str, knowledge_md: str | None = None,
     report: dict[str, Any] = {
         "course_id": course_id,
         "knowledge": None, "exercises": None,
-        "unknown_anchors": [], "warnings": [],
+        "unknown_anchors": [], "warnings": [], "other_course": None,
     }
 
     content_updates: list[tuple[str, str]] = []
@@ -245,6 +284,12 @@ def plan_changes(course_id: str, knowledge_md: str | None = None,
         report["warnings"].append(
             f"{len(report['unknown_anchors'])} 个锚点在本课程里找不到，已跳过："
             f"{'、'.join(shown)}{'…' if len(report['unknown_anchors']) > len(shown) else ''}")
+
+    # 锚点全都属于另一门课：把话说清，别让人对着"全是 0"猜
+    if report["unknown_anchors"]:
+        other = owner_of_anchors(list({str(a) for a in report["unknown_anchors"]}), course_id)
+        if other:
+            report["other_course"] = other
 
     report["_content_updates"] = content_updates
     report["_exercise_rows"] = exercise_rows

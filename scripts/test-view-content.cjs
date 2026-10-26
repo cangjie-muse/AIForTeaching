@@ -166,6 +166,18 @@ html = App.views.content();
 check('单文件导入写明写入哪门课', html.includes('写入《数学分析 II》'), '');
 check('单文件导入有改动计数', html.includes('知识点正文更新') && html.includes('题目新增'), '');
 
+// 3c. 课选错了：锚点属于另一门课时必须点名，并且能一键换过去重算
+reset({ tab: 'import', courseId: 'analysis-ii', docPreview: {
+  course_id: 'analysis-ii', knowledge: { changed: 0, unchanged: 0 },
+  exercises: { added: 0, updated: 0, unchanged: 0, unlinked: 0 }, warnings: [],
+  other_course: { course_id: 'analysis-iii', title: '数学分析 III', matched: 42, total: 42 }
+} });
+html = App.views.content();
+check('点名锚点属于哪门课', html.includes('这份文件里的锚点属于《数学分析 III》'), '');
+check('说清 0 不是"文件没变化"', html.includes('没对上任何知识点'), '');
+check('给出换课按钮', /data-action="content-switch-doc-course"\s*\n?\s*data-id="analysis-iii"/.test(html)
+  || html.includes('data-id="analysis-iii"'), '');
+
 // 4. 导入结果：要显示停用了多少
 reset({ tab: 'import', importResult: {
   course_id: 'analysis-ii', batch: 'abc123', mode: 'replace',
@@ -276,6 +288,23 @@ check('一级节点也在里面（导入器要求有且只有一个根）', rows
   reset({ tab: 'edit', content: { course: { id: 'analysis-ii', title: 'x' }, nodes: [], exercises: [] } });
   await App.actions['content-ex-retire']({ dataset: { id: 'ex-1' } });
   check('停用习题走 retire 接口', moduleCalls.some(c => c.url.includes('/exercises/ex-1/retire')), '');
+
+  console.log('\n换课重算：');
+const docCalls = [];
+App.api.importDocs = async (id, payload) => {
+  docCalls.push([id, payload && payload.dry_run]);
+  return { course_id: id, knowledge: { changed: 3, unchanged: 0 },
+    exercises: { added: 1, updated: 0, unchanged: 0, unlinked: 0 }, warnings: [] };
+};
+App.state.content.docFiles = { knowledge: '知识点原文', exercises: '习题原文' };
+await App.actions['content-switch-doc-course']({ dataset: { id: 'analysis-iii' }, disabled: false });
+check('换课用同一份文件重算，不让人重选', docCalls.length === 1 && docCalls[0][0] === 'analysis-iii'
+  && docCalls[0][1] === true, JSON.stringify(docCalls));
+check('换课后当前课程跟着变', App.state.content.courseId === 'analysis-iii',
+  App.state.content.courseId);
+check('换课后给出说明', String(App.state.content.notice || '').includes('重新核对'),
+  String(App.state.content.notice));
+
 
   console.log('');
   if (failures.length) {

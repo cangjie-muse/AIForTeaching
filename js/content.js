@@ -145,6 +145,14 @@
     return `<div class="panel">
       <div class="panel-heading"><h2>核对这次改动</h2>${A.badge(e(report.course_id), 'blue')}</div>
       <p class="muted small">写入《${e(targetTitle(report.course_id))}》。只改上传文件里出现的锚点，其他知识点一个字不动；结构（层级、父子）不变。</p>
+  ${report.other_course ? `<div class="notice amber"><div>
+    <p><strong>这份文件里的锚点属于《${e(report.other_course.title)}》</strong>
+    （id：${e(report.other_course.course_id)}），不是当前选的
+    《${e(targetTitle(report.course_id))}》。现在这份核对里的 0 不是"文件没变化"，
+    而是没对上任何知识点。</p>
+    <div class="button-row"><button class="btn primary" data-action="content-switch-doc-course"
+      data-id="${e(report.other_course.course_id)}">改到《${e(report.other_course.title)}》再核对</button></div>
+  </div></div>` : ''}
       <table class="data-table"><tbody>${rows.map(([label, value]) =>
         `<tr><th>${label}</th><td>${Number(value) || 0}</td></tr>`).join('')}</tbody></table>
       ${warnings.length ? `<details class="panel"><summary>${warnings.length} 条提示</summary>
@@ -293,10 +301,20 @@
         // 改动，预览看到的和写进去的就不是一回事了
         const knowledgeText = knowledge ? await knowledge.text() : null;
         const exercisesText = exercises ? await exercises.text() : null;
-        S().docPreview = await A.api.importDocs(S().courseId, {
+        const ask = id => A.api.importDocs(id, {
           knowledge_md: knowledgeText, exercises_md: exercisesText, dry_run: true
         });
+        S().docPreview = await ask(S().courseId);
         S().docFiles = { knowledge: knowledgeText, exercises: exercisesText };
+        // 锚点全都属于另一门课：这时候报告里全是 0，不是"文件没变化"，
+        // 而是课选错了。直接切过去重算一遍，别让人对着 0 猜。
+        const other = S().docPreview.other_course;
+        if (other && other.matched === other.total) {
+          S().courseId = other.course_id;
+          S().docPreview = await ask(other.course_id);
+          S().notice = `这份文件里的锚点属于《${other.title}》，`
+            + `不是当前选的课：已自动切到《${other.title}》再核对。`;
+        }
         A.toast(`已解析：${summaryOf(S().docPreview)}`);
         A.render();
         return;
@@ -585,6 +603,23 @@
     S().importResult = null;
     S().docPreview = null;
     S().docResult = null;
+    A.render();
+  };
+
+  /* 换课重算：文件已经读进内存了，不用重新选一遍 */
+  A.actions['content-switch-doc-course'] = async function (button) {
+    const id = button.dataset.id;
+    if (!id || !S().docFiles) return;
+    button.disabled = true;
+    S().courseId = id;
+    try {
+      S().docPreview = await A.api.importDocs(id, {
+        knowledge_md: S().docFiles.knowledge, exercises_md: S().docFiles.exercises, dry_run: true
+      });
+      S().notice = `已切到《${targetTitle(id)}》重新核对。`;
+    } catch (error) {
+      S().importError = error.message;
+    }
     A.render();
   };
 
