@@ -201,22 +201,35 @@ check('管理员能看到「新建分类」', html.includes('catalog-add-directi
 App.state.auth = { status: 'ready', actor: { id: 'acc-t', role: 'teacher', display_name: '王老师' } };
 check('老师看不到「新建分类」', !App.views.catalog().includes('catalog-add-direction'), '');
 
-// 分类要能删：删除入口就在分类 chip 旁边，管理员可见。
-// 删除的后果是课回到「待归类」，所以按钮给到管理员而不是所有人。
+// 分类要能删，但 ✕ 不能常驻：一排删除按钮摆在筛选条上，误点就把分类删了。
+// 管理员点「编辑分类」进编辑态，✕ 才出现；再点「完成」收起。学生与老师都看不到。
 App.state.auth = { status: 'ready', actor: { id: 'acc-a', role: 'admin', display_name: '管理员' } };
-const adminHtml = App.views.catalog();
-const delButtons = adminHtml.match(/class="chip-del"/g) || [];
-check('每个学科分类 chip 旁都有删除按钮',
-  delButtons.length === CourseCatalog.groups.length,
-  `${delButtons.length} vs ${CourseCatalog.groups.length}`);
-check('删除按钮挂的是分类 id 而不是固定档',
-  CourseCatalog.groups.every(group => adminHtml.includes(`data-action="catalog-del-direction"
-      data-id="${group.id}"`.replace(/\s+/g, ' ')) || adminHtml.includes(`data-id="${group.id}"`)), '');
+App.state.catalogEditing = false;
+let adminHtml = App.views.catalog();
+check('默认不显示删除按钮', !adminHtml.includes('chip-del'), '');
+check('管理员看得到「编辑分类」入口', adminHtml.includes('catalog-edit-toggle'), '');
+
+App.actions['catalog-edit-toggle']();
+adminHtml = App.views.catalog();
+check('进入编辑态才出现删除按钮',
+  (adminHtml.match(/class="chip-del"/g) || []).length === CourseCatalog.groups.length,
+  `${(adminHtml.match(/class="chip-del"/g) || []).length} vs ${CourseCatalog.groups.length}`);
+check('编辑态下按钮变成「完成」', adminHtml.includes('✓ 完成'), '');
+check('编辑态下说清删除的后果', adminHtml.includes('回到「待归类」，不会删课'), '');
+check('删除按钮挂的是分类 id',
+  CourseCatalog.groups.every(group => adminHtml.includes(`data-id="${group.id}"`)), '');
 check('「全部课程」「已接入」这类固定档没有删除按钮',
-  !/catalog-del-direction\s*\n?\s*data-id="all"/.test(adminHtml) &&
-  !/catalog-del-direction\s*\n?\s*data-id="ready"/.test(adminHtml), '');
+  !/catalog-del-direction[\s\S]{0,60}data-id="all"/.test(adminHtml) &&
+  !/catalog-del-direction[\s\S]{0,60}data-id="ready"/.test(adminHtml), '');
+
+App.actions['catalog-edit-toggle']();
+check('再点一次收起删除按钮', !App.views.catalog().includes('chip-del'), '');
+
+App.state.auth = { status: 'ready', actor: { id: 'acc-s', role: 'student', display_name: '学生' } };
+check('学生连「编辑分类」都看不到',
+  !App.views.catalog().includes('catalog-edit-toggle') && !App.views.catalog().includes('chip-del'), '');
 App.state.auth = { status: 'ready', actor: { id: 'acc-t', role: 'teacher', display_name: '王老师' } };
-check('老师看不到分类删除按钮', !App.views.catalog().includes('chip-del'), '');
+check('老师也看不到分类删除', !App.views.catalog().includes('chip-del'), '');
 
 App.state.auth = { status: 'ready', actor: { id: 'acc-a', role: 'admin', display_name: '管理员' } };
 App.actions['catalog-add-direction']();
