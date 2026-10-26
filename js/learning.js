@@ -60,7 +60,23 @@
 
   A.views.exercises = function () {
     const c = A.course;
-    if (!c.exercises) return A.sectionTitle('EXERCISE LIBRARY', '习题与测验', e(c.title)) + A.empty('pen', '题库等待接入', '导入后支持章节筛选、难度筛选、作答与解答查看。', A.link('导入课程资源', 'import', null, 'upload', 'primary'));
+    if (!c.exercises) {
+      // 主页只渲染"已发布"的题。导入进来的题默认是草稿，于是课程页上一片空白，
+      // 看着像"导入的题没了"——其实在库里，卡在发布闸前。这里必须把数说出来。
+      const row = (A.courseRows || []).find(item => item.id === c.id);
+      const total = Number((row && row.exercise_count) || 0);
+      if (total > 0) {
+        return A.sectionTitle('EXERCISE LIBRARY', '习题与测验', e(c.title))
+          + `<div class="notice amber">${A.icon('lock')}<div>
+            <p><strong>这门课库里有 ${total} 道题，但一道都还没发布。</strong>
+            课程页只显示已发布的习题：导入的题先是「草稿」，要在「内容审核」里通过
+            （草稿 → 人工已审），再在发布面板点「发布」，学生和你这里才看得到。</p>
+            <div class="button-row">${A.link('去内容审核', 'review', c.id, 'check', 'primary')}</div>
+            <p class="muted small">题没有丢：内容工作台的「修改与导出」、审核页都能看到全部 ${total} 道。</p>
+          </div></div>`;
+      }
+      return A.sectionTitle('EXERCISE LIBRARY', '习题与测验', e(c.title)) + A.empty('pen', '题库等待接入', '导入后支持章节筛选、难度筛选、作答与解答查看。', A.link('导入课程资源', 'import', null, 'upload', 'primary'));
+    }
     const node = A.node(A.route.params.get('node'));
     const selected = c.exercises.find(exercise => exercise.id === A.route.params.get('exercise'));
     // 筛选条件与页码按课程记忆：换课再换回来，还是上次的筛选和那一页。

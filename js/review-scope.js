@@ -238,6 +238,7 @@
       <td>${row.lean_confirmed ? A.badge('Lean 已确认', 'green') : '<span class="muted">—</span>'}</td>
       <td>${e(shared().STATUS_SHORT[row.review_status] || row.review_status)}</td>
       <td>${e(row.task_state ? (shared().STATE_LABELS[row.task_state] || row.task_state) : '无任务')}</td>
+      <td><button class="btn small" data-action="ledger-open" data-id="${e(row.id)}">看记录</button></td>
     </tr>`).join('');
     const shown = (data.items || []).length;
     const more = data.total > shown
@@ -246,16 +247,19 @@
     return `<div class="panel rv-ledger">
       <div class="rv-policy-head">
         <div><h2>课程审核总表<span class="muted small"> · ${e(course)}</span></h2>
-          <p class="muted">这门课的全部题目（含已发布、含没人审过的），按可信等级排：未审核在最前。</p></div>
+          <p class="muted">这门课的全部题目（含已发布、含没人审过的），按可信等级排：未审核在最前。
+          <b>发布状态</b>只管学生能不能看到，<b>可信等级</b>管有没有人核过内容，两者互不代替：
+          所以会出现「已发布 · 未核」——它已经放出去了，但没人看过。</p></div>
         <div class="button-row">
           <label class="rv-select"><span>题号或题干</span>
             <input data-input="ledger-query" value="${e(S().ledgerQuery || '')}" placeholder="如 ex-1 或 极限" autocomplete="off">
           </label>
           <button class="btn small" data-action="ledger-search">查询</button>
+          <button class="btn small primary" data-action="review-build">生成审核队列</button>
         </div>
       </div>
       <div class="rv-chips">${chips}</div>
-      ${rows ? `<div class="rv-table-wrap"><table class="rv-table"><thead><tr><th>题目</th><th>可信等级</th><th>人工审核</th><th>Lean</th><th>工作流</th><th>审核任务</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="muted">这门课没有符合条件的题目（共 ${counts} 道）。</p>`}
+      ${rows ? `<div class="rv-table-wrap"><table class="rv-table"><thead><tr><th>题目</th><th>可信等级</th><th>人工审核</th><th>Lean</th><th>发布状态</th><th>审核任务</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : `<p class="muted">这门课没有符合条件的题目（共 ${counts} 道）。</p>`}
       ${more}
     </div>`;
   }

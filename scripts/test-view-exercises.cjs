@@ -99,6 +99,23 @@ function render() {
   return element('exercise-results').innerHTML;
 }
 
+console.log('未发布的题：说清"在库里但没发布"');
+const withDrafts = { ...course, exercises: undefined };
+App.course = withDrafts;
+App.courseRows = [{ id: course.id, exercise_count: 9090 }];
+const draftHtml = App.views.exercises();
+check('报出库里的题数', draftHtml.includes('9090 道题'), '');
+check('说清是卡在发布闸', draftHtml.includes('一道都还没发布'), '');
+check('给出去审核的入口', draftHtml.includes('去内容审核'), '');
+App.courseRows = [];
+App.course = course;
+App.course = { ...withDrafts, id: 'course-without-exercises' };
+const emptyHtml = App.views.exercises();
+check('库里也一道没有时走原来的空状态', emptyHtml.includes('题库等待接入'),
+  emptyHtml.slice(0, 120));
+App.course = course;
+App.courseRows = [];
+
 console.log('未作答：完整解答必须看不到');
 let html = render();
 check('渲染出题目', html.includes('叙述确界原理'), '');

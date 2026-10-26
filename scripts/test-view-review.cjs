@@ -153,6 +153,9 @@ check('详情提供领取/通过/退回/修改', ['claim', 'approve', 'request-c
 // 6. 勾选后出现批量入口
 App.state.review.checked = { 7: true };
 html = App.views.review();
+check('三个 tab 分开：习题审核 / 课程发布 / 知识图谱审核',
+  ['习题审核', '课程发布', '知识图谱审核'].every(label => html.includes(label)), '');
+
 check('勾选后出现批量通过', html.includes('data-action="review-batch-approve"'));
 check('勾选行有高亮样式', html.includes('rv-selected'));
 

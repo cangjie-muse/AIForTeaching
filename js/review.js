@@ -424,7 +424,12 @@
 
   // 老会话里可能没有 tab 字段：统一按"习题审核"兜底，别让两个标签都不高亮。
   function currentTab() {
-    return S().tab === 'graph' ? 'graph' : 'exercises';
+    // 三件事分开：审题（逐题判断）、发布（整门课对学生可见）、审知识点结构。
+    // 混在一个 tab 里的后果很具体：老师在「习题审核」里点完发布就以为题审过了，
+    // 而发布只管"学生能不能看见"，不代表有人核过内容。
+    if (S().tab === 'graph') return 'graph';
+    if (S().tab === 'publish') return 'publish';
+    return 'exercises';
   }
 
   function tabs() {
@@ -441,6 +446,7 @@
       ${label}${badge ? `<em>${badge}</em>` : ''}</button>`;
     return `<div class="rv-tabs" role="tablist">
       ${item('exercises', '习题审核', pending ? `${pending} 待审` : '')}
+      ${item('publish', '课程发布', '')}
       ${item('graph', '知识图谱审核', graphCount ? `${graphCount} 个节点` : '')}
     </div>`;
   }
@@ -473,15 +479,21 @@
       return heading + tabs() + A.reviewScopeOf().graphPanel();
     }
 
+    if (currentTab() === 'publish') {
+      return heading + tabs() + A.publishPanel(state.filters.course_id)
+        + `<div class="panel"><h2>发布与审核是两件事</h2>
+          <p class="muted">「发布」只决定学生能不能看到这门课和里面的题；
+          「审核」是逐题判断内容对不对，记在可信等级里。发布过的题可能一道都没人核过，
+          审核过的题也可能还没发布——两个状态各管一件事，互不替代。</p>
+          <p class="muted">要把题审过再放出去，顺序是：习题审核里通过（草稿 → 人工已审）
+          → 回到这里点发布（只放出人工已审与已机器核验的题）。</p></div>`;
+    }
+
     const openId = state.open;
     const detail = openId ? state.items.find(item => String(item.task_id) === String(openId)) : null;
 
-    // 发布放在审核页：审完一批题，就地决定放不放出去。
-    const publishBlock = state.tab === 'exercises' || !state.tab
-      ? A.publishPanel(state.filters.course_id) : '';
     return heading + tabs() + statsPanel()
       + `<div class="rv-filters">${A.reviewCoursePicker()}${issueSummary()}</div>`
-      + publishBlock
       + A.reviewScopeOf().lookupBar() + A.reviewScopeOf().ledgerPanel() + `
       <div class="rv-layout ${detail ? 'has-detail' : ''}">
         ${listPanel()}
