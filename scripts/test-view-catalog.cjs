@@ -160,6 +160,39 @@ await App.actions['catalog-tag-pick']({ dataset: { id: 'analysis-ii', direction:
 check('选中方向后写库', saved.length === 1 && saved[0][1].direction === 'geometry', JSON.stringify(saved));
 check('改完重拉目录（分组要跟着变）', reloads === 1, String(reloads));
 
+console.log('\n改课程名：');
+// 弹窗里要能改名字：课程名此前只有接口没有界面，导入打错字就改不了
+App.courseRows = [{ id: 'analysis-ii', created_by: 'acc-t' }];
+App.state.auth = { status: 'ready', actor: { id: 'acc-t', role: 'teacher', display_name: '王老师' } };
+App.actions['catalog-tag']({ dataset: { id: 'analysis-ii' } });
+check('弹窗里有课程名输入框', element('dialog').innerHTML.includes('id="course-title-input"'), '');
+check('输入框预填现有课程名',
+  /id="course-title-input" value="数学分析II（库里版本）"/.test(element('dialog').innerHTML), '');
+check('卡片上是「编辑」不是「归类」', /data-action="catalog-tag"[^>]*>编辑/.test(App.views.catalog()), '');
+
+const renamed = [];
+let titleReloads = 0;
+const toasts = [];
+App.toast = message => toasts.push(message);
+const toastsBefore = toasts.length;
+App.api.updateCourse = async (id, patch) => { renamed.push([id, patch]); return { changed: ['title'] }; };
+App.loadCatalog = async () => { titleReloads += 1; };
+element('course-title-input').value = '  数学分析（二）  ';
+await App.actions['catalog-title-save']({ dataset: { id: 'analysis-ii' }, disabled: false });
+check('保存时去掉首尾空格', renamed.length === 1 && renamed[0][1].title === '数学分析（二）',
+  JSON.stringify(renamed));
+check('只传 title，不动归类',
+  renamed.length === 1 && !('direction' in renamed[0][1]), JSON.stringify(renamed[0] && renamed[0][1]));
+check('改完重拉目录', titleReloads === 1, String(titleReloads));
+check('给出改名提示', toasts.slice(toastsBefore).some(text => text.includes('已改名为「数学分析（二）」')),
+  String(toasts.slice(toastsBefore)));
+
+renamed.length = 0;
+element('course-title-input').value = '   ';
+await App.actions['catalog-title-save']({ dataset: { id: 'analysis-ii' }, disabled: false });
+check('空课程名不发请求', renamed.length === 0, JSON.stringify(renamed));
+check('空课程名给一句人话', toasts.slice(-1)[0].includes('不能为空'), String(toasts.slice(-1)));
+
 console.log('\n新建学科分类：');
 const groupsBefore = CourseCatalog.groups.map(group => ({ ...group }));
 App.state.auth = { status: 'ready', actor: { id: 'acc-a', role: 'admin', display_name: '管理员' } };

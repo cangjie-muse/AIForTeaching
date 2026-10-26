@@ -21,7 +21,7 @@
   function tagButton(course) {
     if (!canTag(course)) return '';
     return `<button type="button" class="card-tag" data-action="catalog-tag" data-id="${e(course.id)}"
-      title="改这门课的学科归类">归类</button>`;
+      title="改课程名或学科归类">编辑</button>`;
   }
 
   function groups() {
@@ -42,7 +42,9 @@
     return `<div class="whu-study-sequence" aria-label="数学研习路径">${steps.map(([number, title, detail]) => `<div><span class="whu-step-index">${number}</span><span><b>${title}</b><small>${detail}</small></span></div>`).join('')}</div>`;
   }
 
-  /* 卡片上的「归类」：弹出一个方向列表，点哪个就归到哪组。
+  /* 卡片上的「编辑」：一个弹窗管两件事——改课程名、改学科归类。
+     课程名原来只有接口（PATCH /api/v1/courses/{id}）没有界面，
+     导入时打错字就只能改库，所以并进来一起露出。
      保存后重拉目录——分组是前端按 direction 算的，不重拉就还显示在旧组里。 */
   A.actions['catalog-tag'] = function (button) {
     const course = (A.allCourses() || []).find(item => item.id === button.dataset.id) || {};
@@ -53,9 +55,35 @@
       return `<button class="btn${active ? ' primary' : ''}" data-action="catalog-tag-pick"
         data-id="${e(course.id)}" data-direction="${e(choice.id)}" data-label="${e(choice.label)}">${e(choice.label)}</button>`;
     }).join('');
-    A.openDialog(`归类：${e(course.title || '课程')}`, `<p class="muted small">
-      现在归在「${e(course.direction || '待归类')}」。选一个学科方向，保存后它立刻出现在课程中心对应分组。</p>
-      <div class="button-row">${rows}</div>`);
+    A.openDialog(`编辑：${e(course.title || '课程')}`, `<div class="field">
+      <label for="course-title-input">课程名</label>
+      <input id="course-title-input" value="${e(course.title || '')}" maxlength="120"
+        placeholder="例如：数学分析 I">
+      <small>改的是目录、课程页、题库里显示的名字；知识点与习题都还留在这门课下。</small></div>
+      <div class="button-row"><button class="btn primary" data-action="catalog-title-save"
+        data-id="${e(course.id)}">保存课程名</button></div>
+      <div class="field"><label>学科归类</label>
+      <p class="muted small">现在归在「${e(course.direction || '待归类')}」。选一个学科方向，保存后它立刻出现在课程中心对应分组。</p>
+      <div class="button-row">${rows}</div></div>`);
+  };
+
+  A.actions['catalog-title-save'] = async function (button) {
+    const input = document.getElementById('course-title-input');
+    const title = String((input && input.value) || '').trim();
+    if (!title) { A.toast('课程名不能为空'); return; }
+    button.disabled = true;
+    try {
+      const result = await A.api.updateCourse(button.dataset.id, { title });
+      const dialog = document.getElementById('dialog');
+      if (dialog && dialog.open) dialog.close();
+      A.toast(result && result.changed && result.changed.includes('title')
+        ? `已改名为「${title}」` : '课程名没有变化');
+      if (typeof A.loadCatalog === 'function') await A.loadCatalog();
+      A.render();
+    } catch (error) {
+      button.disabled = false;
+      A.toast(`没保存成功：${error.message}`);
+    }
   };
 
   A.actions['catalog-tag-pick'] = async function (button) {    const courseId = button.dataset.id;
