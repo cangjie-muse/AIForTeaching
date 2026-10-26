@@ -10,8 +10,13 @@ import os
 from contextlib import contextmanager
 from typing import Any, Iterator
 
+from . import envfile
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
+
+# 先读仓库根的 .env：systemd 会注入，手动跑脚本不会。
+# 不加载的话默认连接串是开发口令，报错却是"密码认证失败"，很容易误判成数据库坏了。
+envfile.load()
 
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",

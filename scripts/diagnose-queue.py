@@ -22,12 +22,25 @@ print("=" * 66)
 
 from app import db, llm  # noqa: E402
 
-# 连接池是懒打开的：不显式 open，第一条查询就报 "pool is not open yet"，
-# 看起来像数据库连不上，其实是脚本自己的问题。run_worker.py 同样是先 open。
+# 先用一次性连接探活，连不上就直接退出。
+# 不要一上来就 open 连接池：池初始化失败会留下重连线程，
+# 解释器退出时 psycopg_pool 会抱怨 "couldn't stop thread ... within 5.0 seconds"，
+# 把真正的结论淹在噪音里。
+import psycopg  # noqa: E402
+
 try:
-    db.pool.open()
-except Exception:  # 已经打开过（被 import 的模块开启）不算错
-    pass
+    with psycopg.connect(db.DATABASE_URL, connect_timeout=5):
+        pass
+except Exception as exc:
+    print(f"\n✗ 连不上数据库：{exc}")
+    print(f"  连接串来自 {db.envfile.ENV_FILE}（不存在则用代码默认值）")
+    print("  • 密码认证失败：.env 里的口令与数据库实际口令不一致，"
+          "对照 sudo -u postgres psql -c '\\du'")
+    print("  • 连接被拒/超时：postgresql 没起，或地址端口不对："
+          "sudo systemctl status postgresql")
+    raise SystemExit(1)
+
+db.pool.open(wait=True, timeout=10)
 
 KIND_LABEL = {
     "generate": "教材生成", "generate-book": "整本教材",
@@ -35,6 +48,7 @@ KIND_LABEL = {
     "courseware-generate": "课件初版", "courseware-revise": "课件修订",
 }
 
+connected = False
 try:
     summary = db.query_one(
         """
@@ -47,9 +61,11 @@ try:
              FROM pipeline_job WHERE status = 'queued') AS oldest_age
         """
     ) or {}
+    connected = True
 except Exception as exc:  # 连库都失败时，先把这个原因说清楚
     print(f"\n✗ 数据库连不上：{exc}")
-    print("  检查 .env 里的 DATABASE_URL 与 postgresql 服务。")
+    print(f"  连接串来自 {db.envfile.ENV_FILE}（不存在则用代码默认值）")
+    print("  对照：systemctl show whu-teaching -p EnvironmentFile；sudo systemctl status postgresql")
     raise SystemExit(1)
 
 queued = int(summary.get("queued") or 0)
@@ -122,3 +138,9 @@ elif not queued and not running:
 else:
     print("  ✓ 队列正常在动。")
 print("=" * 66)
+
+if connected:
+    try:
+        db.pool.close()
+    except Exception:
+        pass
