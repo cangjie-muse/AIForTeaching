@@ -1,8 +1,8 @@
 {
-  "checkedAt": "2026-10-22T01:18:28.738Z",
+  "checkedAt": "2026-10-26T06:37:10.638Z",
   "scope": "Project source/provenance audit; no private competitor source or internet-wide similarity database comparison",
   "checks": {
-    "runtimeFiles": 49,
+    "runtimeFiles": 57,
     "generatedCourseScriptIsDataOnly": true,
     "competitorMarkerHits": [],
     "remoteEntryAssets": [],
@@ -18,7 +18,7 @@
   "projectSourceInventory": [
     {
       "path": "index.html",
-      "sha256": "83ccd733d6e950d052d77de83a62a0256325295c154f074cf2f6725e649b9325"
+      "sha256": "1ef70cea0e9fae3b306ac82d5502f104ead5653246337208fea302d5eb3b2dad"
     },
     {
       "path": "js/accounts.js",
@@ -26,23 +26,23 @@
     },
     {
       "path": "js/api-client.js",
-      "sha256": "b5207ee48ef01eb6ae9a6701f74e4415c68dfb757a2fd4cfad1e81760475c3ae"
+      "sha256": "d3ddbaf1e496107c4fd04572fcd8eb91cd42667a4f5311afcf948101497cdd22"
     },
     {
       "path": "js/api-config.js",
-      "sha256": "0f3edd41a05af36483ed94c577156e9bcba301c361e1196d3b52ab8d8be64a7d"
+      "sha256": "b228dda66daf5e717e7c5364f55e79dad1f5cafdcaf50bf5f7774cca2d6cbe6d"
     },
     {
       "path": "js/app.js",
-      "sha256": "dd31352fef63736a01a77afec3e42ccaa0b1c47d64d1608fe47e9a7dc5db300f"
+      "sha256": "46a0df1ef798d92e9d583044747cddc6964b1292e4d8671e29e6c32c5c6e9023"
     },
     {
       "path": "js/auth.js",
-      "sha256": "2dc200ce38e30c0a7892820519149785ccbea39d0b170fd50c3ef8fd3ec0f637"
+      "sha256": "4edd31e1be49f63440971eca511d50bf9ed211ecb35fc16aa050866425c5951d"
     },
     {
       "path": "js/catalog-view.js",
-      "sha256": "6cd1bf9313c74e8fecd7acf8d324472b36e43c0c049337485611b6d2dbde3cb7"
+      "sha256": "142c94f4c028498ede8c0797217cf4ea1cdf81c9f37efb2b21ff8c18a1f0322c"
     },
     {
       "path": "js/classes.js",
@@ -50,31 +50,39 @@
     },
     {
       "path": "js/construction-model.js",
-      "sha256": "22499d11c0d1c2ad5b889ff13ece0be0475a9fb3d2075351194221c6217f288e"
+      "sha256": "d829be240f5fd53909ce1fb78af7e065537d893d5b284c56dc38536e9730dbc3"
     },
     {
       "path": "js/construction-view.js",
-      "sha256": "e24691c00781f5d9fbc49c97fb10eb8898ab410f50c1d52333ca0d403b9e1122"
+      "sha256": "bde6c6e6aa6a503d5809a418d883ae3d762b832f25d52767e33d9b69a5edd221"
     },
     {
       "path": "js/content.js",
-      "sha256": "4a53007d8a6273bb3686f50de905d2faacd3fceca513fcb9dc2985d7dec69780"
+      "sha256": "3b8436f66cc481b2922714a069fe585470dba7310611a40018aa858752e47567"
     },
     {
       "path": "js/core.js",
-      "sha256": "61d342f4b18fbdc2c80f086b7a1adb698fccfc26478a31fbc6806ef5b0441f87"
+      "sha256": "d9feca817fdb3fb6d0aaeeba9a4cbdc676a9539fbaaacd9e44942f89c5c5ed4e"
     },
     {
       "path": "js/course-catalog.js",
-      "sha256": "57c0f24cfbfbb5b8010dca249dceb73a0c419d739d98132bfc959ceb0ecceaf1"
+      "sha256": "b708384e512955f2188fdfbb81ef8ff38014715a9d4ed98992420869e2adb723"
     },
     {
       "path": "js/course-cover-art.js",
       "sha256": "ff3e6c3604cd6d15b3856d86dceeab128927a596c40bfb65445ca9436343fa1d"
     },
     {
+      "path": "js/course-meta-panel.js",
+      "sha256": "e80c755677d6edc75e0754c58016bbae8057d98c8d33c9fbb9be8e319a90e859"
+    },
+    {
+      "path": "js/courseware-studio.js",
+      "sha256": "964a09b313f9653b621e4e501c87de5d2d786d4f216ace9a857d4af243db637f"
+    },
+    {
       "path": "js/courseware-view.js",
-      "sha256": "cc7b29fd3f9341a7eb24215cdfeadd586233fc3031bfb553ef71b3e35efec60a"
+      "sha256": "292f67c6db489f1e1d405f430c91c43724947c0d293a462139925a7715d10ed7"
     },
     {
       "path": "js/diff.js",
@@ -86,11 +94,11 @@
     },
     {
       "path": "js/graph-atlas.js",
-      "sha256": "4e3d152a28cd537bb26e4572e48754edf75490924a67db61d256e5752c0e9c22"
+      "sha256": "e565a8c2d3fcaa6a5ccba53124613c1b4a0faf9845bbe51f9b30cb2c17ce32ba"
     },
     {
       "path": "js/graph-interaction.js",
-      "sha256": "84de8784c3a2162042cc11d88475151913093cefb19dff85b750bbb64a789edf"
+      "sha256": "bb0f3c3df8dc9c6b41d612f91a5602641e0ea79db1c280396a5751f0f6968f00"
     },
     {
       "path": "js/graph-model.js",
@@ -98,15 +106,19 @@
     },
     {
       "path": "js/graph-view.js",
-      "sha256": "460e6f5b83e05d083a0479ef595bc744223bfdc43cf9a6f637a7ecd7b70fc459"
+      "sha256": "08dc4ded6cb6656a8e8b300235ac9f6acd05982aeae102c5cda3e0071247d483"
+    },
+    {
+      "path": "js/homework.js",
+      "sha256": "31c971aedf60bca54d2fe0bfa8a880417c1a7a965be981fa93be68d3466b3068"
     },
     {
       "path": "js/import-core.js",
-      "sha256": "32feb4e666bf26ee3982400d41c23d3c5660b505051c1598106ccb45cd53f0fc"
+      "sha256": "36531a18af9f3cf6d2d218d312e951173004e83fd9b7604c032116986c40e494"
     },
     {
       "path": "js/learning.js",
-      "sha256": "8e6e93a088002053838c6c88311ec0948043809fa0935cc2cfa4c47874443df0"
+      "sha256": "ab0eb103e6a1cc41c04a9cf44815ec7fdd07dce7d8fed98e90e610a02f15a777"
     },
     {
       "path": "js/pages.js",
@@ -114,23 +126,35 @@
     },
     {
       "path": "js/pick-view.js",
-      "sha256": "1b60ce685fc9a6037ac12068c8c7191ac5126697f63a71586f535123baeff2e1"
+      "sha256": "78b57dd11e2a29cda97652351c084a148024a81e93fb2109bcbb526dc8ba4492"
+    },
+    {
+      "path": "js/publish-panel.js",
+      "sha256": "bc42a51e9ee6fa5d42d6d3247813a35cfdf327c5e67148170396e211de4abe97"
     },
     {
       "path": "js/qa-chat.js",
-      "sha256": "12a4b75a50c829cf308563c87bacec4a7c181b3fa228734f6945327f837d9596"
+      "sha256": "6d897646dd5e6e2f3c1837288bddf641caf188d993efd8d9a14c4541806aad0f"
+    },
+    {
+      "path": "js/queue-health.js",
+      "sha256": "9c518fe65066eeabe9573013f8d56d9fd802e5cfe7e38020144bff2592ec2b10"
+    },
+    {
+      "path": "js/review-course-picker.js",
+      "sha256": "cdd01114ae71fafc834bb5c0dd8d018d93fbef795705fb26f99dadadca0ac769"
     },
     {
       "path": "js/review-node.js",
-      "sha256": "32444b5401f423ff0a4109eecded3154457d1df270d2e1bdd70a29b48f6bcebb"
+      "sha256": "6b5368f15a8d77484f5fb1bbee3a36668778438d9000bb3dcbb38abb6729643f"
     },
     {
       "path": "js/review-scope.js",
-      "sha256": "820c9a3bc8ebdf777d8a08d7a7478e1fc685ac0308b473fb820db7eb3e6d2e66"
+      "sha256": "c3ff6ba13b2fee9ec293f81e2ee12adb7ef610c62eb0add7c91e4034ec3bfd99"
     },
     {
       "path": "js/review.js",
-      "sha256": "f6789bc13f10a3f5ec941b1cf33b068104a65340eed98d58f2357f7ad2d6a71d"
+      "sha256": "585550850cb48fa39a0ef86ffc304918afbfd5d180c8f724838d931b04cf975a"
     },
     {
       "path": "js/roster-io.js",
@@ -150,11 +174,11 @@
     },
     {
       "path": "js/workspace.js",
-      "sha256": "6d92827399fcf9da43ecc90c9309c1733837c2955f53f15d9b04e37feb79b9ef"
+      "sha256": "25b53ac29f86cea3caf48cafd0eeb865e5465e9e7d7a472ed44a71d9d7aa984f"
     },
     {
       "path": "js/xlsx-reader.js",
-      "sha256": "8b0239f2609e5bdc0003658e62ea287108b1008ac5acf79abd0cfe07c691006a"
+      "sha256": "b2d5dc288fc4e11d75aedb701aec5e9b52c34c64424e7e6e304a30e03ec38f6a"
     },
     {
       "path": "js/xlsx-sheet.js",
@@ -162,7 +186,7 @@
     },
     {
       "path": "styles/admin.css",
-      "sha256": "a3674dc2a20c4fe71bb01e55e3bcbf802bd383e70c9c10b518a0b91099d4a01f"
+      "sha256": "ccf2712f3b452165f47b30bbc27bda473e033a57a2982cd481ebe7618227620c"
     },
     {
       "path": "styles/auth.css",
@@ -174,15 +198,23 @@
     },
     {
       "path": "styles/catalog.css",
-      "sha256": "e8f994193197baea7e2f99cdd152f67362c79f50d07c861453c30def5ae49447"
+      "sha256": "5cc75fbd085924caa75d1d2835df48490b983f347d7b491ff4db73dd1f564138"
     },
     {
       "path": "styles/construction.css",
       "sha256": "f8c4f7bbb014842f8d8a2cf7ccde0e957898504b24caedc4cc602fcfc636f531"
     },
     {
+      "path": "styles/courseware-studio.css",
+      "sha256": "8f9dcecf653434be2c6d2f240d4928d1145e164b0dd7dcf00338a39c4807c684"
+    },
+    {
       "path": "styles/courseware.css",
       "sha256": "807462f6b603e2bd462d7bf9ad9d15ae087ad1df6fe39dedc7c6732e5abf1d3d"
+    },
+    {
+      "path": "styles/homework.css",
+      "sha256": "6e8ff14216a404f5c1435a5b07afdbe80da8504cea97065024810c541dfedbd4"
     },
     {
       "path": "styles/identity.css",
@@ -190,11 +222,11 @@
     },
     {
       "path": "styles/network.css",
-      "sha256": "fc520de4ee94eb6617e7e13cff6d3f2c6dcc6f952c2d01c75e18f0b370e23ea5"
+      "sha256": "abb3f7d878bcb293fc5617690ce3f6da28b6f0d00939a0e0807624e8e23be31f"
     },
     {
       "path": "styles/qa-chat.css",
-      "sha256": "e118bfea042184880b3c7b6fa0ed28717c0303e87a71c06523e870a7472fd77f"
+      "sha256": "957342cfee75cfe3e654d5ecefe691140a2b74e75f0fbb77254a8c592be1a479"
     },
     {
       "path": "styles/responsive.css",
@@ -202,15 +234,19 @@
     },
     {
       "path": "styles/review.css",
-      "sha256": "f4c0d395a76b136a4ac87168c15c1bd86a433675ded822137f073d3ac42df1cf"
+      "sha256": "26e07c2c874ff890c0491c51b6db6311a6339e98537078fe47dc2b6dc53aa16d"
     },
     {
       "path": "styles/views.css",
-      "sha256": "6dcc7c543558e1d73c74c8384fceb7ce4594561092e8a0479b73067136c839b8"
+      "sha256": "32973b5d040c0dee786669c9c842fe13b070ea796fbbbc957a2caaf829a39c46"
     },
     {
       "path": "assets/mark.svg",
       "sha256": "bbcb560be7107b754e9aacd0f74ff094f8b3b506d8781afd2c6dde82bba1a790"
+    },
+    {
+      "path": "scripts/approve-exercises.py",
+      "sha256": "8032ea6eabdd7671f61346abed7dd95633ea69cdb37f25c6458c2de296b54085"
     },
     {
       "path": "scripts/audit-courses.cjs",
@@ -221,8 +257,16 @@
       "sha256": "256bb5476508cebd5a8051efd0c22109cb3fcde12dd55568383a3532bd434be9"
     },
     {
+      "path": "scripts/check-pack.cjs",
+      "sha256": "25d9e7b59ff0f4314c4fff5529853c4d32a0f04380f76707a2b380e1457abfef"
+    },
+    {
       "path": "scripts/courseware-index.cjs",
       "sha256": "bf135551a6329a57d7a64787d7c796125eca52cb4932bb4fb4ca129c61deac77"
+    },
+    {
+      "path": "scripts/create_admin.py",
+      "sha256": "56bd37b4aff5d57e4ef3b7a86eea2e8b35589e8b89256ad2167c2fe26e516616"
     },
     {
       "path": "scripts/dev-api.cjs",
@@ -234,7 +278,15 @@
     },
     {
       "path": "scripts/dev_seed_accounts.py",
-      "sha256": "27ccd5d4aaed0fdbb1dfb3a205a3b19fd88f852df1933632f55438160fec23c2"
+      "sha256": "fd0cdff069b8f4cd40916c29e185518ea7fcba665a9e578b0d407f5f0769e1bf"
+    },
+    {
+      "path": "scripts/diagnose-exercises.py",
+      "sha256": "9ddeaae47cad4dca65566f0b5813580f639f3104c736106ab9cbf0204b574dfd"
+    },
+    {
+      "path": "scripts/diagnose-queue.py",
+      "sha256": "c0bd30e7c277cb148208ff7a278c5e3b7a0ce208a97ae85467495449598ae80e"
     },
     {
       "path": "scripts/e2e-api.cjs",
@@ -274,11 +326,27 @@
     },
     {
       "path": "scripts/preflight.py",
-      "sha256": "163dedad71433d5c2e5031d3412ab7fe1185855f0fff61683e71fcc32b08b550"
+      "sha256": "4077256d5872beb9b1d9a7684e2b32533a387929066b4d2c22f5f936c43afad8"
+    },
+    {
+      "path": "scripts/publish_courses.py",
+      "sha256": "420121a0d84b3add8248f0dddaa697e4812176683a81bff6700c9dddc2a00387"
+    },
+    {
+      "path": "scripts/rebuild-corpus.py",
+      "sha256": "177b784d16d189173809f772ec053d57fa21908a0386c4c44dd7e82cae1fa415"
+    },
+    {
+      "path": "scripts/rebuild_qa_corpus.py",
+      "sha256": "05ee92c582e54f6306462669a4c1a782cb21bcd1ea0a9b889960c5699b97f1dd"
+    },
+    {
+      "path": "scripts/reset_password.py",
+      "sha256": "de22d2f432f26b0d9626fb2ce4f73119a249d83b9083a1e5e20597fb0be938ae"
     },
     {
       "path": "scripts/run_worker.py",
-      "sha256": "c1bfceaa7d4a7920c5d3cb32efb23ab265c87e6e0cd65170ceb171f8ace0a0e8"
+      "sha256": "8ed25c0554c54f023ce99c48c02b2504f5e4192aa5e8ceda7068bd1726d23360"
     },
     {
       "path": "scripts/serve-lan.py",
@@ -290,15 +358,27 @@
     },
     {
       "path": "scripts/smoke-boot.cjs",
-      "sha256": "e25a2aec311f2cf08c7d63ccbfc41d2907ac70aab62e59c6f55a504e7ed56d75"
+      "sha256": "6795574670f28b4d3a9f74ee305269fb347b194e2d805cdcc1c3287adae091c7"
+    },
+    {
+      "path": "scripts/sync-remotes.sh",
+      "sha256": "c7a2301ea248e2ecfb0e4407e746c1cb1e0378a8f2f6d8d959ffad276c646c6a"
+    },
+    {
+      "path": "scripts/test-courseware-render.py",
+      "sha256": "f5a69ba4b6bf3868518513bfefbbdb186e5096bfc225dacf29b8d71fc47a11ad"
     },
     {
       "path": "scripts/test-diff.cjs",
       "sha256": "f97ff244a72e1f31619b273c655d22a1f03b0843f91af41af6c3a9d5c767d3a1"
     },
     {
+      "path": "scripts/test-import-ids.cjs",
+      "sha256": "6081a7156f4884fe1824fc9a0380fb7627b85f3556c20dde89008e3d55539609"
+    },
+    {
       "path": "scripts/test-nav-scroll.cjs",
-      "sha256": "2dac4cd092fdaa695e85ae8991c6d790e18b1edc51c1f6f32ee9d4cc8640fb8f"
+      "sha256": "7342f7abfdd91f12e87a831336391ae8d6760d4566ed96748531f27f982d4eff"
     },
     {
       "path": "scripts/test-nav-shell.cjs",
@@ -310,15 +390,23 @@
     },
     {
       "path": "scripts/test-python.cjs",
-      "sha256": "00dfa02f70a90f04963b827e557878dd5789db2938c5da6569925c5f5dccd5f2"
+      "sha256": "e0e8e5c4e7daf6bc4b3871e62353ada29db8b9aa4940771e6507f7d32b1ff44b"
+    },
+    {
+      "path": "scripts/test-qa-scroll.cjs",
+      "sha256": "4884d0d9b39c6e3a8be98b96192cc54fc12e040356c1147e6ff430aca055ff2f"
     },
     {
       "path": "scripts/test-render-shell.cjs",
-      "sha256": "1ceda55056911d2fc8a63f2b5ffd05f51ed1933cac1002de629812864ddb4600"
+      "sha256": "b1ff0c973581148730508868f897755de94fcf001c93bdf2fbd4f870099e3f48"
+    },
+    {
+      "path": "scripts/test-script-order.cjs",
+      "sha256": "5037a793257a345884dfd7143100c7ce461d0ae3304278fc95ddf2ca0a29198d"
     },
     {
       "path": "scripts/test-view-api-config.cjs",
-      "sha256": "bb7ac66613ff4fa356a423bbc32e7dd1deedfad2dddfe885fb4f37bd92f59a76"
+      "sha256": "59d1d69e970feee48d8ae024b9602cc28539dd4323cd847b20f12af3819d51b1"
     },
     {
       "path": "scripts/test-view-auth.cjs",
@@ -326,19 +414,31 @@
     },
     {
       "path": "scripts/test-view-catalog.cjs",
-      "sha256": "eb9bf85d9249b31376f0d7d92fed16e4ef49786db363a6c74fe956fc826e3f2e"
+      "sha256": "5783398eb24296184093c6e66c688a3494a3212c51ee95dec81d073c313c3efd"
     },
     {
       "path": "scripts/test-view-classes.cjs",
-      "sha256": "8558644799097679161e381d247fd6c0db78066e532368ed93eca92658e170d0"
+      "sha256": "b4ce7c5d546c346020c637c3971657862ee6e43820db6a17c5ef97754dbf76e6"
+    },
+    {
+      "path": "scripts/test-view-construction.cjs",
+      "sha256": "a1c16618c1f42626789b004d3f9559e03908e04c131f1c429469c09b75ec997e"
     },
     {
       "path": "scripts/test-view-content.cjs",
-      "sha256": "433a879f1e4decf5be6127c700d6a31e23365b3a8691a7c46648dd281d3c2ce5"
+      "sha256": "f9a8cad8f51d9bf9c6adce7952e7e060aacac33eeb0f215e7909e48b8007dba9"
+    },
+    {
+      "path": "scripts/test-view-course-meta.cjs",
+      "sha256": "d40c1a800b0e415b6fb65628de71107c6f6b5470efa3efd3c9ad8210fec6f419"
+    },
+    {
+      "path": "scripts/test-view-courseware-studio.cjs",
+      "sha256": "8eb58145ae6b9c4501415c047aabdac2c530edd1150b18fdcd3d2cb8245f3175"
     },
     {
       "path": "scripts/test-view-exercises.cjs",
-      "sha256": "5a3f000c9754df168a39889bae423d1cd4094b2b52aefcb8c5c4e46d6af41cb5"
+      "sha256": "c8b1cab700cdb0d6a9d46d83e62d743c70a251a8ac86e32231596ad818536dfa"
     },
     {
       "path": "scripts/test-view-generate.cjs",
@@ -346,35 +446,43 @@
     },
     {
       "path": "scripts/test-view-graph-edit.cjs",
-      "sha256": "f4e29f7eed70d1352f4e70a3d55afab76d0474428676d59783092c406a97225a"
+      "sha256": "d7de0a0f42f4b3df9d18c65f4cc8fc007ebe4997897c28973d46572101372307"
     },
     {
       "path": "scripts/test-view-graph.cjs",
       "sha256": "30fd1036f1fb1a2b5e8ea93909d25caf0e9f69fdf8bc70a2dfeb15d4d0c49d37"
     },
     {
+      "path": "scripts/test-view-homework.cjs",
+      "sha256": "4f88c03c58f6dc36b57b0f1540fdd05f6591caed0382c8a8c877d63f4a1672b6"
+    },
+    {
       "path": "scripts/test-view-pick.cjs",
-      "sha256": "0228f300591f5924fae9a84cad6fcb14e8d3bcd6ce81daba41d079e2b1754664"
+      "sha256": "557f12ee4f6ac1b699815efec94f6b6ddd1f262ef3ed186205f5e16a78fe4dc3"
     },
     {
       "path": "scripts/test-view-publish.cjs",
-      "sha256": "98bcbdbe375f407639c79442b49f4bb015bc605a0479aefccecb7ccd90e68282"
+      "sha256": "9a0e8bad6cb5604a4759f48f4bebbbdafa8ee4a46b9cc7660357984f44c05ad9"
     },
     {
       "path": "scripts/test-view-qa.cjs",
-      "sha256": "8254d4dfb9a2f075f3a2a600f742b94aac15ba43dcf4d65cd17cb6987b5c1e1b"
+      "sha256": "8939cf9dcbe996d14b3c6d9b6e8d385582a522df43855dc28d47cd6066594155"
+    },
+    {
+      "path": "scripts/test-view-queue-health.cjs",
+      "sha256": "cf13813f031b72222bdc3f9ac4856110b3ef77566bd251e0f8a0dcdbcd598def"
     },
     {
       "path": "scripts/test-view-review-node.cjs",
-      "sha256": "97bac73107d53358effc58425b19b0da0d78c439af2014e8b17d772568d3aed5"
+      "sha256": "37242a7202666c3325e21345a8c2adb1ba36ef5015cb67955c84434ee5802c54"
     },
     {
       "path": "scripts/test-view-review-panels.cjs",
-      "sha256": "84dedfd9b2249bca1e9b35e30d720e969e179cc5fe480383294d5fe367923880"
+      "sha256": "f3caf97bd81c481675f0cb86a60dbeeb9fff9126ed22d0544687a0251e330391"
     },
     {
       "path": "scripts/test-view-review.cjs",
-      "sha256": "78d75374a5129c0c65c61fb11d1d35c9a49c4a498121573285d2cf757939c836"
+      "sha256": "cacd19e3a92d91cbccdaa67fda375af16156e980edc64d21e3a11171175cb01e"
     },
     {
       "path": "scripts/test-view-roster-import.cjs",
@@ -382,7 +490,11 @@
     },
     {
       "path": "scripts/test-view-visibility.cjs",
-      "sha256": "61da704f721b9f394002dc6141d095222110bbebd8e9a4fa4d48a810bfd3b039"
+      "sha256": "4681fa88752b657aafc359523800e9d2e0f5a40d104679870c65a13426b3548d"
+    },
+    {
+      "path": "scripts/test-xlsx-fallback.cjs",
+      "sha256": "eb8e7a845ba8ff4d01ffa4d059f69ac394fdec96d5393fa054c9265d4aa32dc5"
     },
     {
       "path": "scripts/test-xlsx-sheet.cjs",
@@ -394,7 +506,7 @@
     },
     {
       "path": "scripts/verify-catalog-graph.cjs",
-      "sha256": "14d2ab02268c2210c0fecfa9010758f37837173eb191ebd294f9f364a2a059ef"
+      "sha256": "3b9d678ffc680c946628a8af270a12638859edb4f825cb3bbf33ba15f7ae7f7f"
     },
     {
       "path": "scripts/verify-dependency-origin.cjs",
@@ -403,6 +515,10 @@
     {
       "path": "scripts/verify.cjs",
       "sha256": "615d8977d61c000ef1f952b143b85ada1ee73d741b72242f59800338b06d28c9"
+    },
+    {
+      "path": "scripts/_env.py",
+      "sha256": "c6a519246ce69efc88831c1b5e7e33f4bf894d1649da9e6ea315fb95020b91bf"
     },
     {
       "path": "eslint.config.mjs",
@@ -1372,7 +1488,7 @@
     },
     {
       "path": "course-packs/e2e-course/generated/job-1/生成说明.json",
-      "sha256": "8d3fc2aa6438230437ad890754f92d06330afa821e7d91013125e860f5252071"
+      "sha256": "95ce7d4e32563bd25c269ecf23ba5a7360215e46d2080ab770930113572675b7"
     },
     {
       "path": "course-packs/e2e-course/generated/job-1/知识点.md",
@@ -1388,7 +1504,7 @@
     },
     {
       "path": "course-packs/e2e-course/generated/job-3/生成说明.json",
-      "sha256": "9c0968689d60a8638e415c905c70bd182238e457325282cb90b24655efb43fea"
+      "sha256": "e90e6dd98d81994eab2e9319484fea6b1349a646233c5ff44775a35c6b4872e1"
     },
     {
       "path": "course-packs/e2e-course/generated/job-3/知识点.md",
@@ -1404,7 +1520,7 @@
     },
     {
       "path": "course-packs/e2e-course/generated/job-4/生成说明.json",
-      "sha256": "10f095b3694b84cc0e78349186c58a76829afcfbf9134a5d300d54446e1509b1"
+      "sha256": "426bb49683497496581f4a9d6af4cbfe657cad6be2a87744297e0ddb727a030c"
     },
     {
       "path": "course-packs/e2e-course/generated/job-4/知识点.md",
