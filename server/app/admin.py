@@ -271,7 +271,7 @@ def set_key(name: str, body: KeyIn, actor: Actor = Depends(require("admin"))) ->
         """UPDATE model_endpoint
            SET api_key_path = %s, api_key_updated_at = now(), updated_by = %s, updated_at = now()
            WHERE name = %s""",
-        (f"{name}.key", actor.id, name),
+        (keystore.display_path(name), actor.id, name),
     )
     # 审计只记"配了密钥"，绝不记密钥内容
     _audit(actor, "set-model-key", name, "密钥已更新（内容不入库、不入日志）")

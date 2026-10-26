@@ -17,30 +17,51 @@ import os
 import re
 from pathlib import Path
 
-SECRETS_DIR = Path(os.environ.get("SECRETS_DIR", "secrets")).resolve()
+ROOT = Path(__file__).resolve().parents[2]
+# 必须绝对：Web 服务（WorkingDirectory=server）与 worker（=仓库根）是两个进程，
+# 用相对路径时两边解析到不同目录——页面显示"密钥已配置"，worker 却报 MissingKey。
+SECRETS_DIR = Path(os.environ.get("SECRETS_DIR") or (ROOT / "secrets")).resolve()
+# 历史版本按进程 cwd 落盘，Web 服务写到了 server/secrets/。只读兜底，避免升级后密钥"消失"。
+LEGACY_DIRS = (ROOT / "server" / "secrets",)
 NAME_RE = re.compile(r"^[a-z0-9._-]+$")
 
 
-def key_path(name: str) -> Path:
+def _check_name(name: str) -> None:
     if not NAME_RE.match(name or ""):
         raise ValueError("端点名称只能包含小写字母、数字、点、下划线、短横线")
+
+
+def key_path(name: str) -> Path:
+    _check_name(name)
     path = (SECRETS_DIR / f"{name}.key").resolve()
     if SECRETS_DIR not in path.parents:
         raise ValueError("非法的密钥路径")
     return path
 
 
+def display_path(name: str) -> str:
+    """写进数据库的路径：仓库相对，人一眼能看懂，preflight 也能直接拼。"""
+    _check_name(name)
+    return f"secrets/{name}.key"
+
+
 def read_key(name: str) -> str | None:
-    """读不到就返回 None（没配密钥是正常状态，不是错误）。"""
+    """读不到就返回 None（没配密钥是正常状态，不是错误）。
+
+    先读规范位置，再读历史位置：升级那一刻已有的密钥不该失效。
+    """
     try:
-        path = key_path(name)
+        candidates = [key_path(name)] + [folder / f"{name}.key" for folder in LEGACY_DIRS]
     except ValueError:
         return None
-    try:
-        value = path.read_text(encoding="utf-8").strip()
-    except OSError:
-        return None
-    return value or None
+    for path in candidates:
+        try:
+            value = path.read_text(encoding="utf-8").strip()
+        except OSError:
+            continue
+        if value:
+            return value
+    return None
 
 
 def write_key(name: str, value: str) -> Path:

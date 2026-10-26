@@ -28,6 +28,10 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS = ROOT / "db" / "migrations"
 SECRETS_HINTS = ("secrets", ".secrets")
 
+# 密钥是否存在，必须和运行时用同一套判断：keystore 决定路径，这里只问"读得到吗"。
+sys.path.insert(0, str(ROOT / "server"))
+from app import keystore  # noqa: E402
+
 PASS, WARN, FAIL, SKIP = "pass", "warn", "fail", "skip"
 MARKS = {PASS: "✓", WARN: "!", FAIL: "✗", SKIP: "-"}
 ASCII_MARKS = {PASS: "[OK]", WARN: "[!]", FAIL: "[X]", SKIP: "[-]"}
@@ -303,7 +307,9 @@ def _check_model_endpoints(cur) -> list[Check]:
 
     results: list[Check] = []
     for row in rows:
-        missing_key = bool(row["api_key_path"]) and not (ROOT / row["api_key_path"]).exists()
+        # 用运行时的同一套读法判断：以前这里拼 ROOT / api_key_path，
+        # 而库里的值是裸文件名，于是"配了密钥"也会被判成缺失。
+        missing_key = bool(row["api_key_path"]) and not keystore.read_key(row["name"])
         if missing_key:
             results.append(check(
                 f"模型端点 {row['kind']}",
