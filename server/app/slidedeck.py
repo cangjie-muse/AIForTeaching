@@ -14,10 +14,14 @@ from __future__ import annotations
 
 from io import BytesIO
 
+from lxml.etree import XMLSyntaxError
 from pptx import Presentation
+from pptx.oxml import parse_xml
 from pptx.dml.color import RGBColor
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.util import Emu, Inches, Pt
+
+from . import omml
 
 SLIDE_W = Inches(13.333)
 SLIDE_H = Inches(7.5)
@@ -117,8 +121,9 @@ def _content(prs, slide_plan: dict, meta: dict, page: int, total: int,
 
     paragraphs = [str(text).strip() for text in (slide_plan.get("paragraphs") or [])
                   if str(text).strip()]
-    equations = [str(item.get("text") or "").strip()
-                 for item in (slide_plan.get("equations") or []) if item.get("text")]
+    # 公式保留整个对象：latex 用来生成原生 OMML，text 用来做后备与降级
+    equations = [item for item in (slide_plan.get("equations") or [])
+                 if isinstance(item, dict) and (item.get("text") or item.get("latex"))]
 
     frame = _text(slide, MARGIN_X, BODY_TOP, SLIDE_W - 2 * MARGIN_X, BODY_H)
     first = True
@@ -133,18 +138,40 @@ def _content(prs, slide_plan: dict, meta: dict, page: int, total: int,
         paragraph.space_after = Pt(9)
         _run(paragraph, "· ", size=17, color=ACCENT, bold=True)
         _run(paragraph, line, size=17)
-    for text in equations:
+    for item in equations:
         paragraph = frame.paragraphs[0] if first else frame.add_paragraph()
         first = False
         paragraph.space_after = Pt(10)
         paragraph.alignment = PP_ALIGN.CENTER
-        _run(paragraph, text, size=20, italic=True, font=MONO_MATH, color=NAVY)
+        if _append_math(paragraph, item):
+            continue
+        # 转换不了就退成文字：一行公式是文字，好过整页失败
+        _run(paragraph, str(item.get("text") or ""), size=20, italic=True,
+             font=MONO_MATH, color=NAVY)
 
     note = slide_plan.get("speakerNote")
     if note:
         slide.notes_slide.notes_text_frame.text = str(note)
     _footer(slide, meta, page, total)
     return len(bullets)
+
+
+
+def _append_math(paragraph, item: dict) -> bool:
+    """把一条公式写成原生 OMML（带文字后备）。成功返回 True。
+
+    失败一律返回 False 让调用方降级成文字：公式转换是个"尽力而为"的环节，
+    它不该让整份课件生成失败——教师更可能接受一处公式是文字，而不是一整版空白。
+    """
+    latex = str(item.get("latex") or "").strip()
+    text = str(item.get("text") or "").strip()
+    if not latex or not text:
+        return False
+    try:
+        paragraph._p.append(parse_xml(omml.alternate_content(latex, text)))
+        return True
+    except (omml.Unsupported, XMLSyntaxError, ValueError):
+        return False
 
 
 def _estimate_lines(texts: list[str], chars_per_line: int) -> int:

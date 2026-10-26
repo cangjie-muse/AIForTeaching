@@ -49,17 +49,20 @@ GENERATE_SYSTEM = """你是大学数学课的助教，负责把一章/一节教�
 硬规则：
 
 1. 只能使用输入资料里出现的定义、命题、例子、习题与页号。资料里没有的定理、证明、页码、习题答案，一个字都不许补。某个知识点资料不足时，把这一页的 bullets 写成教师可接着填的骨架，并在 speakerNote 里写明"资料缺口：缺什么"。
-2. 结构按授课顺序，不按教材目录顺序：学习目标 → 概念与条件 → 推导或例子 → 课堂练习 → 小结。页数由内容决定（目标 {pages} 页左右），不为凑页数重复。
+2. 结构按授课顺序，不按教材目录顺序：学习目标 → 概念与条件 → 推导或例子 → 课堂练习 → 小结。页数由内容决定（目标 __PAGES__ 页左右），不为凑页数重复。
 3. 每一页要有实际内容：要点是完整的一句话或一个公式，不是"介绍某某"这种标题。
-4. 公式写成**纯文本**（Unicode 数学符号），例如 "ω = dθ"、"∫_a^b f(x)dx"、"λ² + 1 = 0"。不要写 LaTeX 命令：\\frac、\\int、\\mathbb 这些在幻灯片上会原样显示成乱码。需要分式就写成 "a/b"，需要根号写 "√x"。
+4. 每条公式给两个字段：`text` 是 Unicode 可读写法（`ω = dθ`、`∫_a^b f(x)dx`），它会作为
+   "渲染器不支持公式对象"时的后备，必须人能直接看懂；`latex` 是标准 LaTeX 源式，用来生成
+   PowerPoint 原生公式对象。latex 只用常规写法：`\\frac{a}{b}`、`\\sqrt{x}`、`x^{2}`、`a_{n}`、
+   `\\int_a^b`、`\\sum_{i=1}^{n}`、希腊字母命令；不要用自定义宏，不要用 `\\begin` 环境。
 5. 每页给 sourceNodeIds，只能取输入里给过的节点 ID；引用了习题的页，把习题 ID 放进 exerciseIds。不确定就不写，不要编 ID。
 6. speakerNote 写给教师看：这一页想讲什么、哪里需要板书、哪一句可能引起疑问。不要重复页面上的字。
 
 只输出 JSON，不要解释，不要 markdown 代码块：
-{{"title":"这一版课件的标题","subtitle":"副标题（可空）","slides":[
-  {{"title":"页标题","kind":"content","paragraphs":["整段说明（可空）"],
-    "bullets":["要点一","要点二"],"equations":[{{"text":"ω = dθ","latex":"\\\\omega = d\\\\theta"}}],
-    "sourceNodeIds":["analysis-ii-g003"],"exerciseIds":[],"bookPages":"p.12","speakerNote":"..."}}]}}
+{"title":"这一版课件的标题","subtitle":"副标题（可空）","slides":[
+  {"title":"页标题","kind":"content","paragraphs":["整段说明（可空）"],
+    "bullets":["要点一","要点二"],"equations":[{"text":"ω = dθ","latex":"\\\\omega = d\\\\theta"}],
+    "sourceNodeIds":["analysis-ii-g003"],"exerciseIds":[],"bookPages":"p.12","speakerNote":"..."}]}
 
 kind 取值：cover（第一页封面）、section（小节过渡）、content、exercise（课堂练习）、summary（小结）。"""
 
@@ -70,7 +73,7 @@ REVISE_SYSTEM = """你在修订一份已有的课堂幻灯片初稿。教师提�
 1. 输出**完整的新页面计划**（不是只给改动的页），格式与原来一致。没被意见涉及的页，标题与要点保持原样——教师会对比，无关改动等于制造噪声。
 2. 逐条落实教师的意见；意见里点明的页号优先处理。意见与资料冲突（比如要求证明资料里没有的结论、要求改一个正确公式）时，不要照改：保持原样，并把冲突写进该页 speakerNote，开头写"未采纳：……"。
 3. 新增内容仍只用输入资料里的事实；新增页同样要给 sourceNodeIds。
-4. 公式仍是纯文本 Unicode，不用 LaTeX 命令。
+4. 公式仍给 `text`（Unicode 可读）与 `latex`（标准 LaTeX 源式）两个字段，写法遵循原规则。
 5. 页数不要因为一次修改大幅膨胀：能在一页里加两条要点，就不要新开三页。
 
 只输出 JSON，结构与输入一致：{"title":...,"subtitle":...,"slides":[...]}"""
@@ -78,7 +81,7 @@ REVISE_SYSTEM = """你在修订一份已有的课堂幻灯片初稿。教师提�
 
 def generate_messages(context: dict, *, focus: str, pages: int, audience: str) -> list[dict]:
     return [
-        {"role": "system", "content": GENERATE_SYSTEM.format(pages=pages)},
+        {"role": "system", "content": GENERATE_SYSTEM.replace("__PAGES__", str(pages))},
         {"role": "user", "content": json.dumps({
             "course": context["course_title"],
             "chapter": context["chapter_title"],
@@ -216,8 +219,10 @@ def normalize_plan(raw, allowed_ids: set[str], pages: int) -> dict:
                 latex = _text(item.get("latex"), 200)
             else:
                 text, latex = _text(item, 120), ""
-            # text 里残留 LaTeX 命令时压成普通写法：幻灯片上 \frac{a}{b} 只会显示乱码
-            text = _latex_to_text(text)
+            # text 是给渲染器看不懂公式对象时用的后备，必须是能读的写法：
+            # 模型偶尔把 LaTeX 塞进 text，这里统一压成普通写法。
+            if "\\" in text:
+                text = _latex_to_text(text)
             if text:
                 equations.append({"text": text, "latex": latex})
         node_ids = [str(value) for value in (slide.get("sourceNodeIds") or [])

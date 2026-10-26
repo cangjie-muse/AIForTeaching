@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import sys
+import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -77,11 +78,38 @@ check("续页标题带（续）", any("（续）" in line for page in texts for 
 check("幻灯片上没有 LaTeX 反斜杠",
       not any("\\" in line for page in texts for line in page),
       str([line for page in texts for line in page if "\\" in line][:3]))
-check("公式是 Unicode 纯文本",
-      any("∫_a^b f(x)dx" in line for page in texts for line in page), "")
+with zipfile.ZipFile(target) as archive:
+    _xml = "".join(archive.read(name).decode("utf-8") for name in archive.namelist()
+                   if name.startswith("ppt/slides/slide") and name.endswith(".xml"))
+check("后备公式是可读文字", "∫_a^b f(x)dx" in _xml, "")
+# --- 原生公式：a14:m 数量、后备文字、无 LaTeX 残留 ---
+with zipfile.ZipFile(target) as archive:
+    slide_xml = [archive.read(name).decode("utf-8")
+                 for name in sorted(archive.namelist())
+                 if name.startswith("ppt/slides/slide") and name.endswith(".xml")]
+native = sum(page.count("<a14:m>") for page in slide_xml)
+check("公式写成原生 OMML", native == 1, f"{native} 处")
+check("原生公式带兼容后备", any("<mc:Fallback>" in page for page in slide_xml), "")
+check("幻灯片 XML 不含 LaTeX 残留",
+      not any("\\int" in page or "\\frac" in page for page in slide_xml), "")
+
 check("讲稿进了备注",
       any(slide.has_notes_slide and "先问" in slide.notes_slide.notes_text_frame.text
           for slide in prs.slides), "")
+
+degraded = slidedeck.render({"slides": [
+    {"title": "封面", "kind": "cover"},
+    {"title": "不能转换的公式", "equations": [
+        {"text": "自定义写法", "latex": "\\unknownmacro{x}"},
+        {"text": "ω = dθ", "latex": "\\omega = d\\theta"}]},
+]}, {})
+degraded_path = target.parent / "courseware-degrade.pptx"
+degraded_path.write_bytes(degraded)
+with zipfile.ZipFile(degraded_path) as archive:
+    degraded_xml = archive.read("ppt/slides/slide2.xml").decode("utf-8")
+check("一条能转、一条降级", degraded_xml.count("<a14:m>") == 1,
+      str(degraded_xml.count("<a14:m>")))
+check("降级的公式保留可读文字", "自定义写法" in degraded_xml or "ω = dθ" in degraded_xml, "")
 
 overlong = slidedeck.render({"slides": [
     {"title": "封面", "kind": "cover"},
