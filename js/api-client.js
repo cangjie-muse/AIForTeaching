@@ -568,6 +568,19 @@
     logout,
     changePassword,
     accounts,
+    coursewareChapters: (courseId) =>
+      request('GET', `/api/v1/courseware/chapters${queryString({ course_id: courseId })}`),
+    coursewareDeck: (deckId, version) =>
+      request('GET', `/api/v1/courseware/${encodeURIComponent(deckId)}${
+        version ? queryString({ version }) : ''}`),
+    coursewareCreate: (body) => request('POST', '/api/v1/courseware', { body }),
+    coursewareRevise: (deckId, body) =>
+      request('POST', `/api/v1/courseware/${encodeURIComponent(deckId)}/revise`, { body }),
+    coursewareStatus: (versionId, status) =>
+      request('POST', `/api/v1/courseware/versions/${encodeURIComponent(versionId)}/status`,
+        { body: { status } }),
+    coursewarePptxUrl: (versionId) =>
+      `${base()}/api/v1/courseware/versions/${encodeURIComponent(versionId)}/pptx`,
     homeworkList: (params) => request('GET', `/api/v1/homework${queryString(params || {})}`),
     homeworkGet: (id) => request('GET', `/api/v1/homework/${encodeURIComponent(id)}`),
     homeworkCreate: (courseId, title) =>

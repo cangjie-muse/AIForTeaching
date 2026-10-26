@@ -50,8 +50,8 @@
   }
   A.views.courseware = function () {
     const ctx = context(), { course, chapters, chapter, manifest, versions, version } = ctx;
-    return A.sectionTitle('COURSEWARE STUDIO', '课件生成与修改', '按课程与章节整理课件、修改建议和历史版本。', A.badge('AI 服务待接入', 'amber')) +
-      `<div class="courseware-top">${courseSelect(course)}<p>当前仅展示已制作的示范课件；“生成新版”尚不调用在线模型。</p></div>` +
+    return A.sectionTitle('COURSEWARE STUDIO', '课件生成与修改', '按章/节生成初版课件，再按你的意见逐版修改；每一版都留档。', A.badge('AI 初稿 · 教师确认后使用', 'amber')) +
+      `<div class="courseware-top">${courseSelect(course)}<p>上面的工坊是真跑的；下面这份是已做好的示范课件，用来对照版式与公式呈现。</p></div>` + A.coursewareStudio() +
       `<div class="courseware-layout"><aside class="panel courseware-side"><div class="eyebrow">CHAPTERS</div><h2>章节列表</h2>${chapterList(course, chapters, chapter)}</aside><div class="courseware-main">${chapter ? `<section class="panel courseware-heading"><div><span>${e(course.title)} · ${e(chapter.title)}</span><h2>${e(chapter.title)}</h2><p>${course.nodes.filter(node => node.chapterId === chapter.id && node.kind === 'knowledge').length} 个知识点 · ${new Set(course.nodes.filter(node => node.chapterId === chapter.id).flatMap(node => node.exerciseIds)).size} 道关联习题</p></div>${A.badge(versions.length ? `已生成 ${versions.length} 版 · ${version?.status === 'needs-review' ? '待审核' : '演示'}` : '未生成', versions.length ? 'blue' : '')}</section><section class="panel courseware-history"><div class="panel-heading"><div><div class="eyebrow">VERSION HISTORY</div><h2>课件版本</h2></div><span>${versions.length} 个版本</span></div>${versionList(course, chapter, versions, version)}</section>${slidePreview(ctx)}${versionNotes(version)}${feedback(ctx)}${manifest?.notice ? `<p class="courseware-notice">${e(manifest.notice)}</p>` : ''}` : A.empty('book', '请选择有章节的课程', '导入课程资源包后，章节会自动显示在这里。')}</div></div>`;
   };
   A.inputs['courseware-course'] = input => A.go('courseware', {}, input.value);

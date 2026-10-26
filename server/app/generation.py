@@ -533,7 +533,8 @@ def claim_next() -> dict | None:
     candidate = db.query_one(
         """SELECT id FROM pipeline_job
             WHERE status = 'queued'
-              AND kind IN ('generate', 'generate-book', 'grade-homework')
+              AND kind IN ('generate', 'generate-book', 'grade-homework',
+                           'courseware-generate', 'courseware-revise')
             ORDER BY created_at
             LIMIT 1"""
     )
@@ -779,6 +780,10 @@ def run_job(job_id: int) -> dict:
     if not job:
         raise ValueError(f"任务不存在：{job_id}")
     payload = job["payload"] or {}
+
+    if job["kind"] in ("courseware-generate", "courseware-revise"):
+        from . import courseware
+        return courseware.run_job(job)
 
     if job["kind"] == "grade-homework":
         from . import homework

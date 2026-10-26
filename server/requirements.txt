@@ -8,3 +8,5 @@ httpx==0.28.1
 # 教材 PDF 抽文字（scripts/extract_pdf.py 与 generation 章节切分都用它）。
 # 不钉死小版本：它能装的版本跟着 Python 版本走，写死一个反而装不上；上限留在大版本。
 pypdf>=5.1,<7
+# 课件（PPT）渲染：按结构化页面计划生成可编辑 pptx。
+python-pptx>=1.0,<2

@@ -1,0 +1,314 @@
+/* 课件工坊。
+ *
+ * 布局只有一条原则：**上面生成、下面看结果、最下面提意见**，
+ * 三件事按操作顺序竖着排，不要横向摊开——教师是来做一件具体的事，
+ * 不是来逛仪表盘。
+ */
+
+.cw-studio {
+  margin-bottom: 18px;
+}
+
+.cw-form {
+  display: grid;
+  grid-template-columns: 220px 120px minmax(0, 1fr);
+  gap: 12px 16px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .cw-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.cw-form label,
+.cw-revise label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+  color: #475569;
+}
+
+.cw-form select,
+.cw-form input,
+.cw-form textarea,
+.cw-revise textarea {
+  padding: 8px 10px;
+  border: 1px solid #d7dee8;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  background: #fff;
+  color: #1f2d3d;
+}
+
+.cw-form textarea,
+.cw-revise textarea {
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.cw-wide {
+  grid-column: 3;
+}
+
+@media (max-width: 900px) {
+  .cw-wide {
+    grid-column: auto;
+  }
+}
+
+.cw-form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cw-form-actions small {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* 版本：一行一版，页数/时间在中间，状态在右边 */
+.cw-versions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.cw-version {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #e3e8ef;
+  border-radius: 10px;
+  background: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cw-version:hover {
+  border-color: #b8cdf0;
+  background: #f8fbff;
+}
+
+.cw-version.active {
+  border-color: #2f6fd0;
+  box-shadow: 0 0 0 1px #2f6fd0 inset;
+}
+
+.cw-vnum {
+  flex-shrink: 0;
+  width: 42px;
+  font-weight: 600;
+  font-size: 13px;
+  color: #2f6fd0;
+}
+
+.cw-vmain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.cw-vmain small {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.cw-err {
+  color: #b42318;
+}
+
+.cw-vside {
+  flex-shrink: 0;
+}
+
+.cw-selected-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid #eef2f7;
+}
+
+.cw-selected-head b {
+  font-size: 15px;
+}
+
+.cw-selected-head small {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.cw-actions-inline {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cw-warn {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #fffaf2;
+  border: 1px solid #f3d6a8;
+  color: #b45309;
+  font-size: 12.5px;
+}
+
+.cw-changes {
+  margin: 12px 0;
+  font-size: 12.5px;
+  color: #334155;
+}
+
+.cw-changes summary {
+  cursor: pointer;
+  color: #2f6fd0;
+}
+
+.cw-changes ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cw-changes span {
+  display: inline-block;
+  min-width: 62px;
+  color: #64748b;
+}
+
+.cw-instruction {
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #f7f9fc;
+  font-size: 12.5px;
+  color: #475569;
+}
+
+/* 幻灯片预览：像翻页一样一页一块，标题与正文分离 */
+.cw-slides {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.cw-slide {
+  border: 1px solid #e8edf4;
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #fdfefe;
+}
+
+.cw-slide header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.cw-pageno {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: #eef4ff;
+  color: #2f6fd0;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cw-slide header b {
+  font-size: 14px;
+}
+
+.cw-slide header small {
+  color: #94a3b8;
+  font-size: 11.5px;
+  margin-left: auto;
+}
+
+.cw-slide p {
+  margin: 6px 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #1f2d3d;
+}
+
+.cw-slide ul {
+  margin: 6px 0;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #1f2d3d;
+}
+
+.cw-math {
+  margin: 8px 0;
+  text-align: center;
+  font-family: "Cambria Math", Georgia, serif;
+  font-style: italic;
+  font-size: 15px;
+  color: #142a4c;
+}
+
+.cw-note {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-left: 3px solid #c7d8f2;
+  background: #f7faff;
+  font-size: 12px;
+  color: #475569;
+}
+
+.cw-src {
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  color: #94a3b8;
+}
+
+.cw-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 26px 12px;
+  color: #64748b;
+  text-align: center;
+  font-size: 13px;
+}
+
+.cw-revise {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #eef2f7;
+}
+
+.cw-revise label {
+  flex: 1 1 420px;
+}
