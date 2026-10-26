@@ -3,7 +3,8 @@
 GitHub 在校园网里经常连不上，`git push` 卡住或超时。换到 Gitee 后代码托管在国内，直连即可。
 这份文档覆盖三件事：建仓库、本地切、服务器切。
 
-> 本文里的 `<用户名>` 换成你自己的 Gitee 用户名。私有仓库的完整地址形如
+> 本文里的 `<用户名>` 换成你自己的 Gitee 用户名。
+> **本仓库实际使用 `dr_chan`**：`https://gitee.com/dr_chan/AIForTeaching.git`（私有）。私有仓库的完整地址形如
 > `git@gitee.com:<用户名>/AIForTeaching.git`。
 
 ---
@@ -193,6 +194,7 @@ npm run check          # 现在 818 项
 | `repository not found` | 地址写错，或用了别人的用户名 | 仓库首页复制地址，别手打 |
 | `! [rejected] main -> main (fetch first)` | Gitee 仓库里已有初始提交 | `git pull --rebase origin main` 再 push |
 | push 卡在 `Writing objects` | 网络或体积 | 换 SSH；确认没提交大文件 |
+| `remote: error: hook declined to update refs/heads/main` 且提示 `Push will publish a hidden email` | Gitee 账号把邮箱设成了「不公开」，而历史提交里带的是真实邮箱 | Gitee → 设置 → 邮箱管理 → 取消「不公开我的邮箱地址」（或把该邮箱设为公开）后重推。不要靠改写历史绕过：改邮箱会让所有提交哈希变化，GitHub 上的历史也跟着分叉 |
 | 服务器 `git pull` 还去 GitHub | 远程没改 | 第 3 步的 `set-url` 没跑或跑在别的目录 |
 
 ---
