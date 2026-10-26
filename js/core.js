@@ -15,7 +15,22 @@ App.save = function () {
   catch (error) { console.error('[storage/save]', error); App.toast('浏览器无法保存记录，请使用“导出学习记录”。'); return false; }
 };
 App.log = (action, data) => { if (App.local.debug) console.info(new Date().toISOString(), action, data); };
-App.allCourses = () => CourseCatalog.merge(App.courses);
+// 目录里到底有几门课：以库为准。
+//
+// 离线包（window.COURSE_DATA）里还留着规划课的条目，CourseCatalog.merge 会把它们
+// 并进列表。线上运行时这些课在库里根本没有记录：卡片点不进去、没有知识点，
+// 却照样被算进「门课程」——于是统计写 43，实际能打开的只有 33 门。
+// 连上库以后只保留库里有行的课（courseRows 非空才这么过滤，避免离线时清空）。
+App.allCourses = () => {
+  const merged = CourseCatalog.merge(App.courses);
+  const rows = App.courseRows || [];
+  if (App.dataSource !== 'db' || !rows.length) return merged;
+  const known = new Set(rows.map(row => row.id));
+  // 只清掉"离线包里有、库里没有"的课；不在离线包里的课（比如测试夹具、
+  // 或将来从别处并入的课）不归这条规则管，别误杀。
+  const staticIds = new Set(App.staticCourseIds || []);
+  return merged.filter(course => !staticIds.has(course.id) || known.has(course.id));
+};
 
 // 数据从哪来。'static' = 还没连后端（页面自带的离线包）；'db' = 已按数据库对齐；
 // 'offline' = 连过但失败了。界面要能说清楚"你现在看到的是旧包还是库里的内容"，

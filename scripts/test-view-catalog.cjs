@@ -98,6 +98,12 @@ check('保留的课用的是库里的内容',
 check('未发布的课不进学生目录', !App.courses.some(c => c.id === 'real-analysis'));
 check('未发布的课记进"建设中"', (App.draftCourses.find(c => c.id === 'real-analysis') || {}).exercises === 337);
 check('数据来源标为数据库', App.dataSource === 'db', App.dataSource);
+// 离线包里残留的规划课（库里没有）不该算进目录：统计写 43、实际只有 33 门能打开
+const staticOnly = (sandbox.COURSE_DATA || []).map(c => c.id)
+  .filter(id => !['analysis-ii', 'real-analysis'].includes(id));
+check('库里没有的离线包课程不进目录统计',
+  staticOnly.every(id => !App.allCourses().some(c => c.id === id)),
+  JSON.stringify(staticOnly.slice(0, 3)));
 
 App.state.auth = { status: 'ready', actor: { id: 'acc-t', role: 'teacher', display_name: '王老师' } };
 console.log('\n教师端目录：');
