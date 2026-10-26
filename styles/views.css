@@ -23,6 +23,12 @@
 .course-card-body{padding:18px 19px 16px}
 .card-category{font-size:10px;color:#758aaa;display:flex;justify-content:space-between;gap:8px}
 .card-category span{color:#a0aab8}
+/* 卡片上的「归类」：字要小、颜色要像可点的链接，不能抢过课程名。
+   它是按钮不是链接——点开是弹窗，不是跳页。 */
+.card-cat-right{display:inline-flex;align-items:center;gap:8px}
+.card-tag{font:inherit;font-size:10px;color:#2f6fd0;background:none;border:0;padding:0;
+  cursor:pointer;text-decoration:underline;text-underline-offset:2px;text-decoration-style:dotted}
+.card-tag:hover{color:#1d4f9c;text-decoration-style:solid}
 .course-card-body h3{font-size:17px;margin:9px 0 8px}
 .course-card-body p{font-size:11px;color:#939cac;line-height:1.85;min-height:40px}
 .course-card-foot{border-top:1px solid #edf0f5;margin-top:16px;padding-top:13px;display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#8391a6}

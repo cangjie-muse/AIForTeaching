@@ -156,7 +156,7 @@ def list_courses() -> dict:
     rows = db.query(
         """
         SELECT c.id, c.title, c.audience, c.subject, c.status, c.review_status,
-               c.direction,
+               c.direction, c.created_by,
                (SELECT count(*) FROM knowledge_node k
                  WHERE k.course_id = c.id AND k.kind = 'knowledge') AS knowledge_count,
                (SELECT count(*) FROM exercise e WHERE e.course_id = c.id) AS exercise_count,

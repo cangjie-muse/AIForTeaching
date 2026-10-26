@@ -1,8 +1,37 @@
 (function () {
   const A = App, e = A.escape;
+
+  /* 谁能改这门课的归类：管理员可以改全部，老师只能改自己导入的。
+     老课程 created_by 是空的（这字段出现之前就在库里），服务端把空值当成
+     "任何老师都能改"，这里跟着放行，两边判断保持一致。 */
+  function canTag(course) {
+    if (A.dataSource !== 'db' || !A.auth || !A.auth.is('teacher', 'admin')) return false;
+    const row = (A.courseRows || []).find(item => item.id === course.id);
+    // 静态目录里有、库里没有的课改不了：PATCH 打过去只会 404。
+    if (!row) return false;
+    if (A.auth.role() === 'admin') return true;
+    const owner = row.created_by;
+    const actor = A.auth.actor() || {};
+    return !owner || owner === actor.id;
+  }
+
+  /* 「待归类」是死文字，人看到它只会问「在哪儿改」。把入口放在它旁边：
+     新导入的课落在目录末尾，要归位不该先点进课程、再翻到「修改与导出」。
+     点开用弹窗而不是卡片内浮层——.course-card 是 overflow:hidden，浮层会被裁掉。 */
+  function tagButton(course) {
+    if (!canTag(course)) return '';
+    return `<button type="button" class="card-tag" data-action="catalog-tag" data-id="${e(course.id)}"
+      title="改这门课的学科归类">归类</button>`;
+  }
+
+  function groups() {
+    return (window.CourseCatalog && window.CourseCatalog.groups) || [];
+  }
+
   function courseCard(course) {
     const ready = course.status === 'ready';
-    return `<a class="course-card" data-course-id="${e(course.id)}" href="${A.url('overview', course.id)}">${A.visual.courseCover(course)}<div class="course-card-body"><div class="card-category">${e(course.direction || course.categoryLabel || course.subject)}<span>${ready ? '已接入' : '待建设'}</span></div><h3>${e(course.title)}</h3><p>${e(course.description)}</p><div class="course-card-foot"><span>${ready ? `${course.stats.knowledge} 个知识点 <i>·</i> ${course.stats.exercises} 道习题` : '知识图谱 · 习题 · AI 助教'}</span><span class="circle-arrow">${A.icon('arrow')}</span></div></div></a>`;
+    const label = e(course.direction || course.categoryLabel || course.subject);
+    return `<a class="course-card" data-course-id="${e(course.id)}" href="${A.url('overview', course.id)}">${A.visual.courseCover(course)}<div class="course-card-body"><div class="card-category">${label}<span class="card-cat-right">${ready ? '已接入' : '待建设'}${tagButton(course)}</span></div><h3>${e(course.title)}</h3><p>${e(course.description)}</p><div class="course-card-foot"><span>${ready ? `${course.stats.knowledge} 个知识点 <i>·</i> ${course.stats.exercises} 道习题` : '知识图谱 · 习题 · AI 助教'}</span><span class="circle-arrow">${A.icon('arrow')}</span></div></div></a>`;
   }
   function catalogGroup(group, all) {
     const courses = all.filter(course => course.groupId === group.id);
@@ -12,6 +41,41 @@
     const steps = [['01', '从定义出发', '查阅条件、公式与出处'], ['02', '沿结构展开', '在章节中定位知识点'], ['03', '用习题检验', '记录推导，回看简解']];
     return `<div class="whu-study-sequence" aria-label="数学研习路径">${steps.map(([number, title, detail]) => `<div><span class="whu-step-index">${number}</span><span><b>${title}</b><small>${detail}</small></span></div>`).join('')}</div>`;
   }
+
+  /* 卡片上的「归类」：弹出一个方向列表，点哪个就归到哪组。
+     保存后重拉目录——分组是前端按 direction 算的，不重拉就还显示在旧组里。 */
+  A.actions['catalog-tag'] = function (button) {
+    const course = (A.allCourses() || []).find(item => item.id === button.dataset.id) || {};
+    const current = String(course.direction || '');
+    const choices = [{ id: '', label: '待归类' }, ...groups()];
+    const rows = choices.map(choice => {
+      const active = choice.id ? (choice.id === current || choice.label === current) : !current;
+      return `<button class="btn${active ? ' primary' : ''}" data-action="catalog-tag-pick"
+        data-id="${e(course.id)}" data-direction="${e(choice.id)}" data-label="${e(choice.label)}">${e(choice.label)}</button>`;
+    }).join('');
+    A.openDialog(`归类：${e(course.title || '课程')}`, `<p class="muted small">
+      现在归在「${e(course.direction || '待归类')}」。选一个学科方向，保存后它立刻出现在课程中心对应分组。</p>
+      <div class="button-row">${rows}</div>`);
+  };
+
+  A.actions['catalog-tag-pick'] = async function (button) {
+    const courseId = button.dataset.id;
+    const direction = button.dataset.direction || '';
+    const label = button.dataset.label || '待归类';
+    button.disabled = true;
+    try {
+      const result = await A.api.updateCourse(courseId, { direction });
+      const dialog = document.getElementById('dialog');
+      if (dialog && dialog.open) dialog.close();
+      A.toast(result && result.changed && result.changed.includes('direction')
+        ? `已归入「${label}」` : '归类没有变化');
+      if (typeof A.loadCatalog === 'function') await A.loadCatalog();
+      A.render();
+    } catch (error) {
+      button.disabled = false;
+      A.toast(`没保存成功：${error.message}`);
+    }
+  };
   // 库里存在但没发布的课：学生看不到，教师要知道"它在，只是还没放出去"。
   // 做成卡片而不是藏起来——藏起来的话，新导入的课会像凭空消失。
   /* 「建设中」卡片点进来：直接打开这门课的「修改与导出」。

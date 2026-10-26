@@ -70,6 +70,7 @@ const files = ['js/course-catalog.js', 'js/course-cover-art.js', 'js/core.js',
   'js/pages.js', 'js/auth.js', 'js/catalog-view.js', 'js/app.js'];
 vm.runInContext(files.map(file => read(file)).join('\n;\n'), sandbox, { filename: 'catalog.js' });
 
+(async () => {
 const App = sandbox.window.App;
 const CourseCatalog = sandbox.window.CourseCatalog;
 const CourseGroupIdOf = label => (CourseCatalog.groups.find(group => group.label === label) || {}).id;
@@ -126,10 +127,44 @@ check('搜索与标签在同一个吸顶工具条里',
 check('建设中卡片带上这门课的 id', /data-action="course-open-content" data-id="real-analysis"/.test(html),
   '');
 
+console.log('\n卡片上直接归类：');
+App.state.auth = { status: 'ready', actor: { id: 'acc-t', role: 'teacher', display_name: '王老师' } };
+html = App.views.catalog();
+check('老师在自己导入的课上看到「归类」',
+  /class="card-tag" data-action="catalog-tag" data-id="analysis-ii"/.test(html), '');
+check('归类入口在卡片右上，不另起一行', /card-cat-right[^>]*>[\s\S]{0,120}catalog-tag/.test(html), '');
+
+// 库里记着是谁导入的：不是自己导的课，老师不该看到入口（服务端也会 403）
+App.courseRows = [{ id: 'analysis-ii', created_by: 'acc-other' }];
+html = App.views.catalog();
+check('别人导入的课不给归类入口', !/data-action="catalog-tag"/.test(html), '');
+App.courseRows = [{ id: 'analysis-ii', created_by: '' }];
+html = App.views.catalog();
+check('老课程没有导入人时老师仍可归类', /data-action="catalog-tag"/.test(html), '');
+App.courseRows = [{ id: 'analysis-ii', created_by: 'acc-t' }];
+
+App.actions['catalog-tag']({ dataset: { id: 'analysis-ii' } });
+const dialogBody = element('dialog').innerHTML;
+check('点归类弹出方向列表', dialogBody.includes('选一个学科方向'), '');
+check('列表里六个方向都在',
+  ['分析', '代数与数论', '几何与拓扑', '微分方程', '概率统计', '计算与应用']
+    .every(label => dialogBody.includes(label)), '');
+check('列表里留了「待归类」', /data-direction=""[^>]*>待归类/.test(dialogBody), '');
+
+const saved = [];
+let reloads = 0;
+App.api.updateCourse = async (id, patch) => { saved.push([id, patch]); return { changed: ['direction'] }; };
+App.loadCatalog = async () => { reloads += 1; };
+App.render = () => {};
+await App.actions['catalog-tag-pick']({ dataset: { id: 'analysis-ii', direction: 'geometry', label: '几何与拓扑' }, disabled: false });
+check('选中方向后写库', saved.length === 1 && saved[0][1].direction === 'geometry', JSON.stringify(saved));
+check('改完重拉目录（分组要跟着变）', reloads === 1, String(reloads));
+
 App.state.auth = { status: 'ready', actor: { id: 'acc-s', role: 'student', display_name: '小明' } };
 console.log('\n学生端目录：');
 html = App.views.catalog();
 check('学生看不到"建设中"区块', !html.includes('建设中（未发布）'), '');
+check('学生看不到归类入口', !html.includes('data-action="catalog-tag"'), '');
 
 console.log('\n目录按学科方向组织：');
 App.dataSource = 'db';
@@ -160,3 +195,4 @@ if (failures.length) {
   process.exit(1);
 }
 console.log('课程目录数据来源测试全部通过。');
+})();

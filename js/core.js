@@ -75,6 +75,8 @@ App.applyDbCatalog = function (dbCourses, publishedCourses) {
     }));
   // 方向存在库里的 course.direction，内容接口不带它：在这儿补一次，
   // 否则 CourseCatalog.merge 只能看到静态表里的方向，改归类等于没改。
+  // 原始行留在手边：卡片上的「归类」入口要用 created_by 判断谁有权改。
+  App.courseRows = rows;
   const directions = new Map(rows.map(row => [row.id, row.direction || '']));
   App.courses.forEach(course => {
     course.direction = directions.get(course.id) || course.direction || '';
