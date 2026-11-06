@@ -158,7 +158,7 @@ class AssignmentRow(ContractModel):
     visible_at: datetime
     due_at: datetime
     hard_close_at: datetime
-    distribution_kind: Literal["print"] = "print"
+    # 阶段 A 只有打印卷；阶段 C 打开 online/both（0036 已扩 CHECK）。`n    distribution_kind: Literal["print", "online", "both"] = "print"
     status: AssignmentStatus = "draft"
     created_by: UUID
     created_at: datetime
