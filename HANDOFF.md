@@ -48,13 +48,20 @@
   并入队（202 响应**不含** solutions）；`AssemblyService.execute(run_id)` 是 worker
   路径，幂等（终态不重解）、求解输入用运行行里固定的候选清单（重取会让重试换一套
   输入）、清单哈希对不上时记 FAILED 且不求解。前端排队时明确说"还没有结论"。
+- **方案复验**（`server/app/assembly/verification.py`）：只看方案与蓝图，核对分值/总分/
+  缺槽/重复槽/候选来源/时长/覆盖/题型/同题重复/互斥组；建卷**之前**跑，不通过就
+  把运行标 `FAILED` 并把 issues 写进诊断——这是"CP-SAT 硬约束与独立复验一致"那条
+  门禁里不需要求解器的一半。缺时长报 `duration_unknown`，不虚构 0 秒。
+- **A/B 配对入口**：组卷页运行历史里可把另一次已解出的运行「与本页运行配 A/B」；
+  配不上用 `role="alert"` 逐条显示重叠槽位，绝不画成绿色成功；成功也仍写
+  「不代表统计等值」与「仍需分别送审」。
 - 阶段 A 的两处必要改动：`blueprints.py` 允许 `constraint_assisted`；
   `papers.py` 的 INSERT 真的写 `assembly_run_id/selected_solution_index`，并按蓝图
   模式双向校验来源。
 
 验证（本机 2026-11-06）：`test_assembly_blueprint/candidate/diagnostics/comparator/
-ab/pipeline/api/worker` 合计 128 项、`test_load_assembly.py` 5 项、
-`test-view-paper-assembly.cjs` 73 项全过；`npm run test:migrations`
+ab/verification/pipeline/api/worker` 合计 147 项、`test_load_assembly.py` 5 项、
+`test-view-paper-assembly.cjs` 81 项全过；`npm run test:migrations`
 35/35 迁移、断言 12/12、SQL 级重放 9/9；阶段 A 的 blueprints/papers/validation/
 acceptance 无回归。
 
