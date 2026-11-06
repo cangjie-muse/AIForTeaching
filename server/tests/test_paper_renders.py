@@ -106,6 +106,14 @@ def client() -> TestClient:
     return TestClient(app)
 
 
+def client_with(service) -> TestClient:
+    """把渲染服务换成桩：路由的授权依赖由 FastAPI 注入，替换依赖比打补丁稳。"""
+    app = FastAPI()
+    app.include_router(api.router)
+    app.dependency_overrides[api.get_render_service] = lambda: service
+    return TestClient(app)
+
+
 def test_enqueues_only_missing_kinds() -> None:
     enqueued = install(ready={"student"})
     response = client().post(f"/api/v1/paper-versions/{PAPER}/renders", json={},
@@ -205,6 +213,155 @@ def test_paper_write_action_survives_the_real_authorizer_chain() -> None:
     else:  # pragma: no cover - 若将来白名单放开，这条会提醒回来改注释
         raise AssertionError("CourseScopeAuthorizer 意外接受了未映射的动作 paper.write")
 
+
+# ---------------------------------------------------------------------------
+# 三类产物的读取与下载
+# ---------------------------------------------------------------------------
+
+STUDENT_RENDER = UUID("77777777-7777-5777-8777-777777777777")
+ANSWER_RENDER = UUID("88888888-8888-5888-8888-888888888888")
+RUBRIC_RENDER = UUID("99999999-9999-5999-8999-999999999999")
+
+
+def _record(render_id, kind: str):
+    from datetime import datetime, timezone
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        id=render_id,
+        render_kind=kind,
+        output_hash=(kind[0] * 64),
+        paper_manifest_hash="m" * 64,
+        created_at=datetime(2026, 11, 6, 8, 0, tzinfo=timezone.utc),
+    )
+
+
+def _subject(status: str = "approved"):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        paper_version_id=PAPER,
+        status=status,
+        manifest_hash="m" * 64,
+        course_title="数学分析 I",
+        version_short_code="A-01",
+    )
+
+
+class StubRenderService:
+    """只实现路由用到的两个方法；参数校验留在真实服务里由 test_rendering 覆盖。"""
+
+    def __init__(self, *, renders=None, status="approved",
+                 list_error: Exception | None = None,
+                 download_error: Exception | None = None,
+                 denied: bool = False) -> None:
+        self.renders = renders if renders is not None else [
+            _record(STUDENT_RENDER, "student"), _record(ANSWER_RENDER, "answer")]
+        self.subject = _subject(status)
+        self.list_error = list_error
+        self.download_error = download_error
+        self.denied = denied
+
+    def list_current_renders(self, actor_id, paper_version_id):
+        if self.denied:
+            raise PermissionError("没有任何卷种的导出权限")
+        if self.list_error:
+            raise self.list_error
+        return self.subject, tuple(self.renders)
+
+    def download(self, actor_id, render_id):
+        if self.denied:
+            raise PermissionError("没有该卷种的导出权限")
+        if self.download_error:
+            raise self.download_error
+        record = next((row for row in self.renders if row.id == render_id), None)
+        if record is None:
+            from app.rendering import PaperRenderNotFoundError
+
+            raise PaperRenderNotFoundError(f"渲染不存在：{render_id}")
+        return b"<html>paper</html>", record, self.subject
+
+
+def test_list_reports_current_manifest_renders_and_missing_kinds() -> None:
+    service = StubRenderService()
+    response = client_with(service).get(f"/api/v1/paper-versions/{PAPER}/renders",
+                                        headers=TEACHER)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert [item["render_kind"] for item in body["renders"]] == ["student", "answer"]
+    assert body["missing_kinds"] == ["rubric"]
+    # 顺序永远按 student/answer/rubric：列表顺序随数据库返回顺序变，教师会以为少了卷种
+    assert body["renders"][0]["download_path"].endswith(f"{STUDENT_RENDER}/download")
+    # 没有 PDF 依赖就不要在接口里假装有：前端要能把这句话显示给教师
+    assert body["pdf_implemented"] is False
+    assert body["media_type"].startswith("text/html")
+    assert body["manifest_hash"] == "m" * 64
+
+
+def test_list_denied_is_403() -> None:
+    response = client_with(StubRenderService(denied=True)).get(
+        f"/api/v1/paper-versions/{PAPER}/renders", headers=TEACHER)
+    assert response.status_code == 403, response.text
+    assert response.json()["detail"]["code"] == "render_scope_denied"
+
+
+def test_list_of_withdrawn_paper_is_410() -> None:
+    from app.rendering import PaperRenderWithdrawnError
+
+    service = StubRenderService(list_error=PaperRenderWithdrawnError("卷子已撤回"))
+    response = client_with(service).get(f"/api/v1/paper-versions/{PAPER}/renders",
+                                        headers=TEACHER)
+    assert response.status_code == 410, response.text
+    assert response.json()["detail"]["code"] == "paper_withdrawn"
+
+
+def test_download_forces_attachment_and_no_sniff() -> None:
+    response = client_with(StubRenderService()).get(
+        f"/api/v1/paper-renders/{STUDENT_RENDER}/download", headers=TEACHER)
+    assert response.status_code == 200, response.text
+    assert response.content == b"<html>paper</html>"
+    assert response.headers["content-type"].startswith("text/html")
+    # 同源 HTML 若被内联渲染就成了可执行文档：三件事必须同时在
+    assert response.headers["content-disposition"].startswith("attachment;")
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["content-security-policy"] == "sandbox"
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_download_filename_keeps_chinese_and_ascii_fallback() -> None:
+    headers = client_with(StubRenderService()).get(
+        f"/api/v1/paper-renders/{ANSWER_RENDER}/download", headers=TEACHER).headers
+    disposition = headers["content-disposition"]
+    # ASCII 兜底：中文课程名不能原样塞进 filename=（有的客户端会截断成乱码）
+    ascii_part = disposition.split("filename=")[1].split(";")[0]
+    assert ascii_part.isascii() and ascii_part.endswith(".html"), ascii_part
+    # RFC 5987 原名用百分号编码，教师下载后仍能认出是哪门课的哪一份
+    assert "filename*=UTF-8''" in disposition
+    assert "%E6%95%B0%E5%AD%A6%E5%88%86%E6%9E%90" in disposition  # 数学分析
+    assert "answer" in disposition
+
+
+def test_download_unknown_render_is_404() -> None:
+    response = client_with(StubRenderService()).get(
+        f"/api/v1/paper-renders/{RUBRIC_RENDER}/download", headers=TEACHER)
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"]["code"] == "render_not_found"
+
+
+def test_download_denied_is_403() -> None:
+    response = client_with(StubRenderService(denied=True)).get(
+        f"/api/v1/paper-renders/{ANSWER_RENDER}/download", headers=TEACHER)
+    assert response.status_code == 403, response.text
+    assert response.json()["detail"]["code"] == "render_scope_denied"
+
+
+def test_download_of_withdrawn_paper_is_410() -> None:
+    from app.rendering import PaperRenderWithdrawnError
+
+    service = StubRenderService(download_error=PaperRenderWithdrawnError("卷子已撤回"))
+    response = client_with(service).get(
+        f"/api/v1/paper-renders/{STUDENT_RENDER}/download", headers=TEACHER)
+    assert response.status_code == 410, response.text
 
 
 def run_tests() -> int:
