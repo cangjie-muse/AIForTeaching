@@ -89,7 +89,8 @@
   function S() {
     return A.state.paperAssembly = A.state.paperAssembly || {
       courseId: null, blueprints: [], selectedId: null, selected: null,
-      runs: [], run: null, supply: null, comparison: null, loading: false, loaded: false,
+      runs: [], run: null, supply: null, comparison: null, queued: null,
+      loading: false, loaded: false,
       busy: null, error: null, message: null, created: null,
       config: { random_seed: '20261105', time_limit_seconds: '30', max_solutions: '3' }
     };
@@ -153,6 +154,9 @@
         : '超时，无可行解；未创建试卷。';
     }
     if (run.status === 'infeasible') return '原硬约束不可行；未自动放松，也未创建试卷。';
+    if (run.status === 'queued' || run.status === 'running') {
+      return '求解还在队列里或正在跑：现在没有结论，也不会有卷子。';
+    }
     if (run.status === 'failed') return '这次运行失败；未创建试卷。';
     if (run.status === 'cancelled') return '运行已取消；未创建试卷。';
     return `运行进行中：${A.paperAssemblyStatus(run)}。`;
@@ -587,6 +591,15 @@
     }
     return run('start', () => A.api.startAssemblyRun(state.selected.id, config, newKey('run'))
       .then(row => {
+        if (row.queued) {
+          // 排队路径：这时还没有结论，不能当成"求解完成"来说。
+          state.queued = row;
+          state.run = null;
+          state.created = null;
+          return `已排队（job ${String(row.job_id || '—')}）：求解在后台跑，`
+            + '完成后刷新本页看结论。';
+        }
+        state.queued = null;
         state.run = row;
         state.created = null;
         state.runs = [row].concat((state.runs || []).filter(

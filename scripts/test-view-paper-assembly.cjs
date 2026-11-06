@@ -243,6 +243,18 @@ const hostileHtml = App.paperAssemblyHtml(stateOf({
 check('外部字符串被转义', !hostileHtml.includes('<img')
   && hostileHtml.includes('&lt;img'));
 
+// --- 排队路径 --------------------------------------------------------------------
+
+const queuedHtml = App.paperAssemblyHtml(stateOf({
+  run: null, queued: { assembly_run_id: 'run-q', status: 'queued', job_id: '42' }
+}));
+check('排队后页面说明还没有结论', queuedHtml.includes('还没有运行记录'));
+check('排队不显示建卷按钮', !queuedHtml.includes('assembly-select'));
+check('排队状态的说法不冒充完成',
+  App.paperAssemblyVerdict({ status: 'queued', solutions: [] }).includes('没有结论'));
+check('运行中状态也不冒充完成',
+  App.paperAssemblyVerdict({ status: 'running', solutions: [] }).includes('没有结论'));
+
 // --- 手工蓝图不能跑求解 ------------------------------------------------------------
 
 const manualHtml = App.paperAssemblyHtml(stateOf({
