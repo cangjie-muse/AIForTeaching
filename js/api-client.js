@@ -638,6 +638,9 @@
       { body: config || {}, headers: { 'Idempotency-Key': key } }),
     assemblyRun: runId => request('GET',
       `/api/v1/assembly-runs/${encodeURIComponent(runId)}`),
+    assemblyComparison: (runId, left, right, anchors) => request('GET',
+      `/api/v1/assembly-runs/${encodeURIComponent(runId)}/comparison`
+      + queryString({ left, right, anchors })),
     assemblySolutionPaper: (runId, index, key) => request('POST',
       `/api/v1/assembly-runs/${encodeURIComponent(runId)}/solutions/${index}/paper`,
       { headers: { 'Idempotency-Key': key } }),

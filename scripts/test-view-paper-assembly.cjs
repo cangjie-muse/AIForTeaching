@@ -243,6 +243,35 @@ const hostileHtml = App.paperAssemblyHtml(stateOf({
 check('外部字符串被转义', !hostileHtml.includes('<img')
   && hostileHtml.includes('&lt;img'));
 
+// --- 方案对照 --------------------------------------------------------------------
+
+const twoSolutions = { ...OPTIMAL_RUN, solutions: [
+  { ...OPTIMAL_RUN.solutions[0] },
+  { ...OPTIMAL_RUN.solutions[1] }
+] };
+const compareButtonHtml = App.paperAssemblyHtml(stateOf({ run: twoSolutions,
+  runs: [twoSolutions] }));
+check('两个方案时出现对照按钮', compareButtonHtml.includes('assembly-compare'));
+const singleSolution = { ...OPTIMAL_RUN, solutions: [OPTIMAL_RUN.solutions[0]] };
+check('只有一个方案时没有对照按钮',
+  !App.paperAssemblyHtml(stateOf({ run: singleSolution, runs: [singleSolution] }))
+    .includes('assembly-compare'));
+
+const comparedHtml = App.paperAssemblyHtml(stateOf({ run: twoSolutions,
+  runs: [twoSolutions],
+  comparison: {
+    note: '结构匹配的 A/B 卷；不代表统计等值',
+    structurally_matched: false,
+    statistical_equivalence: false,
+    issues: [{ code: 'shared_version_not_anchored', message: '槽位 A1 两卷用了同一道题' }],
+    shared_version_ids: ['ev-1'], shared_family_ids: [],
+    summary: { slots: 2 }
+  } }));
+check('对照块显示固定措辞', comparedHtml.includes('不代表统计等值'));
+check('对照块列出重叠问题', comparedHtml.includes('data-code="shared_version_not_anchored"'));
+check('对照块明确不是难度等值结论',
+  comparedHtml.includes('不是') && comparedHtml.includes('等值'));
+
 // --- 视图注册 -------------------------------------------------------------------
 
 check('注册了视图 paper-assembly', typeof App.views['paper-assembly'] === 'function');

@@ -36,7 +36,8 @@ const suites = ['server/tests/test_policy.py', 'server/tests/test_source_parse.p
   'server/tests/test_assignment_api.py', 'server/tests/test_workbench.py',
   'server/tests/test_paper_renders.py', 'server/tests/test_paper_acceptance.py',
   'server/tests/test_assembly_blueprint.py', 'server/tests/test_assembly_candidate.py',
-  'server/tests/test_assembly_diagnostics.py', 'server/tests/test_assembly_pipeline.py',
+  'server/tests/test_assembly_diagnostics.py', 'server/tests/test_assembly_comparator.py',
+  'server/tests/test_assembly_pipeline.py',
   'server/tests/test_assembly_api.py'];
 let failed = 0;
 

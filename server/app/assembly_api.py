@@ -357,6 +357,75 @@ def candidate_supply_for_blueprint(
     }
 
 
+@router.get("/assembly-runs/{run_id}/comparison")
+def compare_solutions(
+    run_id: UUID,
+    left: int = 0,
+    right: int = 1,
+    anchors: str = "",
+    actor: Actor = Depends(require_teacher),
+    service: AssemblyService = Depends(get_assembly_service),
+) -> dict[str, Any]:
+    """对照一次运行里的两个方案（或将来 A/B 的两卷）。
+
+    只回答结构问题：分值结构是否一致、除锚题外有没有共用题。**不回答"等值"**——
+    `statistical_equivalence` 恒为 false，`note` 是固定措辞。这不是没做完，
+    而是本系统没有等值设计，不该替教师做出它兑现不了的承诺。
+
+    `anchors` 允许共用题目版本 id（逗号分隔）。没声明锚题时，两方案共用任何题目都
+    会被判为重叠——因为"用了同一道题就自动算锚题"等于没有约束。
+    """
+    from .assembly.comparator import compare_structure, issues_payload
+    from .assembly.contracts import solution_from_json
+
+    actor_id = ref_uuid("account", actor.id)
+    try:
+        row = service.run(actor_id=actor_id, run_id=run_id)
+        if not row.solution_manifest:
+            raise RunNotSolved(f"这次运行状态是 {row.status}，没有方案可比较")
+        for index in (left, right):
+            if not 0 <= index < len(row.solution_manifest):
+                raise SolutionIndexInvalid(
+                    f"方案序号 {index} 越界（共 {len(row.solution_manifest)} 个）")
+        blueprint = service._load_blueprint(actor_id, row.blueprint_version_id)  # noqa: SLF001
+        anchors = tuple(
+            UUID(item) for item in (anchors or "").split(",") if item.strip())
+        comparison = compare_structure(
+            blueprint,
+            solution_from_json(row.solution_manifest[left]),
+            solution_from_json(row.solution_manifest[right]),
+            anchors=anchors,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise _map_build_error(exc) from exc
+    return {
+        "assembly_run_id": str(run_id),
+        "left": left,
+        "right": right,
+        "structurally_matched": comparison.structurally_matched,
+        "statistical_equivalence": comparison.statistical_equivalence,
+        "note": comparison.note,
+        "issues": issues_payload(comparison),
+        "slots": [
+            {
+                "slot_code": item.slot_code,
+                "section_code": item.section_code,
+                "score_hundredths": item.score_hundredths,
+                "same_version": item.same_version,
+                "same_family": item.same_family,
+                "shared_and_allowed": item.shared_and_allowed,
+                "difficulty_delta": item.difficulty_delta,
+                "seconds_delta": item.seconds_delta,
+            }
+            for item in comparison.slots
+        ],
+        "shared_version_ids": [str(item) for item in comparison.shared_version_ids],
+        "shared_family_ids": [str(item) for item in comparison.shared_family_ids],
+        "anchors": [str(item) for item in comparison.anchors],
+        "summary": comparison.extra,
+    }
+
+
 @router.post("/assembly-runs/{run_id}/solutions/{index}/paper", status_code=201)
 def materialize_solution(
     run_id: UUID,

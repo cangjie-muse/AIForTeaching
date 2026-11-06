@@ -89,7 +89,7 @@
   function S() {
     return A.state.paperAssembly = A.state.paperAssembly || {
       courseId: null, blueprints: [], selectedId: null, selected: null,
-      runs: [], run: null, supply: null, loading: false, loaded: false,
+      runs: [], run: null, supply: null, comparison: null, loading: false, loaded: false,
       busy: null, error: null, message: null, created: null,
       config: { random_seed: '20261105', time_limit_seconds: '30', max_solutions: '3' }
     };
@@ -387,12 +387,35 @@
       <td>${A.button('用这个方案建卷', 'assembly-select', 'check',
         `data-index="${solution.index}"${state.busy ? ' disabled' : ''}`, 'small')}</td>
     </tr>`).join('');
+    const compareLink = run.solutions.length > 1
+      ? `<div class="button-row">${A.button('对照方案 1 与方案 2', 'assembly-compare', 'graph',
+          state.busy ? 'disabled' : '', 'small')}</div>`
+      : '';
     return `<section class="panel assembly-solutions" aria-label="方案">
       <h4>方案<span class="muted small">（每个方案最多 3 个，分别独立复验）</span></h4>
       <table class="ops-table"><thead><tr><th>方案</th><th>结论</th><th>题数</th>
         <th>目标值</th><th>方案哈希</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+      ${compareLink}${comparisonBlock(state)}
       <p class="muted small">建卷后仍是一份草稿：要过整卷校验与双人复核才能提交。</p>
     </section>`;
+  }
+
+  /** 两个方案的对照：只讲结构（分值、共用题），不讲"等值"。 */
+  function comparisonBlock(state) {
+    const comparison = state.comparison;
+    if (!comparison) return '';
+    const issues = (comparison.issues || []).map(issue => `<li data-code="${escape(issue.code)}">
+      ${escape(issue.message)}</li>`).join('');
+    const overlap = (comparison.shared_version_ids || []).length;
+    return `<div class="assembly-compare" role="status">
+      <h5>${escape(comparison.note || '结构对照')}</h5>
+      <p>槽位 ${escape((comparison.summary || {}).slots || 0)} 个；
+        共用题目 ${escape(overlap)} 道；共用同族 ${escape(
+          (comparison.shared_family_ids || []).length)} 道。</p>
+      ${issues ? `<ul class="assembly-issues">${issues}</ul>` : ''}
+      <p class="muted small">这里只说结构：分值分布是否一致、除锚题外有没有共用题。
+        它<strong>不是</strong>难度等值结论——本系统没有等值设计，不会给出这种结论。</p>
+    </div>`;
   }
 
   function runsBlock(state) {
@@ -512,6 +535,7 @@
     state.selectedId = row.id;
     state.run = null;
     state.created = null;
+    state.comparison = null;
     return run('switch', () => Promise.all([loadSupply(state), loadRuns(state)])
       .then(() => null));
   };
@@ -588,6 +612,23 @@
     ).then(draft => {
       state.created = draft;
       return '草稿卷已建好：还要过整卷校验与双人复核，才能提交审核。';
+    }));
+  };
+
+  /* 对照两个方案：只取结构事实（分值分布、共用题）。界面上必须同时出现
+   * "不代表统计等值"——否则教师会把"结构一致"读成"难度一样"。 */
+  A.actions['assembly-compare'] = function () {
+    const state = S();
+    if (!state.run || (state.run.solutions || []).length < 2) {
+      state.error = '至少要有两个方案才能对照';
+      A.render();
+      return Promise.resolve();
+    }
+    return run('compare', () => A.api.assemblyComparison(
+      state.run.assembly_run_id, 0, 1
+    ).then(comparison => {
+      state.comparison = comparison;
+      return null;
     }));
   };
 })();

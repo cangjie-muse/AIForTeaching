@@ -38,7 +38,17 @@ from app.assembly.service import (  # noqa: E402
     SolutionIndexInvalid,
     SolutionMismatch,
 )
-from app.assembly.contracts import PaperDraft, RunStatus  # noqa: E402
+from app.assembly.contracts import (  # noqa: E402
+    BlueprintSnapshot,
+    PaperDraft,
+    RunStatus,
+    SlotSpec,
+    slot_identity,
+    AssemblySelection,
+    make_solution_manifest,
+    solution_to_json,
+)
+from decimal import Decimal  # noqa: E402
 
 auth.AUTH_MODE = "dev"
 auth.DEV_ROLES = frozenset()
@@ -85,6 +95,7 @@ class StubService:
             paper_version_id=UUID("d0d0d0d0-d0d0-4d0d-8d0d-d0d0d0d0d0d0"),
             manifest_hash="c" * 64, status="draft")
         self.starts: list[dict] = []
+        self.blueprint = None
         self.selects: list[dict] = []
         self.solver_config = None
 
@@ -105,6 +116,11 @@ class StubService:
 
     def latest(self, *, actor_id, blueprint_version_id, limit=20):
         return [self.row]
+
+    def _load_blueprint(self, actor_id, blueprint_version_id):
+        if self.blueprint is None:
+            raise AssertionError("测试要先给 StubService.blueprint 赋值")
+        return self.blueprint
 
     def select(self, *, actor_id, run_id, index, idempotency_key):
         if self.select_error:
@@ -331,6 +347,77 @@ def test_validation_blocked_reports_issues_and_paper() -> None:
     assert detail["issues"][0]["code"] == "estimated_seconds_missing"
     # 卷子确实建出来了（在草稿里），前端要能跳过去看它
     assert detail["paper_version_id"] == "e0e0e0e0-e0e0-4e0e-8e0e-e0e0e0e0e0e0"
+
+
+def _two_solution_service():
+    """两个方案的运行 + 一份只有 A1 槽位的蓝图（结构比较需要蓝图槽位表）。"""
+    slot_id = slot_identity(VERSION, "A", "A1")
+    blueprint = BlueprintSnapshot(
+        blueprint_version_id=VERSION, course_id=UUID(int=10), offering_id=UUID(int=11),
+        release_context_id=UUID(int=12), purpose="formal",
+        total_score=Decimal("50.00"), duration_seconds=3600,
+        slots=(SlotSpec(slot_id=slot_id, code="A1", section_code="A",
+                        score=Decimal("50.00"), estimated_seconds=600),),
+    )
+
+    def manifest(number: int, label: str, *, optimal: bool) -> dict:
+        selection = AssemblySelection(
+            slot_id=slot_id, slot_code="A1",
+            exercise_version_id=UUID(int=number),
+            exercise_instance_id=None,
+            stable_exercise_id=UUID(int=10_000 + number),
+            exercise_family_id=UUID(int=100 + number),
+            source_release_id=UUID(int=30_000 + number),
+            decision_seq=1, score_hundredths=5000,
+            estimated_seconds=600, difficulty=3,
+            dependency_hash=f"dep-{number}", content_hash=f"content-{number}",
+        )
+        built = make_solution_manifest(
+            variant_label=label, selections=(selection,), objective_terms=(),
+            objective_value=0, best_bound=0, optimality_gap_milli=0,
+            solver_status=RunStatus.OPTIMAL if optimal else RunStatus.FEASIBLE,
+            optimal_proven=optimal, structure_report={},
+        )
+        return solution_to_json(built)
+
+    row = run_row(solutions=[manifest(1, "single", optimal=True),
+                             manifest(2, "single-2", optimal=False)])
+    service = StubService(row=row)
+    service.blueprint = blueprint
+    return service
+
+def test_comparison_returns_structural_verdict_and_no_equivalence_claim() -> None:
+    """比较接口必须同时给出结构结论和"不代表统计等值"这句话。"""
+    response = client(_two_solution_service()).get(
+        f"/api/v1/assembly-runs/{RUN}/comparison?left=0&right=1", headers=TEACHER)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["statistical_equivalence"] is False, (
+        "本系统没有等值设计，接口不能声称统计等值")
+    assert "不代表统计等值" in body["note"]
+    assert isinstance(body["slots"], list)
+    assert body["summary"]["slots"] >= 1
+
+
+def test_comparison_requires_two_solutions() -> None:
+    service = StubService(row=run_row(RunStatus.INFEASIBLE,
+                                     diagnostics={"reason": "precheck_proved"}))
+    response = client(service).get(
+        f"/api/v1/assembly-runs/{RUN}/comparison", headers=TEACHER)
+    assert response.status_code == 409, response.text
+    assert response.json()["detail"]["code"] == "assembly_run_not_solved"
+
+
+def test_comparison_index_out_of_range_is_422() -> None:
+    response = client(StubService()).get(
+        f"/api/v1/assembly-runs/{RUN}/comparison?left=0&right=9", headers=TEACHER)
+    assert response.status_code == 422, response.text
+
+
+def test_student_cannot_compare_solutions() -> None:
+    response = client(StubService()).get(
+        f"/api/v1/assembly-runs/{RUN}/comparison", headers=STUDENT)
+    assert response.status_code == 403, response.text
 
 
 def test_select_requires_idempotency_key() -> None:
