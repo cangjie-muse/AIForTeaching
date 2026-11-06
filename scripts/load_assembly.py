@@ -242,8 +242,12 @@ def main() -> int:
     print(f"  每槽可选：最少 {summary['min_supply']} / 最多 {summary['max_supply']}")
     print(f"  预检问题：{summary['precheck_issues'] or '无'}")
     print(f"  求解：{solver_note}")
-    print("\n说明：上面的毫秒数只覆盖候选固定与预检。求解耗时没有计入——"
-          "本机装不上 ortools，任何「求解很快」的说法都会是假的。")
+    if solver_ran:
+        print("\n说明：上面的毫秒数覆盖候选固定、预检**与求解**。"
+              "这是单机单次运行的耗时，不是生产 SLO——并发与真实候选分布都没测。")
+    else:
+        print("\n说明：上面的毫秒数只覆盖候选固定与预检。求解耗时没有计入——"
+              "这台机器没装 ortools，任何「求解很快」的说法都会是假的。")
     return 0
 
 
