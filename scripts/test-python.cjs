@@ -40,6 +40,8 @@ const suites = ['server/tests/test_policy.py', 'server/tests/test_source_parse.p
   'server/tests/test_assembly_pipeline.py',
   'server/tests/test_attempt_policy.py', 'server/tests/test_attempt_projection.py',
   'server/tests/test_online_attempt_start.py', 'server/tests/test_online_response_save.py', 'server/tests/test_online_finalize.py', 'server/tests/test_online_api.py',
+  'server/tests/test_practice_contracts.py', 'server/tests/test_grading_contracts.py',
+  'server/tests/test_qti_transfer.py',
   'server/tests/test_assembly_api.py', 'server/tests/test_assembly_worker.py', 'server/tests/test_worker_describe.py', 'server/tests/test_load_assembly.py'];
 let failed = 0;
 
