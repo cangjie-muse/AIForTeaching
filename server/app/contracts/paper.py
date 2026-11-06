@@ -34,6 +34,7 @@ from .common import (
     ReviewDecision,
     ReviewPolicy,
     Score,
+    ValidationSeverity,
 )
 
 
@@ -177,11 +178,46 @@ class PaperView(ContractModel):
 
 
 class ValidationIssue(ContractModel):
-    """整卷独立校验的一条结论；slot_id 为空表示卷级问题。"""
+    """整卷独立校验的一条结论；`slot_no` 为空表示卷级问题。
+
+    任务 5 在原契约上只做加法：`severity` 区分硬约束与"未知/偏离"提示，
+    `slot_no` / `section_code` 让教师不用再拿 `slot_id` 去反查位置，
+    `detail` 携带可机读的差额、缺失版本或原因码——前端不应解析 `message`。
+    """
 
     code: str
     message: str
+    severity: ValidationSeverity = "error"
     slot_id: UUID | None = None
+    slot_no: int | None = Field(default=None, ge=1)
+    section_code: str | None = None
+    detail: dict[str, str | int | list[str] | None] = {}
+
+
+class ValidationResult(ContractModel):
+    """`POST /paper-versions/{id}/validate` 的确定性报告。
+
+    `valid` 只由 `severity="error"` 决定；warning 不阻断。
+    `report_hash` 覆盖"结论内容"（标识 + 两份 manifest 哈希 + 有序 issues），
+    不覆盖时间：同一份卷子在任何时刻校验，只要结论不变，哈希就不变，
+    双审两个人才能拿同一份证据比对。
+    """
+
+    schema_version: Literal["paper-validation-report/v1"]
+    paper_version_id: UUID
+    paper_status: PaperStatus
+    blueprint_version_id: UUID
+    candidate_snapshot_id: UUID
+    release_context_id: UUID
+    # 库里的值原样返回（即使被篡改成空/短串）：损坏也要变成 issue，而不是让
+    # 契约校验在构造报告时抛 500，把"发现问题"变成"无法报告问题"。
+    manifest_hash: str
+    recomputed_manifest_hash: str = Field(min_length=64, max_length=64)
+    valid: bool
+    error_count: int = Field(ge=0)
+    warning_count: int = Field(ge=0)
+    issues: tuple[ValidationIssue, ...] = ()
+    report_hash: str = Field(min_length=64, max_length=64)
 
 
 class ExposureEvent(ContractModel):

@@ -26,6 +26,9 @@ RenderKind = Literal["student", "answer", "rubric"]
 AssemblyMode = Literal["manual", "constraint_assisted"]
 ReviewPolicy = Literal["formal_dual_review", "single_review"]
 ReviewDecision = Literal["approved", "rejected", "revoked"]
+# 整卷校验的结论分级：只有 error 让卷子无效；warning 是可解释的"未知/偏离"，
+# 不能与硬约束混成同一个绿色分数（规格 §8.1）。
+ValidationSeverity = Literal["error", "warning"]
 ArtifactVisibility = Literal["private", "class_shared", "course_published"]
 ExposureEventKind = Literal[
     "secure_assigned",

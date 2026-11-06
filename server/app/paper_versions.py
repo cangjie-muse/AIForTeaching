@@ -3,6 +3,7 @@
 路由：
     POST  /api/v1/paper-versions                              建 draft / 克隆已批准卷
     PATCH /api/v1/paper-versions/{id}/slots                   草稿替换 / 调序 / 调分
+    POST  /api/v1/paper-versions/{id}/validate                独立整卷校验（只读、可哈希）
     GET   /api/v1/paper-versions/{id}                         读取一个纸卷版本
     GET   /api/v1/paper-versions/{id}/edit-events             读取草稿变更集（append-only）
 
@@ -27,7 +28,7 @@ exercise_id / dependency_manifest_hash）由服务从建卷时固定的候选快
     404 course_not_found / blueprint_version_not_found / candidate_snapshot_not_found /
         paper_not_found
     409 idempotency_conflict / stale_version / paper_not_draft
-    422 paper_invalid / snapshot_mismatch / <规则原因码>：
+    422 paper_invalid / snapshot_mismatch / validation_input_mismatch / <规则原因码>：
         invalid_create_mode / base_not_approved / paper_identity_conflict /
         unknown_slot_code / duplicate_slot_selection / candidate_not_in_snapshot /
         candidate_excluded / candidate_not_mandatory / source_incomplete /
@@ -59,7 +60,7 @@ from .candidates import (
     CandidateSnapshotNotFoundError,
     PostgresCandidateRepository,
 )
-from .contracts import Score, SlotSelection
+from .contracts import Score, SlotSelection, ValidationResult
 from .papers import (
     MAX_IDEMPOTENCY_KEY,
     EditOperation,
@@ -73,6 +74,11 @@ from .papers import (
     PaperVersionRow,
     PostgresPaperRepository,
     StalePaperVersion,
+)
+from .validation import (
+    PaperValidationService,
+    PostgresPaperValidationRepository,
+    ValidationInputError,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["papers"])
@@ -108,6 +114,8 @@ def _paper_errors() -> Iterator[None]:
         raise _error(404, "candidate_snapshot_not_found", str(exc)) from exc
     except CandidateScopeError as exc:
         raise _error(422, "snapshot_mismatch", str(exc)) from exc
+    except ValidationInputError as exc:
+        raise _error(422, "validation_input_mismatch", str(exc)) from exc
     except PaperNotFoundError as exc:
         raise _error(404, "paper_not_found", str(exc)) from exc
     except PaperNotDraftError as exc:
@@ -183,6 +191,25 @@ def get_paper_service(actor: Actor = Depends(require_teacher)) -> PaperService:
             repository=PostgresCandidateRepository(),
             authorizer=CourseScopeAuthorizer(actor),
         ),
+    )
+
+
+def get_validation_service(
+    actor: Actor = Depends(require_teacher),
+) -> PaperValidationService:
+    """生产装配：只读卷面仓储 + 只读候选预检 + 课程范围授权。
+
+    校验接口是只读的，所以**不需要** Idempotency-Key；重复调用只会重复计算同一结论
+    （`report_hash` 相同）。候选服务用 `preview` 而不是 `snapshot`：校验器不能为了
+    读结论往 `candidate_snapshot` 里写新行。
+    """
+    return PaperValidationService(
+        repository=PostgresPaperValidationRepository(),
+        candidates=CandidateService(
+            repository=PostgresCandidateRepository(),
+            authorizer=CourseScopeAuthorizer(actor),
+        ),
+        authorizer=PaperScopeAuthorizer(actor),
     )
 
 
@@ -283,6 +310,27 @@ def get_paper_version(
         return service.get_version(
             actor_id=_actor_uuid(actor),
             actor_ref=actor.id,
+            paper_version_id=paper_version_id,
+        )
+
+
+@router.post(
+    "/paper-versions/{paper_version_id}/validate",
+    response_model=ValidationResult,
+)
+def validate_paper_version(
+    paper_version_id: UUID,
+    actor: Actor = Depends(require_teacher),
+    service: PaperValidationService = Depends(get_validation_service),
+) -> ValidationResult:
+    """独立整卷校验：只读、确定性、可哈希。
+
+    草稿自检、提交审核门禁、任务 7 双审证据都调这一个入口。`valid=false` 时
+    issues 已按"错误优先 + 分节/槽位顺序"排好，前端不需要自己排序或解析 message。
+    """
+    with _paper_errors():
+        return service.validate(
+            actor_id=_actor_uuid(actor),
             paper_version_id=paper_version_id,
         )
 

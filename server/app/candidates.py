@@ -111,6 +111,25 @@ class ReleaseScopeInfo(ContractModel):
     item_count: int = Field(ge=0)
 
 
+class CandidatePreview(ContractModel):
+    """一次**只读**的当前候选判定（与 `snapshot` 同一套规则，但不落库）。
+
+    任务 5 的整卷校验器不能拿建卷时的快照当成"现在还合格"的证据：快照之后题目可能
+    被撤回、Release 可能解冻、答案可能公开。校验器需要的是"此刻重新判一遍"，却又
+    不能为了读结果写一条新的 candidate_snapshot。`preview` 就是这条只读通道：
+    与 `snapshot` 共用 `_preview`，避免两套资格规则漂移。
+
+    `release=None` 只会在 `require_release=False` 时出现（Release 被删/配置错误）：
+    校验器会把它变成 `release_not_found` 的 issue，而不是把"没有 Release"说成
+    "所有候选都不合格"。
+    """
+
+    release: ReleaseScopeInfo | None = None
+    accepted: tuple[CandidateRecord, ...] = ()
+    rejected: tuple[RejectedCandidate, ...] = ()
+    exposure_events: tuple[ExposureEvent, ...] = ()
+
+
 # ---------------------------------------------------------------------------
 # 纯判定
 # ---------------------------------------------------------------------------
@@ -754,45 +773,13 @@ class CandidateService:
         self._authorise(actor_id, SNAPSHOT_ACTION, scope)
         as_of = self._now()
         with self._unit_of_work() as uow:
-            release = uow.load_release(scope)
-            if release is None:
-                # fail closed：蓝图指向一个不存在的 Release，是配置错误而不是"候选为空"。
+            preview = self._preview(uow, scope, as_of, require_release=True)
+            if preview.release is None:  # pragma: no cover —— require_release 保证
                 raise ReleaseContextNotFoundError(str(scope.release_context_id))
-            records = uow.load_records(scope)
-            events = uow.load_exposure(
-                tuple({record.evidence.exercise_family_id for record in records})
-            )
-            common = release_scope_reasons(scope, release)
-            accepted: list[CandidateRecord] = []
-            rejected: list[RejectedCandidate] = []
-            for record in records:
-                reasons: list[CandidateReason] = list(common)
-                for code in candidate_reasons(record):
-                    if code not in reasons:
-                        reasons.append(code)
-                if not reasons:
-                    try:
-                        ExposureService.assert_no_conflict(
-                            scope.purpose, scope.offering_id,
-                            (record.evidence,), events, as_of,
-                        )
-                    except ExposureConflict:
-                        reasons.append("exposure_conflict")
-                if reasons:
-                    rejected.append(RejectedCandidate(
-                        exercise_version_id=record.evidence.exercise_version_id,
-                        exercise_id=record.evidence.exercise_id,
-                        exercise_family_id=record.evidence.exercise_family_id,
-                        review_status=record.review_status,
-                        reasons=tuple(reasons),
-                    ))
-                else:
-                    accepted.append(record)
-
             manifest = build_manifest(
-                scope=scope, release=release,
-                accepted=accepted, rejected=rejected,
-                events=events, as_of=as_of,
+                scope=scope, release=preview.release,
+                accepted=preview.accepted, rejected=preview.rejected,
+                events=preview.exposure_events, as_of=as_of,
             )
             digest = manifest_hash(manifest)
             view = CandidateSnapshot(
@@ -802,14 +789,75 @@ class CandidateService:
                 purpose=scope.purpose,
                 course_id=scope.course_id,
                 offering_id=scope.offering_id,
-                accepted=tuple(accepted),
-                rejected=tuple(rejected),
+                accepted=preview.accepted,
+                rejected=preview.rejected,
                 candidate_manifest_hash=digest,
                 created_at=as_of,
                 created=True,
                 manifest={**manifest, "created_by": str(actor_id)},
             )
             return uow.add(view, view.manifest)
+
+    # -- 只读预检（任务 5 整卷校验器） -------------------------------------
+    def preview(self, *, actor_id: UUID, scope: CandidateScope,
+                require_release: bool = False) -> CandidatePreview:
+        """此刻重新判一遍候选，但**不写任何行**。
+
+        与 `snapshot` 共用 `_preview`：资格规则只有一份。区别只在落库：
+        `snapshot` 把结果固化成不可变清单；`preview` 给整卷校验器当"当前证据"。
+        默认允许 Release 不存在（返回 `release=None`），因为校验器要把它报告成
+        `release_not_found` 而不是抛 500；建卷路径显式传 `require_release=True`。
+        """
+        self._authorise(actor_id, READ_ACTION, scope)
+        with self._unit_of_work() as uow:
+            return self._preview(uow, scope, self._now(),
+                                 require_release=require_release)
+
+    def _preview(self, uow: CandidateUnitOfWork, scope: CandidateScope,
+                 as_of: datetime, *, require_release: bool) -> CandidatePreview:
+        """从当前库事实重算 accepted/rejected；同一套 `candidate_reasons`。"""
+        release = uow.load_release(scope)
+        if release is None:
+            if require_release:
+                # fail closed：蓝图指向不存在的 Release 是配置错误，不是"候选为空"。
+                raise ReleaseContextNotFoundError(str(scope.release_context_id))
+            return CandidatePreview(release=None)
+        records = uow.load_records(scope)
+        events = uow.load_exposure(
+            tuple({record.evidence.exercise_family_id for record in records})
+        )
+        common = release_scope_reasons(scope, release)
+        accepted: list[CandidateRecord] = []
+        rejected: list[RejectedCandidate] = []
+        for record in records:
+            reasons: list[CandidateReason] = list(common)
+            for code in candidate_reasons(record):
+                if code not in reasons:
+                    reasons.append(code)
+            if not reasons:
+                try:
+                    ExposureService.assert_no_conflict(
+                        scope.purpose, scope.offering_id,
+                        (record.evidence,), events, as_of,
+                    )
+                except ExposureConflict:
+                    reasons.append("exposure_conflict")
+            if reasons:
+                rejected.append(RejectedCandidate(
+                    exercise_version_id=record.evidence.exercise_version_id,
+                    exercise_id=record.evidence.exercise_id,
+                    exercise_family_id=record.evidence.exercise_family_id,
+                    review_status=record.review_status,
+                    reasons=tuple(reasons),
+                ))
+            else:
+                accepted.append(record)
+        return CandidatePreview(
+            release=release,
+            accepted=tuple(accepted),
+            rejected=tuple(rejected),
+            exposure_events=events,
+        )
 
     # -- 读取 ---------------------------------------------------------------
     def latest(self, *, actor_id: UUID, scope: CandidateScope) -> CandidateSnapshot:
@@ -856,6 +904,7 @@ class CandidateService:
 
 __all__ = [
     "CandidateError",
+    "CandidatePreview",
     "CandidateRepository",
     "CandidateScopeError",
     "CandidateService",

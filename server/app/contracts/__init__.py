@@ -33,6 +33,7 @@ from .common import (
     ReviewDecision,
     ReviewPolicy,
     Score,
+    ValidationSeverity,
     validate_score,
 )
 from .hashing import canonical_hash, canonical_json, normalize
@@ -48,6 +49,7 @@ from .paper import (
     ReviewEvidence,
     SlotSelection,
     ValidationIssue,
+    ValidationResult,
 )
 from .student import (
     STUDENT_FORBIDDEN_FIELDS,
@@ -81,6 +83,7 @@ __all__ = [
     "ReviewDecision",
     "ReviewPolicy",
     "Score",
+    "ValidationSeverity",
     "validate_score",
     # hashing
     "canonical_hash",
@@ -98,6 +101,7 @@ __all__ = [
     "ReviewEvidence",
     "SlotSelection",
     "ValidationIssue",
+    "ValidationResult",
     # student
     "STUDENT_FORBIDDEN_FIELDS",
     "PublicAsset",
