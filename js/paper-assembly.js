@@ -1,0 +1,564 @@
+/* 约束组卷（阶段 B）：启动一次求解 → 读诊断 → 比较方案 → 选一个落成草稿卷。
+ *
+ * 这一页存在的理由：建卷页（paper-build）是"人手挑题"，本页是"求解器挑题"。
+ * 两者的输入都是蓝图版本与候选清单，但教师面对的问题完全不同——
+ *   建卷页问的是"这一槽放哪道题"；
+ *   本页问的是"为什么组不出来 / 这个方案凭什么"。
+ * 把后者塞进建卷页，会让人以为调一下权重就能立刻看到新方案，而实际上要重跑一次运行。
+ *
+ * 三条不可谈判的显示规则：
+ *   1. **可行 ≠ 最优。** 服务端给 `optimal_proven=false` 时，界面必须写"可行，未证明最优"，
+ *      不能统一显示成"已优化"。这道信息决定教师敢不敢直接拿去考试。
+ *   2. **无解不是错误。** `infeasible` 是一次成功的运行，界面上要把原因逐条列出来
+ *      （哪一槽没有候选、时长下界多少），而不是弹一个红框说"出错了"。
+ *   3. **没有方案就没有按钮。** `solved` 为假时不渲染"用这个方案建卷"，
+ *      服务端也会 409——但界面上不该先给出一个必然失败的入口。
+ */
+(function () {
+  const A = App;
+
+  const STATUS_LABEL = {
+    queued: '排队中',
+    running: '求解中',
+    optimal: '最优（已证明）',
+    feasible: '可行（未证明最优）',
+    infeasible: '无解（约束互相冲突）',
+    timeout: '超时',
+    failed: '失败',
+    cancelled: '已取消'
+  };
+
+  // 与 server/app/assembly/diagnostics.py 的问题码一一对应。前端复制一份是为了
+  // "没有网络也能解释清楚"；码值本身仍以服务端为准。
+  const ISSUE_TEXT = {
+    blueprint_score_mismatch: '蓝图总分与槽位分之和对不上',
+    section_score_mismatch: '某个分节的槽位分之和与声明值对不上',
+    slot_has_no_candidate: '这一槽按当前条件没有可选题目',
+    not_enough_candidates: '候选题目比槽位还少',
+    duration_impossible: '每槽取最短题目，总时长仍然超上限',
+    coverage_unreachable: '覆盖要求超出所有槽位能提供的上限',
+    kind_requirement_unreachable: '题型数量要求超出可放该题型的槽位数',
+    kind_requirement_invalid: '题型数量区间写反了（最少大于最多）',
+    mutually_exclusive_mandatory: '两道必选题落在同一个互斥组里'
+  };
+
+  // 运行失败时的原因码（服务端 diagnostics.reason）。
+  const REASON_TEXT = {
+    precheck_proved: '求解前预检已经证明无解',
+    solver_reported: '求解器报告无解（预检没找到单一原因，冲突在组合里）',
+    solver_error: '求解器无法运行或中途出错',
+    hard_constraints: '硬约束互相冲突',
+    model_invalid: '模型本身非法（这是缺陷，不是数据问题）',
+    time_limit_no_solution: '时间用完但一个方案都没找到'
+  };
+
+  const SOLVED = { optimal: true, feasible: true };
+
+  function escape(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function errorText(error) {
+    if (!error) return '未知错误';
+    const detail = error.detail || {};
+    const code = detail.code || error.code;
+    const messages = {
+      assembly_run_not_found: '这次求解运行不存在（可能已被清理）。',
+      assembly_run_not_solved: '这次运行没有可选方案，不能建卷。',
+      solution_index_invalid: '方案序号越界：下拉列表可能已经过期，刷新后再选。',
+      solution_manifest_mismatch: '方案内容与记录的哈希不一致：这份方案不能用来建卷。',
+      assembly_validation_blocked: '方案没通过整卷复验，卷子停在草稿，不能提交审核。',
+      idempotency_conflict: '同一把幂等键被用于不同的蓝图版本。',
+      idempotency_key_required: '缺少 Idempotency-Key：重试会跑出第二次求解。',
+      solver_config_invalid: '求解参数不合法（方案数上限是 3，时限至少 1 秒）。',
+      blueprint_not_solvable: '这份蓝图不能交给求解器（内容或模式不支持）。',
+      assembly_run_not_solved_unused: ''
+    };
+    if (code && messages[code]) return messages[code];
+    if (detail.message) return detail.message;
+    return errorTextFallback(error);
+  }
+
+  function errorTextFallback(error) {
+    if (error.message) return error.message;
+    return '请求失败，请稍后重试。';
+  }
+
+  function S() {
+    return A.state.paperAssembly = A.state.paperAssembly || {
+      courseId: null, blueprints: [], selectedId: null, selected: null,
+      runs: [], run: null, supply: null, loading: false, loaded: false,
+      busy: null, error: null, message: null, created: null,
+      config: { random_seed: '20261105', time_limit_seconds: '30', max_solutions: '3' }
+    };
+  }
+
+  function newKey(action) {
+    return `paper-assembly-${action}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  // ---------------------------------------------------------------------------
+  // 纯函数（视图测试直接断言这些）
+  // ---------------------------------------------------------------------------
+
+  /** 运行状态的诚实标签：可行与最优必须分开显示。 */
+  A.paperAssemblyStatus = function (run) {
+    if (!run) return STATUS_LABEL.infeasible;
+    const label = STATUS_LABEL[run.status] || run.status;
+    if (run.status === 'feasible') return '可行（未证明最优）';
+    return label;
+  };
+
+  A.paperAssemblyTone = function (run) {
+    if (!run) return 'muted';
+    if (run.status === 'optimal') return 'green';
+    if (run.status === 'feasible') return 'blue';
+    if (run.status === 'infeasible' || run.status === 'failed') return 'red';
+    return 'amber';
+  };
+
+  /** 求解器不可用时，界面要给出可执行的下一步，而不是只说"失败了"。 */
+  A.paperAssemblyDegraded = function (run) {
+    const diagnostics = (run && run.diagnostics) || {};
+    const detail = String(diagnostics.detail || '');
+    return diagnostics.reason === 'solver_error' && /ortools|requirements-assembly/i.test(detail);
+  };
+
+  A.paperAssemblyIssueText = function (code) {
+    return ISSUE_TEXT[code] || '未识别的诊断项（以服务端说明为准）';
+  };
+
+  A.paperAssemblyReasonText = function (reason) {
+    return REASON_TEXT[reason] || '未识别的原因（以服务端说明为准）';
+  };
+
+  /** 方案的可读摘要：给教师比较方案用，不是给机器读的。 */
+  A.paperAssemblySolutions = function (run) {
+    if (!run || !run.solutions) return [];
+    return run.solutions.map((solution, index) => ({
+      index,
+      label: solution.variant_label || `方案 ${index + 1}`,
+      selections: (solution.selections || []).length,
+      objective: solution.objective_value,
+      optimal: solution.optimal_proven === true,
+      status: SOLUTION_STATUS[solution.solver_status] || solution.solver_status,
+      hash: String(solution.manifest_hash || '').slice(0, 12)
+    }));
+  };
+
+  const SOLUTION_STATUS = {
+    optimal: '最优',
+    feasible: '可行'
+  };
+
+  /** 求解参数 → 请求体；不合法时抛错（在界面里显示，不发请求）。 */
+  A.paperAssemblyConfig = function (config) {
+    const seed = Number(config.random_seed);
+    const seconds = Number(config.time_limit_seconds);
+    const solutions = Number(config.max_solutions);
+    if (!Number.isInteger(seed)) throw new Error('随机种子必须是整数');
+    if (!Number.isInteger(seconds) || seconds < 1) throw new Error('时限至少 1 秒');
+    if (!Number.isInteger(solutions) || solutions < 1 || solutions > 3) {
+      // 上限 3 是规格与 0034 的 CHECK；这里先挡，避免一次注定 422 的请求。
+      throw new Error('方案数只能是 1—3');
+    }
+    return {
+      random_seed: seed,
+      time_limit_seconds: seconds,
+      max_solutions: solutions
+    };
+  };
+
+  // ---------------------------------------------------------------------------
+  // 取数
+  // ---------------------------------------------------------------------------
+
+  function loadSupply(state) {
+    if (!state.selected) return Promise.resolve();
+    return A.api.assemblyCandidateSupply(state.selected.id)
+      .then(supply => { state.supply = supply; })
+      .catch(() => { state.supply = null; });
+  }
+
+  function loadRuns(state) {
+    if (!state.selected) return Promise.resolve();
+    return A.api.assemblyRuns(state.selected.id, 20)
+      .then(runs => {
+        state.runs = Array.isArray(runs) ? runs : [];
+        // 默认展示最近一次运行：教师打开页面最想知道的是"上次跑成什么样"。
+        state.run = state.runs[0] || null;
+      })
+      .catch(error => { state.runs = []; state.error = errorText(error); });
+  }
+
+  A.loadPaperAssembly = function (courseId, { force = false } = {}) {
+    const state = S();
+    if (!courseId) return;
+    const sameCourse = state.courseId === courseId;
+    if (!force && sameCourse && (state.loading || state.loaded)) return;
+    state.courseId = courseId;
+    state.loading = true;
+    state.error = null;
+    A.render();
+    return A.api.courseBlueprints(courseId).then(blueprints => {
+      state.blueprints = Array.isArray(blueprints) ? blueprints : [];
+      const keep = state.blueprints.find(row => row.id === state.selectedId);
+      state.selected = keep || state.blueprints[0] || null;
+      state.selectedId = state.selected ? state.selected.id : null;
+      return Promise.all([loadSupply(state), loadRuns(state)]);
+    }).then(() => {
+      state.loading = false;
+      state.loaded = true;
+      A.render();
+    }).catch(error => {
+      state.loading = false;
+      state.error = errorText(error);
+      A.render();
+    });
+  };
+
+  function run(action, task) {
+    const state = S();
+    if (state.busy) return Promise.resolve();
+    state.busy = action;
+    state.error = null;
+    state.message = null;
+    A.render();
+    return Promise.resolve().then(task).then(message => {
+      state.busy = null;
+      if (message) state.message = message;
+      A.render();
+    }).catch(error => {
+      state.busy = null;
+      state.error = errorText(error);
+      A.render();
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // 渲染
+  // ---------------------------------------------------------------------------
+
+  function statusBadge(run) {
+    return A.badge(A.paperAssemblyStatus(run), A.paperAssemblyTone(run));
+  }
+
+  function blueprintPicker(state) {
+    if (!state.blueprints.length) {
+      return `<p class="muted">这门课还没有蓝图版本。先到「建卷」页建一份蓝图——
+        约束组卷只能在已有蓝图上进行。</p>`;
+    }
+    const options = state.blueprints.map(row => {
+      const mode = row.assembly_mode === 'constraint_assisted' ? '约束组卷' : '手工';
+      return `<option value="${escape(row.id)}"${row.id === state.selectedId ? ' selected' : ''}>
+        第 ${escape(row.version_no)} 版 · ${escape(row.purpose)} · ${escape(mode)} ·
+        ${escape(row.total_score)} 分</option>`;
+    }).join('');
+    return `<div class="assembly-picker">
+      <label for="assembly-blueprint">蓝图版本</label>
+      <select id="assembly-blueprint" data-input="assembly-blueprint">${options}</select>
+      <small>只有「约束组卷」模式的蓝图可以跑求解；手工蓝图请在「建卷」页挑题。</small>
+    </div>`;
+  }
+
+  function supplyBlock(state) {
+    const supply = state.supply;
+    if (!state.selected) return '';
+    if (!supply) {
+      return `<section class="panel assembly-supply" aria-label="候选供给">
+        <h4>候选供给</h4>
+        <p class="muted">还没读到候选供给（可能这门课还没有冻结的 Release）。</p></section>`;
+    }
+    const rows = Object.keys(supply.supply || {}).map(code => {
+      const count = supply.supply[code];
+      return `<tr data-slot="${escape(code)}"><td>${escape(code)}</td>
+        <td>${escape(count)}</td>
+        <td>${count > 0 ? '' : '<span class="warn-text">这一槽没有可选题目</span>'}</td></tr>`;
+    }).join('');
+    const issues = (supply.issues || []).map(issue => `<li data-code="${escape(issue.code)}">
+      <b>${escape(A.paperAssemblyIssueText(issue.code))}</b>
+      ${escape(issue.message)}${issue.slot_code
+        ? ` <span class="muted">（槽位 ${escape(issue.slot_code)}）</span>` : ''}</li>`).join('');
+    const issuesBlock = issues
+      ? `<div class="assembly-issues" role="alert"><h5>预检发现这些问题</h5><ul>${issues}</ul></div>`
+      : '';
+    return `<section class="panel assembly-supply" aria-label="候选供给">
+      <h4>候选供给<span class="muted small">（共 ${escape((supply.candidates || 0))} 道候选，
+        排除 ${escape(((supply.exclusions || []).length))} 道）</span></h4>
+      <table class="ops-table"><thead><tr><th>槽位</th><th>可选题数</th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table>
+      ${issuesBlock}
+      <p class="muted small">预检只能证明"一定无解"的情况。预检没发现问题**不保证可解**——
+        组合上的冲突只有跑一次求解才知道。</p></section>`;
+  }
+
+  function configForm(state) {
+    const config = state.config;
+    const disabled = state.busy ? ' disabled' : '';
+    return `<div class="assembly-form">
+      <label for="assembly-seed">随机种子</label>
+      <input id="assembly-seed" data-input="assembly-seed" value="${escape(config.random_seed)}">
+      <label for="assembly-seconds">时限（秒）</label>
+      <input id="assembly-seconds" data-input="assembly-seconds"
+        value="${escape(config.time_limit_seconds)}">
+      <label for="assembly-solutions">方案数（1—3）</label>
+      <input id="assembly-solutions" data-input="assembly-solutions"
+        value="${escape(config.max_solutions)}">
+      ${A.button('开始求解', 'assembly-start', 'refresh', disabled, 'primary')}
+    </div>`;
+  }
+
+  function diagnosticsBlock(run) {
+    const diagnostics = (run && run.diagnostics) || {};
+    const lines = [];
+    if (diagnostics.reason) {
+      lines.push(`<li data-reason="${escape(diagnostics.reason)}">
+        <b>${escape(A.paperAssemblyReasonText(diagnostics.reason))}</b></li>`);
+    }
+    (diagnostics.issues || []).forEach(issue => {
+      lines.push(`<li data-code="${escape(issue.code)}">
+        <b>${escape(A.paperAssemblyIssueText(issue.code))}</b> ${escape(issue.message)}
+        ${issue.slot_code ? ` <span class="muted">（槽位 ${escape(issue.slot_code)}）</span>` : ''}
+      </li>`);
+    });
+    if (diagnostics.detail && !A.paperAssemblyDegraded(run)) {
+      lines.push(`<li>${escape(diagnostics.detail)}</li>`);
+    }
+    const degraded = A.paperAssemblyDegraded(run);
+    const degradedBlock = degraded
+      ? `<div class="assembly-degraded" role="alert">
+          <h5>这台机器没有装求解器</h5>
+          <p>求解需要 OR-Tools CP-SAT。安装后重跑同一次运行即可：
+          <code>.venv/Scripts/python.exe -m pip install -r server/requirements-assembly.txt</code></p>
+          <p class="muted small">在此之前，系统不会给出任何"看起来可行"的方案。</p></div>`
+      : '';
+    if (!lines.length && !degraded) {
+      return `<section class="panel assembly-diagnostics" aria-label="诊断">
+        <h4>诊断</h4><p class="muted">这次运行没有报告问题。</p></section>`;
+    }
+    const list = lines.length ? `<ul>${lines.join('')}</ul>` : '';
+    return `<section class="panel assembly-diagnostics" aria-label="诊断">
+      <h4>诊断</h4>${degradedBlock}${list}</section>`;
+  }
+
+  function solutionsBlock(run, state) {
+    if (!run || !SOLVED[run.status]) {
+      return `<section class="panel assembly-solutions" aria-label="方案">
+        <h4>方案</h4>
+        <p class="muted">这次运行没有方案。没有方案就不会建卷——先按上面的诊断改蓝图，
+        然后重跑一次求解。</p></section>`;
+    }
+    const rows = A.paperAssemblySolutions(run).map(solution => `<tr data-index="${solution.index}">
+      <td>${escape(solution.label)}</td>
+      <td>${escape(solution.status)}${solution.optimal ? '' : '（未证明最优）'}</td>
+      <td>${escape(solution.selections)}</td>
+      <td>${escape(solution.objective)}</td>
+      <td>${escape(solution.hash)}…</td>
+      <td>${A.button('用这个方案建卷', 'assembly-select', 'check',
+        `data-index="${solution.index}"${state.busy ? ' disabled' : ''}`, 'small')}</td>
+    </tr>`).join('');
+    return `<section class="panel assembly-solutions" aria-label="方案">
+      <h4>方案<span class="muted small">（每个方案最多 3 个，分别独立复验）</span></h4>
+      <table class="ops-table"><thead><tr><th>方案</th><th>结论</th><th>题数</th>
+        <th>目标值</th><th>方案哈希</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+      <p class="muted small">建卷后仍是一份草稿：要过整卷校验与双人复核才能提交。</p>
+    </section>`;
+  }
+
+  function runsBlock(state) {
+    const runs = state.runs || [];
+    if (!runs.length) {
+      return `<p class="muted">这份蓝图还没有跑过求解。</p>`;
+    }
+    const rows = runs.map(run => `<tr data-run="${escape(run.assembly_run_id)}">
+      <td>${statusBadge(run)}</td>
+      <td>${escape(String(run.created_at || '').slice(0, 16).replace('T', ' '))}</td>
+      <td>${escape((run.solutions || []).length)}</td>
+      <td>${escape(run.candidate_manifest_hash || '').slice(0, 12)}…</td>
+      <td>${run.assembly_run_id === (state.run && state.run.assembly_run_id)
+        ? '<span class="muted">当前查看</span>'
+        : A.button('查看', 'assembly-open', 'search',
+          `data-run="${escape(run.assembly_run_id)}" data-input="assembly-open"`, 'small')}</td>
+    </tr>`).join('');
+    return `<table class="ops-table assembly-runs"><thead><tr><th>状态</th><th>时间</th>
+      <th>方案数</th><th>候选哈希</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  function createdBlock(state) {
+    const created = state.created;
+    if (!created) return '';
+    return `<div class="assembly-created" role="status">
+      <h5>草稿卷已建好</h5>
+      <p>卷面哈希 <code>${escape(String(created.manifest_hash || '').slice(0, 16))}…</code>；
+        状态 ${escape(created.status || 'draft')}。</p>
+      <p class="muted small">${escape(created.next_step || '仍需整卷校验与双人复核。')}</p>
+      <div class="button-row">
+        ${A.link('进卷面编辑器', 'paper-editor', state.courseId, 'pen', '', { version: created.paper_version_id })}
+        ${A.link('进入审核与发布', 'paper-ops', state.courseId, 'check', '', { version: created.paper_version_id })}
+      </div></div>`;
+  }
+
+  A.paperAssemblyHtml = function (state) {
+    const current = state || S();
+    if (!current.courseId) {
+      return `<p class="muted">先选择一门课程。</p>`;
+    }
+    const run = current.run;
+    const header = run
+      ? `<div class="assembly-head">${statusBadge(run)}
+          <span class="muted">候选清单 ${escape(String(run.candidate_manifest_hash || '').slice(0, 12))}…
+          · 求解器 ${escape(run.solver_name || '')} ${escape(run.solver_version || '')}</span></div>`
+      : '<p class="muted">还没有运行记录。</p>';
+    const messages = `${current.error
+      ? `<div class="alert" role="alert">${escape(current.error)}</div>` : ''}
+      ${current.message ? `<div class="notice" role="status">${escape(current.message)}</div>` : ''}`;
+    return `<div class="assembly">
+      ${messages}
+      ${blueprintPicker(current)}
+      ${supplyBlock(current)}
+      <section class="panel assembly-run" aria-label="求解">
+        <h4>求解</h4>${configForm(current)}${header}
+        ${run ? diagnosticsBlock(run) : ''}
+        ${run ? solutionsBlock(run, current) : ''}
+        ${createdBlock(current)}
+      </section>
+      <section class="panel assembly-history" aria-label="运行历史">
+        <h4>运行历史</h4>${runsBlock(current)}
+      </section>
+    </div>`;
+  };
+
+  A.views['paper-assembly'] = function () {
+    const state = S();
+    const course = A.course;
+    const heading = A.sectionTitle(
+      'CONSTRAINT ASSEMBLY',
+      '约束组卷',
+      '用求解器按蓝图的硬约束挑题：先看候选供给与预检，再跑一次求解，最后选一个方案落成草稿卷。',
+      `<div class="button-row">${A.button('重新读取', 'assembly-refresh', 'refresh')}</div>`
+    );
+    if (!course) {
+      return heading + `<div class="panel"><p class="muted">先选择一门课程。</p></div>`;
+    }
+    if (state.courseId !== course.id) {
+      // 换课程后旧运行必须清空：否则会把别的课的方案当成这门课的。
+      state.courseId = course.id;
+      state.blueprints = [];
+      state.selectedId = null;
+      state.selected = null;
+      state.runs = [];
+      state.run = null;
+      state.supply = null;
+      state.created = null;
+      state.loaded = false;
+      state.message = null;
+      state.error = null;
+    }
+    if (state.loading && !state.blueprints.length) {
+      return heading + `<div class="panel"><p class="muted">正在读取蓝图与候选供给…</p></div>`;
+    }
+    if (state.error && !state.blueprints.length) {
+      return heading + `<div class="panel"><h2>读不到组卷数据</h2>
+        <p class="muted">${escape(state.error)}</p>
+        <div class="button-row">${A.button('重试', 'assembly-refresh', 'refresh')}</div></div>`;
+    }
+    return heading + `<div class="panel">${A.paperAssemblyHtml(state)}</div>`;
+  };
+
+  A.after['paper-assembly'] = function () {
+    A.loadPaperAssembly(A.course && A.course.id);
+  };
+
+  // ---------------------------------------------------------------------------
+  // 输入
+  // ---------------------------------------------------------------------------
+
+  A.inputs['assembly-blueprint'] = input => {
+    const state = S();
+    const row = state.blueprints.find(item => item.id === input.value);
+    if (!row) return;
+    state.selected = row;
+    state.selectedId = row.id;
+    state.run = null;
+    state.created = null;
+    return run('switch', () => Promise.all([loadSupply(state), loadRuns(state)])
+      .then(() => null));
+  };
+
+  A.inputs['assembly-seed'] = input => { S().config.random_seed = input.value; };
+  A.inputs['assembly-seconds'] = input => { S().config.time_limit_seconds = input.value; };
+  A.inputs['assembly-solutions'] = input => { S().config.max_solutions = input.value; };
+
+  A.actions['assembly-open'] = function (button) {
+    const state = S();
+    const runId = button.dataset.run;
+    if (!runId) return;
+    return run('open', () => A.api.assemblyRun(runId).then(row => {
+      state.run = row;
+      return null;
+    }));
+  };
+
+  // ---------------------------------------------------------------------------
+  // 动作
+  // ---------------------------------------------------------------------------
+
+  A.actions['assembly-refresh'] = function () {
+    S().loaded = false;
+    return A.loadPaperAssembly(A.course && A.course.id, { force: true });
+  };
+
+  A.actions['assembly-start'] = function () {
+    const state = S();
+    if (!state.selected) {
+      state.error = '先选一份蓝图版本';
+      A.render();
+      return Promise.resolve();
+    }
+    let config;
+    try {
+      config = A.paperAssemblyConfig(state.config);
+    } catch (error) {
+      state.error = error.message;
+      A.render();
+      return Promise.resolve();
+    }
+    return run('start', () => A.api.startAssemblyRun(state.selected.id, config, newKey('run'))
+      .then(row => {
+        state.run = row;
+        state.created = null;
+        state.runs = [row].concat((state.runs || []).filter(
+          item => item.assembly_run_id !== row.assembly_run_id));
+        return statusMessage(row);
+      }));
+  };
+
+  /** 启动后的提示语必须按真实状态写，不能一律"成功"。 */
+  function statusMessage(row) {
+    if (!row) return '求解已返回。';
+    if (row.status === 'optimal') return '求解完成：已证明最优，可以选方案建卷。';
+    if (row.status === 'feasible') return '求完成解：有可行方案，但未证明最优（界面会如实标注）。';
+    if (row.status === 'infeasible') return '这次运行判定无解：请按诊断逐条修改后重跑。';
+    if (row.status === 'timeout') return '运行超时：找到的方案仍可用，但没有最优性结论。';
+    if (row.status === 'failed') return '这次运行失败了：诊断里有具体原因。';
+    return `运行状态：${A.paperAssemblyStatus(row)}。`;
+  }
+
+  A.actions['assembly-select'] = function (button) {
+    const state = S();
+    const index = Number(button.dataset.index);
+    if (!state.run) {
+      state.error = '先跑一次求解（或从历史里打开一次运行）';
+      A.render();
+      return Promise.resolve();
+    }
+    return run('select', () => A.api.assemblySolutionPaper(
+      state.run.assembly_run_id, index, newKey('solution')
+    ).then(draft => {
+      state.created = draft;
+      return '草稿卷已建好：还要过整卷校验与双人复核，才能提交审核。';
+    }));
+  };
+})();

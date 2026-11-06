@@ -118,6 +118,7 @@
       '冻结 Release → 建卷 → 整卷校验 → 双人复核 → 导出三类卷 → 发布打印作业。每一步都要留证据。',
       `<div class="button-row">
         <a class="btn primary" href="${A.url('paper-build', course.id)}">建一份新卷</a>
+        <a class="btn" href="${A.url('paper-assembly', course.id)}">约束组卷</a>
         ${A.button('刷新', 'workbench-refresh', 'refresh')}
       </div>`
     );

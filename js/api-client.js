@@ -626,6 +626,21 @@
       `/api/v1/paper-blueprint-versions/${encodeURIComponent(versionId)}/candidate-labels`),
     createPaperDraft: (body, key) => request('POST', '/api/v1/paper-versions',
       { body, headers: { 'Idempotency-Key': key } }),
+    // 约束组卷（阶段 B）：启动一次求解要幂等键（重试不能跑出第二个运行），
+    // 选方案落卷也要（重试不能留下两份内容相同的草稿）。
+    assemblyCandidateSupply: versionId => request('GET',
+      `/api/v1/paper-blueprint-versions/${encodeURIComponent(versionId)}/candidate-supply`),
+    assemblyRuns: (versionId, limit) => request('GET',
+      `/api/v1/paper-blueprint-versions/${encodeURIComponent(versionId)}/assembly-runs`
+      + queryString({ limit })),
+    startAssemblyRun: (versionId, config, key) => request('POST',
+      `/api/v1/paper-blueprint-versions/${encodeURIComponent(versionId)}/assembly-runs`,
+      { body: config || {}, headers: { 'Idempotency-Key': key } }),
+    assemblyRun: runId => request('GET',
+      `/api/v1/assembly-runs/${encodeURIComponent(runId)}`),
+    assemblySolutionPaper: (runId, index, key) => request('POST',
+      `/api/v1/assembly-runs/${encodeURIComponent(runId)}/solutions/${index}/paper`,
+      { headers: { 'Idempotency-Key': key } }),
     coursewareChapters: (courseId) =>
       request('GET', `/api/v1/courseware/chapters${queryString({ course_id: courseId })}`),
     coursewareDeck: (deckId, version) =>

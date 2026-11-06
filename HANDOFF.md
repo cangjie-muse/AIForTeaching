@@ -6,7 +6,9 @@
 
 ## 阶段 B 约束组卷：已落地到哪里（2026-11-06）
 
-按 `2026-11-05-paper-02-constrained-assembly.md` 任务 1 推进，映射到本仓库：
+按 `2026-11-05-paper-02-constrained-assembly.md` 推进，映射到本仓库。
+**结论先说**：除 CP-SAT 求解器本身（本机装不上 ortools）之外，'运行 → 诊断 →
+方案 → 草稿卷 → 独立复验'整条链已用真实服务跑通。
 
 - `server/app/assembly/contracts.py`：求解状态（`RunStatus`）、整数单位模型
   （分值→分/100、秒、权重全整数）、`Candidate`/`CandidateManifest`/
@@ -19,20 +21,34 @@
 - `server/app/assembly/candidate.py`：`AssemblyCandidateService` 固定候选 manifest；
   `recent_use_count / exposure_count / answer_released` 全部从真实
   `assessment.item_exposure_event` 统计，不接受调用方自报；`StageACandidateSource`
-  直接用阶段 A 的 `CandidateService.snapshot` 取权威候选（授权、Release、审核都在那边）。
-- `db/migrations/0034_assembly_run.sql`：新增 `assessment.assembly_run`（幂等键唯一、
+  直接用阶段 A 的 `CandidateService.snapshot` 取权威候选。
+- `server/app/assembly/diagnostics.py`：求解前预检（槽位无候选、候选少于槽位、时长
+  下界超限、覆盖/题型上界不足、两组必选题同互斥组、蓝图分数不自洽）。诊断只读，
+  且把 `precheck_proved` 与 `solver_reported` 分开写，不拿空预检冒充解释。
+- `server/app/assembly/repository.py` + `service.py` + `materialize.py`：运行持久化
+  （状态机只允许运行中→终态，外加"已解出→FAILED"）、选方案建草稿卷、建完立刻用
+  阶段 A 的 `PaperValidationService` 独立复验；复验不通过时运行标 FAILED、卷子留草稿。
+- `server/app/assembly_api.py`：三条路由 + `candidate-supply` 只读预检。
+  INFEASIBLE/FAILED 是 201（一次成功的运行），没有方案时选方案是 409。
+- `db/migrations/0034_assembly_run.sql`：`assessment.assembly_run`（幂等键唯一、
   方案≤3、无解不许带方案、终态需完成时间、FORCE RLS），解除 0027 的
-  `ck_paper_manual_only` 并加上"组卷来源两列必须成对 + 序号 0..2"。
-- 依赖：`server/requirements-assembly.txt` 钉 `ortools==9.11.4210`。
+  `ck_paper_manual_only`，改为"组卷来源两列必须成对 + 序号 0..2"。
+- 前端：`js/paper-assembly.js`（页 `paper-assembly`，工作台有入口）。界面把
+  「可行（未证明最优）」与「最优（已证明）」分开显示；无解不弹错误而是逐条列诊断，
+  且不给建卷按钮；缺求解器时给安装命令。
+- 阶段 A 的两处必要改动：`blueprints.py` 允许 `constraint_assisted`；
+  `papers.py` 的 INSERT 真的写 `assembly_run_id/selected_solution_index`，并按蓝图
+  模式双向校验来源。
 
-验证（本机 2026-11-06）：`server/tests/test_assembly_blueprint.py` 18 项、
-`test_assembly_candidate.py` 18 项通过；`npm run test:migrations` 34/34 迁移、
-断言 10/10（含 0034 的 12 条真引擎行为）。
+验证（本机 2026-11-06）：`test_assembly_blueprint/candidate/diagnostics/pipeline/api`
+合计 93 项、`test-view-paper-assembly.cjs` 45 项全过；`npm run test:migrations`
+34/34 迁移、断言 11/11（含 0034 的 12 条 + 落卷来源 3 条真引擎行为）；
+阶段 A 的 blueprints/papers/validation/acceptance 无回归。
 
 **阻塞项（不是通过）**：本机没有外网（pypi 与三个镜像均"基础连接已经关闭"，
-无代理环境变量），`pip install ortools==9.11.4210` 装不上，因此 CP-SAT 求解器
-（任务 2/3）与后续 materialize/A-B 无法在本机产出真实运行证据。候选固定与迁移
-部分刻意与求解器解耦，所以它们是已验证的。
+无代理环境变量），`pip install ortools==9.11.4210` 装不上。`default_solver()`
+返回 `UnavailableSolver`，运行会记 `failed` 并写明缺什么，**不会**产出假方案。
+因此 CP-SAT 硬约束、软目标、多方案与 A/B 卷都没有真实运行证据。
 
 ## 阶段 A 固定卷链路（2026-11-06）
 
