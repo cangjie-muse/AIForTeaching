@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 from contextlib import contextmanager
-from typing import Any, Iterator
+from typing import Any, Iterable, Iterator
 
 from . import envfile
 from psycopg.rows import dict_row
@@ -43,15 +43,40 @@ def cursor() -> Iterator[Any]:
 
 
 @contextmanager
-def transaction() -> Iterator[Any]:
+def transaction(*, assessment_service: bool = False,
+                course_ids: Iterable[str] | None = None) -> Iterator[Any]:
     """一个事务里做完一批写操作。
 
     execute() 每条语句都自己提交：整包导入一万道题就是三万余次往返，
     几分钟起步——所以旧代码干脆把题量上限定在 10000。批量导入走这里：
     拿一个 cursor，executemany 写完，退出时一次提交。
     顺带的好处是原子性：中途抛错整包回滚，不会留下半个课程。
+
+    RLS 作用域（assessment 命名空间）：
+        paper_version / paper_section / paper_slot / paper_render 都是
+        `FORCE ROW LEVEL SECURITY`，非超级用户（包括表 owner）默认一行都读不到、
+        也写不进去，除非在**同一个事务**里先设好下面两个会话变量之一：
+            SET LOCAL app.assessment_service = 'on'      —— 服务账号，全量
+            SELECT set_config('app.course_ids', '...', true) —— 教师/学生的课程范围
+        注意是 SET LOCAL，不是 SET：SET 只作用于会话，连接池把连接借给下一个
+        请求时作用域还在，等于把 A 课程的数据带给了 B 请求。set_config(..., true)
+        与 SET LOCAL 等价，但能走参数占位符——课程 id 来自外部输入，拼进 SQL 就是
+        注入面。assessment_service=True 时本函数在事务的第一条语句就设置它。
+
+    这两个参数默认关闭，老调用方（content.py / homework.py）行为不变。
     """
     with pool.connection() as conn, conn.cursor() as cur:
+        if assessment_service:
+            # 常量，直接写死；不经过字符串拼装，避免"作用域被参数化"变成注入点。
+            cur.execute("SET LOCAL app.assessment_service = 'on'")
+        if course_ids:
+            scope = ",".join(str(course_id).strip() for course_id in course_ids)
+            if not scope:
+                raise ValueError("course_ids 不能为空")
+            cur.execute(
+                "SELECT set_config('app.course_ids', %s, true)",
+                (scope,),
+            )
         yield cur
 
 

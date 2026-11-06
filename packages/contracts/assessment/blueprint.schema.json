@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiforteaching.local/contracts/assessment/blueprint.schema.json",
+  "title": "paper-blueprint/v1",
+  "description": "不可变手工蓝图版本的内容形状，与 server/app/contracts/paper.py 的 BlueprintContent 逐字段对应。所有分值都是两位小数的 JSON 字符串（不是数字）：JS 端拿到数字就会用二进制浮点求和，100 分卷会变成 99.99999999999999。$defs.section / $defs.slot 禁止额外字段：多一个 answer 或 solution 字段就是多一条泄露通道。HTTP 传输层另有 course_ref / offering_ref（本仓库的文本课程 id），由路由映射成这里的 course_id / offering_id，见 server/app/paper_blueprints.py。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "purpose",
+    "course_id",
+    "release_context_id",
+    "total_score",
+    "duration_seconds",
+    "sections",
+    "review_policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "paper-blueprint/v1"
+    },
+    "purpose": {
+      "enum": ["formal", "coursework", "practice"]
+    },
+    "course_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "offering_id": {
+      "type": ["string", "null"],
+      "format": "uuid"
+    },
+    "release_context_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "total_score": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d{2}$"
+    },
+    "duration_seconds": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/section"
+      }
+    },
+    "hard_constraints": {
+      "type": "object"
+    },
+    "soft_objectives": {
+      "type": "object"
+    },
+    "review_policy": {
+      "enum": ["formal_dual_review", "single_review"]
+    },
+    "assembly_mode": {
+      "enum": ["manual", "constraint_assisted"]
+    }
+  },
+  "$defs": {
+    "section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "title", "slots"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "instruction": {
+          "type": "string"
+        },
+        "slots": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/slot"
+          }
+        }
+      }
+    },
+    "slot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "score"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "score": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d{2}$"
+        },
+        "exercise_kinds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "required_concept_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "learning_outcome_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "difficulty_label": {
+          "type": ["string", "null"]
+        },
+        "estimated_seconds": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "mandatory_exercise_version_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "excluded_exercise_version_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      }
+    }
+  }
+}
