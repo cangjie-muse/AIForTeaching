@@ -196,6 +196,11 @@ class PaperVersionRow(PaperView):
     # 只靠数据库 CHECK 不够：服务层也要能回答"这份卷是不是求解器给的"。
     assembly_run_id: UUID | None = None
     selected_solution_index: int | None = None
+    # A/B 卷的身份：同一 `variant_group_id` 的两份卷是"同一次考试的两个版本"，
+    # `variant_label` 是 A/B 标记。两列同生同灭（见 create_manual_draft 的校验）：
+    # 只有标签没有分组，等于给卷子贴了一个无法追溯的字母。
+    variant_group_id: UUID | None = None
+    variant_label: str | None = Field(default=None, max_length=32)
     submitted_manifest_hash: str | None = None
     created_by: UUID
     created_at: datetime
@@ -482,7 +487,8 @@ _VERSION_COLUMNS = """id, paper_id, version_no, blueprint_version_id, candidate_
                       base_paper_version_id, course_id, offering_id, release_context_id,
                       paper_kind, total_score, duration_seconds, status, edit_seq,
                       manifest_hash, submitted_manifest_hash, review_manifest_hash,
-                      created_by, created_at, assembly_run_id, selected_solution_index"""
+                      created_by, created_at, assembly_run_id, selected_solution_index,
+                      variant_group_id, variant_label"""
 
 _SECTION_COLUMNS = """id, paper_version_id, code, title, instruction, sort_order,
                       section_score, display_config, content_hash"""
@@ -645,6 +651,8 @@ class _PostgresPaperUnitOfWork:
             created_at=record["created_at"],
             assembly_run_id=record.get("assembly_run_id"),
             selected_solution_index=record.get("selected_solution_index"),
+            variant_group_id=record.get("variant_group_id"),
+            variant_label=record.get("variant_label"),
         )
 
     # -- 写 ---------------------------------------------------------------
@@ -658,11 +666,13 @@ class _PostgresPaperUnitOfWork:
             """INSERT INTO assessment.paper_version
                  (id, paper_id, version_no, blueprint_version_id, candidate_snapshot_id,
                   base_paper_version_id, assembly_run_id, selected_solution_index,
+                  variant_group_id, variant_label,
                   course_id, offering_id, release_context_id, paper_kind,
                   total_score, duration_seconds, status, edit_seq, manifest_hash,
                   submitted_manifest_hash, review_manifest_hash, created_by)
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s,
-                       %s, %s, %s, %s, %s, %s, %s, %s, %s, NULL, NULL, %s)""",
+                       %s, %s, %s, %s, %s, %s, %s, %s, %s, NULL, NULL, %s,
+                       %s, %s)""",
             (
                 row.id, row.paper_id, row.version_no, row.blueprint_version_id,
                 row.candidate_snapshot_id, row.base_paper_version_id,
@@ -670,6 +680,7 @@ class _PostgresPaperUnitOfWork:
                 row.course_id, row.offering_id, row.release_context_id,
                 row.paper_kind or row.purpose, row.total_score, row.duration_seconds,
                 row.status, row.edit_seq, row.manifest_hash, row.created_by,
+                row.variant_group_id, row.variant_label,
             ),
         )
         self._write_children(row)
@@ -1251,6 +1262,8 @@ class PaperService:
         idempotency_key: str | None = None,
         assembly_run_id: UUID | None = None,
         selected_solution_index: int | None = None,
+        variant_group_id: UUID | None = None,
+        variant_label: str | None = None,
     ) -> PaperVersionRow:
         """从蓝图 + 固定候选快照建立 draft；或把已批准卷克隆成新 paper 身份的 draft。
 
@@ -1264,6 +1277,12 @@ class PaperService:
             raise PaperRuleError(
                 "invalid_assembly_source",
                 "组卷来源必须成对给出：assembly_run_id 与 selected_solution_index 要么都有、要么都空",
+            )
+        if (variant_group_id is None) != (variant_label is None):
+            # A/B 身份必须成对：只有字母没有分组，等于贴了一个无法追溯的标签。
+            raise PaperRuleError(
+                "invalid_variant_identity",
+                "A/B 身份必须成对给出：variant_group_id 与 variant_label 要么都有、要么都空",
             )
         if assembly_run_id is not None and (blueprint_version_id is None or not selections):
             raise PaperRuleError(
@@ -1310,6 +1329,8 @@ class PaperService:
                 actor_ref=actor_ref,
                 assembly_run_id=assembly_run_id,
                 selected_solution_index=selected_solution_index,
+                variant_group_id=variant_group_id,
+                variant_label=variant_label,
             )
             uow.lock_paper(row.paper_id)
             stored = uow.add(row)
@@ -1321,7 +1342,9 @@ class PaperService:
                      snapshot: CandidateSnapshot, selections: tuple[SlotSelection, ...],
                      paper_id: UUID | None, actor_ref: str | None,
                      assembly_run_id: UUID | None = None,
-                     selected_solution_index: int | None = None) -> PaperVersionRow:
+                     selected_solution_index: int | None = None,
+                     variant_group_id: UUID | None = None,
+                     variant_label: str | None = None) -> PaperVersionRow:
         blueprint = version.content
         accepted = {
             record.evidence.exercise_version_id: record
@@ -1442,6 +1465,8 @@ class PaperService:
             base_paper_version_id=None,
             assembly_run_id=assembly_run_id,
             selected_solution_index=selected_solution_index,
+            variant_group_id=variant_group_id,
+            variant_label=variant_label,
             course_id=view.course_id,
             offering_id=view.offering_id,
             release_context_id=view.release_context_id,

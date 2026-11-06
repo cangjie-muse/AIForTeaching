@@ -125,10 +125,13 @@ class StubService:
             raise AssertionError("测试要先给 StubService.blueprint 赋值")
         return self.blueprint
 
-    def select(self, *, actor_id, run_id, index, idempotency_key):
+    def select(self, *, actor_id, run_id, index, idempotency_key,
+               variant_group_id=None, variant_label=None):
         if self.select_error:
             raise self.select_error
-        self.selects.append({"index": index, "key": idempotency_key})
+        self.selects.append({"index": index, "key": idempotency_key,
+                             "variant_group_id": variant_group_id,
+                             "variant_label": variant_label})
         return self.draft
 
 
@@ -320,7 +323,21 @@ def test_select_creates_draft_and_says_review_is_still_required() -> None:
     body = response.json()
     assert body["status"] == "draft"
     assert "复核" in body["next_step"], "响应必须说明草稿还要过审核"
-    assert service.selects == [{"index": 0, "key": "pick-1"}]
+    assert service.selects == [{"index": 0, "key": "pick-1",
+                                "variant_group_id": None, "variant_label": None}]
+
+
+def test_select_carries_variant_identity() -> None:
+    """A/B 身份必须一路传到建卷：只在界面上叫 A/B 没有意义。"""
+    service = StubService()
+    group = UUID("5e5e0000-0000-4000-8000-000000000001")
+    response = client(service).post(
+        f"/api/v1/assembly-runs/{RUN}/solutions/0/paper"
+        f"?variant_group_id={group}&variant_label=B",
+        headers={**TEACHER, "Idempotency-Key": "pick-ab"})
+    assert response.status_code == 201, response.text
+    assert service.selects[0]["variant_group_id"] == group
+    assert service.selects[0]["variant_label"] == "B"
 
 
 def test_select_without_solutions_is_409() -> None:

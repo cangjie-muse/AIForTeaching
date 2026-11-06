@@ -632,6 +632,47 @@ def test_solution_violating_the_blueprint_never_creates_a_paper() -> None:
     assert after.diagnostics["verification"]["issues"][0]["code"] == "score_mismatch"
 
 
+def test_ab_pair_can_be_materialized_as_two_labelled_papers() -> None:
+    """A/B 两卷：同一分组、各自字母，分别建卷（分别送审的前提）。"""
+    env = build_environment()
+    first = env.assembly.start(actor_id=CREATOR, blueprint_version_id=env.version.id,
+                               idempotency_key="run-ab-a")
+    second = env.assembly.start(actor_id=CREATOR, blueprint_version_id=env.version.id,
+                                idempotency_key="run-ab-b")
+    group = UUID("5e5e0000-0000-4000-8000-000000000010")
+    paper_a = env.assembly.select(
+        actor_id=CREATOR, run_id=first.assembly_run_id, index=0,
+        idempotency_key="ab-a", variant_group_id=group, variant_label="A")
+    paper_b = env.assembly.select(
+        actor_id=CREATOR, run_id=second.assembly_run_id, index=0,
+        idempotency_key="ab-b", variant_group_id=group, variant_label="B")
+    assert paper_a.paper_version_id != paper_b.paper_version_id, "A/B 必须是两份卷"
+    stored = [env.papers.repository.versions[paper_a.paper_version_id],
+              env.papers.repository.versions[paper_b.paper_version_id]]
+    assert [item.variant_label for item in stored] == ["A", "B"]
+    assert {item.variant_group_id for item in stored} == {group}
+    # 两份卷都各自通过了独立复验（不是共享一次结论）：看各自运行的诊断。
+    for run_id in (first.assembly_run_id, second.assembly_run_id):
+        row = env.assembly.run(actor_id=CREATOR, run_id=run_id)
+        assert row.diagnostics["validation"]["valid"] is True, row.diagnostics
+    assert (env.assembly.run(actor_id=CREATOR, run_id=first.assembly_run_id)
+            .diagnostics["validation"]["paper_version_id"]) == str(paper_a.paper_version_id)
+
+
+def test_label_without_group_is_refused_before_creating_a_paper() -> None:
+    env = build_environment()
+    started = env.assembly.start(actor_id=CREATOR, blueprint_version_id=env.version.id,
+                                 idempotency_key="run-bad-variant")
+    try:
+        env.assembly.select(actor_id=CREATOR, run_id=started.assembly_run_id,
+                            index=0, idempotency_key="pick-bad-variant",
+                            variant_label="A")
+    except Exception as error:  # PaperRuleError 会一路抛上来
+        assert "invalid_variant_identity" in str(error) or "variant_group_id" in str(error)
+    else:
+        raise AssertionError("只有字母没有分组的建卷请求必须被拒绝")
+
+
 def test_second_select_after_failure_is_refused() -> None:
     class InvalidValidator:
         def validate(self, *, actor_id, paper_version_id):

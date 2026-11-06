@@ -91,7 +91,9 @@ class AssemblyMaterializer:
                     solution: SolutionManifest, candidate_snapshot_id: UUID,
                     assembly_run_id: UUID, selected_solution_index: int,
                     idempotency_key: str,
-                    manifest: Any = None) -> MaterializedPaper:
+                    manifest: Any = None,
+                    variant_group_id: UUID | None = None,
+                    variant_label: str | None = None) -> MaterializedPaper:
         """建草稿卷时必须带组卷来源：`paper_version.assembly_run_id` +
         `selected_solution_index` 是"这份卷从哪来"的唯一证据。少了它们，卷子会被
         当成手工卷（0034 的 CHECK 允许两列都空），回放就此断链。
@@ -112,6 +114,8 @@ class AssemblyMaterializer:
             idempotency_key=idempotency_key,
             assembly_run_id=assembly_run_id,
             selected_solution_index=selected_solution_index,
+            variant_group_id=variant_group_id,
+            variant_label=variant_label,
         )
         report = self.validator.validate(actor_id=actor_id, paper_version_id=draft.id)
         issues = tuple(

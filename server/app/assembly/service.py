@@ -335,7 +335,8 @@ class AssemblyService:
 
     # -- 选择方案落卷 -------------------------------------------------------
     def select(self, *, actor_id: UUID, run_id: UUID, index: int,
-               idempotency_key: str) -> PaperDraft:
+               idempotency_key: str, variant_group_id: UUID | None = None,
+               variant_label: str | None = None) -> PaperDraft:
         key = _key(idempotency_key)
         row = self._load(actor_id, run_id)
         if row.status not in SOLVED_STATUSES or not row.solution_manifest:
@@ -368,6 +369,8 @@ class AssemblyService:
                 selected_solution_index=index,
                 idempotency_key=f"{key}:paper",
                 manifest=manifest,
+                variant_group_id=variant_group_id,
+                variant_label=variant_label,
             )
         except SolutionVerificationError as blocked:
             # 方案本身不满足蓝图：不建卷，把问题写进运行诊断并标失败。

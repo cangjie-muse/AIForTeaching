@@ -327,6 +327,37 @@ def raises_rule(code: str):
 
 
 # ---------------------------------------------------------------------------
+# A/B 身份（variant_group_id / variant_label）
+# ---------------------------------------------------------------------------
+
+def test_variant_identity_is_stored_when_complete() -> None:
+    f = factory()
+    group = uuid4()
+    row = create_draft(f, variant_group_id=group, variant_label="A")
+    assert row.variant_group_id == group
+    assert row.variant_label == "A"
+
+
+def test_label_without_group_is_rejected() -> None:
+    """只给字母不给分组，等于贴一个无法追溯的标签。"""
+    f = factory()
+    with raises_rule("invalid_variant_identity"):
+        create_draft(f, variant_label="A")
+
+
+def test_group_without_label_is_rejected() -> None:
+    f = factory()
+    with raises_rule("invalid_variant_identity"):
+        create_draft(f, variant_group_id=uuid4())
+
+
+def test_plain_manual_draft_has_no_variant_identity() -> None:
+    f = factory()
+    row = create_draft(f)
+    assert row.variant_group_id is None and row.variant_label is None
+
+
+# ---------------------------------------------------------------------------
 # 建卷
 # ---------------------------------------------------------------------------
 

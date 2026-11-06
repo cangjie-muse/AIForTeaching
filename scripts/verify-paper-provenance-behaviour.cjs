@@ -13,6 +13,8 @@ const ASSEMBLY_RUN = '7a1b0000-0000-4000-8000-0000000000ff';
 const SOLUTION_PAPER = '8b2c0000-0000-4000-8000-000000000001';
 const MANUAL_PAPER = '8b2c0000-0000-4000-8000-000000000002';
 const sha = (seed) => crypto.createHash('sha256').update(String(seed)).digest('hex');
+// paper_id 也是 uuid：不能用 ${id}-paper 这种拼串。
+const variantPaperId = (id) => id.replace('0a1', '0d1').replace('0b1', '0d2');
 
 module.exports = async function checkPaperProvenance(db, ids) {
   // 一个装配运行（0034 已建 assembly_run）供组卷卷子引用。
@@ -73,5 +75,46 @@ module.exports = async function checkPaperProvenance(db, ids) {
   assert.ok(half, '手工卷只补 assembly_run_id 必须被 CHECK 拒绝');
   assert.equal(half.code, '23514');
 
-  return '组卷卷子两列成对落库、手工卷两列仍为 NULL、单边补写被 CHECK 拒绝';
+  // 4) A/B 身份：同一分组的 A、B 两份卷可以各自落库，且分组/字母都读得回来。
+  const VARIANT_GROUP = '5e5e0000-0000-4000-8000-0000000000aa';
+  const insertVariant = (id, label) => db.query(
+    `INSERT INTO assessment.paper_version
+       (id, paper_id, version_no, blueprint_version_id, candidate_snapshot_id,
+        course_id, offering_id, release_context_id, paper_kind, total_score,
+        duration_seconds, status, manifest_hash, created_by, variant_group_id,
+        variant_label)
+     VALUES ($1, $2, 1, $3, $4, $5, $6, $7, 'formal', 100.00, 5400, 'draft',
+             $8, $9, $10, $11)`,
+    [id, variantPaperId(id), ids.blueprintVersion, ids.candidateSnapshot, ids.course,
+      ids.offering, ids.releaseContext, sha(String(id)), ids.actor,
+      VARIANT_GROUP, label]
+  );
+  await insertVariant('8b2c0000-0000-4000-8000-0000000000a1', 'A');
+  await insertVariant('8b2c0000-0000-4000-8000-0000000000b1', 'B');
+  const pair = (await db.query(
+    `SELECT label.variant_label, label.variant_group_id::text AS grp
+       FROM assessment.paper_version label
+      WHERE label.variant_group_id = $1
+      ORDER BY label.variant_label`,
+    [VARIANT_GROUP]
+  )).rows;
+  assert.equal(pair.length, 2, 'A/B 两份卷都要落库');
+  assert.deepEqual(pair.map((item) => item.variant_label), ['A', 'B']);
+  assert.ok(pair.every((item) => item.grp === VARIANT_GROUP), '两卷必须共享同一分组');
+
+  // 5) 反向对照：没有任何约束禁止"只有字母没有分组"——所以这一条必须由服务层挡。
+  //    这里断言的是数据库**允许**裸字母，用来提醒后来人不要以为库会兜底。
+  await db.query(
+    `INSERT INTO assessment.paper_version
+       (id, paper_id, version_no, blueprint_version_id, candidate_snapshot_id,
+        course_id, offering_id, release_context_id, paper_kind, total_score,
+        duration_seconds, status, manifest_hash, created_by, variant_label)
+     VALUES ('8b2c0000-0000-4000-8000-0000000000c1', '8b2c0000-0000-4000-8000-0000000000c2',
+             1, $1, $2, $3, $4, $5, 'formal', 100.00, 5400, 'draft', $6, $7, 'A')`,
+    [ids.blueprintVersion, ids.candidateSnapshot, ids.course, ids.offering,
+      ids.releaseContext, sha('lone-label'), ids.actor]
+  );
+
+  return '组卷卷子两列成对落库、手工卷两列仍为 NULL、单边补写被 CHECK 拒绝、'
+    + 'A/B 同组两份卷可落库（裸字母由服务层挡，数据库不兜底）';
 };

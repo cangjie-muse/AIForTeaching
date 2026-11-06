@@ -532,16 +532,24 @@ def ab_pair(
 def materialize_solution(
     run_id: UUID,
     index: int,
+    variant_group_id: UUID | None = None,
+    variant_label: str | None = None,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     actor: Actor = Depends(require_teacher),
     service: AssemblyService = Depends(get_assembly_service),
 ) -> dict[str, Any]:
-    """把第 `index` 个方案落成草稿卷，并立刻独立复验一次。"""
+    """把第 `index` 个方案落成草稿卷，并立刻独立复验一次。
+
+    `variant_group_id` / `variant_label` 是 A/B 身份：两卷必须共享同一个分组、各自
+    带自己的字母。只给一个会被 `PaperRuleError` 拒绝——贴一个没有分组的字母，
+    半年后没人能证明这两份卷是同一次考试的两个版本。
+    """
     key = _key(idempotency_key)
     try:
         draft = service.select(
             actor_id=ref_uuid("account", actor.id),
-            run_id=run_id, index=index, idempotency_key=key)
+            run_id=run_id, index=index, idempotency_key=key,
+            variant_group_id=variant_group_id, variant_label=variant_label)
     except Exception as exc:  # noqa: BLE001
         raise _map_error(exc) from exc
     return {
