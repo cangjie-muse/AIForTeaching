@@ -151,7 +151,8 @@ VECTOR_EXTENSION_RE = re.compile(
 def pglite_compat(sql: str) -> tuple[str, list[str]]:
     """把 pgvector 相关语句降级，供 PGlite 建同名结构的开发库。
 
-    PGlite（WASM PostgreSQL 16）没有 pgvector，但其他部分是真的 PG。
+    PGlite（WASM 版 PostgreSQL，随 @electric-sql/pglite 版本走；本仓库 0.5.10
+    报的是 18.6，不是固定 16）没有 pgvector，但其他部分是真的 PG。
     降级两处：vector(N) → jsonb、跳过 hnsw 索引；扩展本身也跳过。
     这样接口能用真 PG 语法执行，唯一失真处是向量列类型与索引——
     而 API 层不碰向量运算，所以不影响接口测试的有效性。

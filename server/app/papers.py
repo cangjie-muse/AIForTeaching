@@ -90,6 +90,10 @@ MANIFEST_SCHEMA = "paper-manifest/v1"
 
 PAPER_WRITE_ACTION = "paper.write"
 PAPER_READ_ACTION = "paper.read"
+# 任务 7 的治理动作：提交/复核/撤回各有独立动作名，权限映射仍旧复用课程范围。
+PAPER_SUBMIT_ACTION = "paper.submit"
+PAPER_REVIEW_ACTION = "paper.review"
+PAPER_WITHDRAW_ACTION = "paper.withdraw"
 CREATE_SCOPE = "paper_version.create"
 EDIT_SCOPE = "paper_version.edit"
 MAX_IDEMPOTENCY_KEY = 200
@@ -931,7 +935,8 @@ def _event_from_db(record: Mapping[str, Any]) -> PaperEditEvent:
 class PaperScopeAuthorizer:
     """纸卷权限 = 该课程范围内的教师/管理员。
 
-    动作名（`paper.write` / `paper.read`）与蓝图分开，是为了任务 5+ 能独立收紧
+    动作名（`paper.write` / `paper.read`，以及任务 7 的 `paper.submit` /
+    `paper.review` / `paper.withdraw`）与蓝图分开，是为了任务 5+ 能独立收紧
     （例如复核人只看不写）；但**范围判定**直接复用 `CourseScopeAuthorizer`，
     不复制第二套"谁教这门课"的实现——两套实现迟早会漂移成两个权限模型。
     """
@@ -939,6 +944,11 @@ class PaperScopeAuthorizer:
     _ACTIONS = {
         PAPER_WRITE_ACTION: "paper_blueprint.write",
         PAPER_READ_ACTION: "paper_blueprint.read",
+        # 提交/撤回是写动作；复核只需要读范围——复核人不必是这份卷子的作者，
+        # 但必须是这门课里有班级的教师（或管理员）。
+        PAPER_SUBMIT_ACTION: "paper_blueprint.write",
+        PAPER_REVIEW_ACTION: "paper_blueprint.read",
+        PAPER_WITHDRAW_ACTION: "paper_blueprint.write",
     }
 
     def __init__(self, actor: Any) -> None:
@@ -1709,6 +1719,9 @@ __all__ = [
     "InMemoryPaperRepository",
     "MANIFEST_SCHEMA",
     "PAPER_READ_ACTION",
+    "PAPER_REVIEW_ACTION",
+    "PAPER_SUBMIT_ACTION",
+    "PAPER_WITHDRAW_ACTION",
     "PAPER_WRITE_ACTION",
     "PaperEditEvent",
     "PaperError",

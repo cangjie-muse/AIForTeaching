@@ -22,8 +22,7 @@
  *   * PGlite 默认不带 pgvector：0001 的 `CREATE EXTENSION vector` 会 0A000。本脚本打印
  *     扩展名、行号、SQLSTATE，把该迁移标记为「PGlite 无法验证」，再按 db/migrate.py
  *     --pglite-compat 的同一套规则降级继续（vector(N)→jsonb、跳过 hnsw 索引），让后面
- *     的迁移仍被真引擎验证。降级掉的事实（embedding 真实类型、hnsw 索引）在摘要里
- *     单独列出，绝不写成"通过"。
+ *     的迁移仍被真引擎验证。降级掉的事实（embedding 真实类型、hnsw 索引）在摘要里单独列出，绝不写成"通过"。
  *   * PGlite 是单连接嵌入式 PG，不验证并发与性能。
  *   * 旧迁移（0001–0026）的 SQL 本身不可重复执行（CREATE TYPE/TABLE/ADD COLUMN 都没有
  *     IF NOT EXISTS），第二遍靠 migrate.py 的 schema_migration 跳过而不是靠 SQL 幂等；
@@ -37,6 +36,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
+const checkReviewEvidence = require('./verify-paper-review-behaviour.cjs');
 
 const root = path.resolve(__dirname, '..');
 const MIGRATIONS_DIR = path.join(root, 'db', 'migrations');
@@ -649,7 +649,8 @@ function buildChecks(ids) {
     { title: 'assessment.assignment 的 visible_at <= due_at <= hard_close_at 拒绝倒挂', run: (db) => checkAssignmentTimeline(db, ids) },
     { title: 'UNIQUE(section_id, slot_no) 在真引擎里生效（负数也不例外）', run: (db) => checkSlotUnique(db, ids) },
     { title: 'assignment_item 只允许追加（UPDATE 被触发器拒绝）', run: (db) => checkAppendOnly(db, ids) },
-    { title: 'draft 卷仍可改（反向对照，证明触发器没挡过宽）', run: (db) => checkDraftEditable(db, ids) }
+    { title: 'draft 卷仍可改（反向对照，证明触发器没挡过宽）', run: (db) => checkDraftEditable(db, ids) },
+    { title: '0032 复核证据：逐人唯一 + 贡献者不能自批 + append-only', run: (db) => checkReviewEvidence(db, ids, expectSqlError) }
   ];
 }
 

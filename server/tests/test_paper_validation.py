@@ -941,12 +941,19 @@ def test_validation_module_is_read_only_and_needs_no_new_migration() -> None:
     # 校验器自己不建表：0031 是渲染任务类型（任务 6），与校验无关。
     # 这里检查的是「没有任何迁移为校验报告建结构」，而不是「迁移数量停在某个数字」——
     # 后者会在每个后续任务里误报，且它本来也不是任务 5 的不变量。
+    #
+    # 0032 给 review_round 加了 validation_report_hash：那是任务 7 的**复核证据
+    # 冻结**（只存一个 SHA-256），不是把 issue 明细/报告正文落库。因此这里禁的是
+    # 报告结构（表、issue 行、报告载荷），允许这个哈希列。
     migrations = sorted(path.name for path in MIGRATION_DIR.glob("*.sql"))
     later = [name for name in migrations if name > "0030"]
     for name in later:
         text = (MIGRATION_DIR / name).read_text(encoding="utf-8").lower()
-        for forbidden in ("validation_report", "validation_issue", "paper_validation"):
+        for forbidden in ("validation_issue", "paper_validation", "report_payload"):
             assert forbidden not in text, f"{name} 为校验报告建了结构：{forbidden}"
+        for line in text.splitlines():
+            if "create table" in line and "validation" in line:
+                raise AssertionError(f"{name} 为校验报告建了结构：{line.strip()}")
 
 
 def test_required_source_fields_are_the_six_fixed_fields() -> None:

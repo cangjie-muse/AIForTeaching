@@ -29,7 +29,8 @@ const suites = ['server/tests/test_policy.py', 'server/tests/test_source_parse.p
   'server/tests/test_candidates.py', 'server/tests/test_candidate_eligibility.py',
   'server/tests/test_papers.py', 'server/tests/test_paper_api.py',
   'server/tests/test_paper_validation.py',
-  'server/tests/test_rendering.py', 'server/tests/test_render_security.py'];
+  'server/tests/test_rendering.py', 'server/tests/test_render_security.py',
+  'server/tests/test_paper_review.py', 'server/tests/test_paper_review_api.py'];
 let failed = 0;
 
 for (const suite of suites) {
