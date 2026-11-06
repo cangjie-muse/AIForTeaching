@@ -938,10 +938,15 @@ def test_validation_module_is_read_only_and_needs_no_new_migration() -> None:
     for forbidden in ("INSERT INTO", "UPDATE assessment", "DELETE FROM",
                       "ALTER TABLE", "CREATE TABLE"):
         assert forbidden not in source, f"校验器不应写库：{forbidden}"
-    # 任务 5 不需要新表：最新迁移仍是 0030，不能偷偷建 0031。
+    # 校验器自己不建表：0031 是渲染任务类型（任务 6），与校验无关。
+    # 这里检查的是「没有任何迁移为校验报告建结构」，而不是「迁移数量停在某个数字」——
+    # 后者会在每个后续任务里误报，且它本来也不是任务 5 的不变量。
     migrations = sorted(path.name for path in MIGRATION_DIR.glob("*.sql"))
-    assert migrations[-1] == "0030_paper_editing.sql", migrations[-1]
-    assert not any(name.startswith("0031") for name in migrations)
+    later = [name for name in migrations if name > "0030"]
+    for name in later:
+        text = (MIGRATION_DIR / name).read_text(encoding="utf-8").lower()
+        for forbidden in ("validation_report", "validation_issue", "paper_validation"):
+            assert forbidden not in text, f"{name} 为校验报告建了结构：{forbidden}"
 
 
 def test_required_source_fields_are_the_six_fixed_fields() -> None:

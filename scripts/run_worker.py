@@ -54,6 +54,13 @@ class Heartbeat(threading.Thread):
 def describe(job: dict) -> str:
     if job["status"] == "succeeded":
         result = job.get("result") or {}
+        if job.get("kind") == "paper-render":
+            # 渲染任务的产物是文件，不是知识点：报类型、大小与哈希前缀，
+            # 让运维从日志就能看出「哪一类卷、出没出、是不是同一份」。
+            return (f"成功：{result.get('render_kind')} 卷 "
+                    f"{result.get('byte_size', 0)} 字节 → "
+                    f"{str(result.get('output_hash', ''))[:12]} "
+                    f"(render {result.get('paper_render_id')})")
         return (f"成功：{result.get('nodes', 0)} 个知识点、"
                 f"{result.get('exercises', 0)} 道题 → {result.get('pack_dir')}")
     return f"失败：{job.get('error')}"

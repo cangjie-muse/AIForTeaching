@@ -534,7 +534,8 @@ def claim_next() -> dict | None:
         """SELECT id FROM pipeline_job
             WHERE status = 'queued'
               AND kind IN ('generate', 'generate-book', 'grade-homework',
-                           'courseware-generate', 'courseware-revise')
+                           'courseware-generate', 'courseware-revise',
+                           'paper-render')
             ORDER BY created_at
             LIMIT 1"""
     )
@@ -843,6 +844,13 @@ def run_job(job_id: int) -> dict:
     if not job:
         raise ValueError(f"任务不存在：{job_id}")
     payload = job["payload"] or {}
+
+    if job["kind"] == "paper-render":
+        # 打印卷渲染：学生卷 / 答案卷 / 量规卷各出一份文件，与生成任务共用队列、
+        # 心跳与重试。失败在 run_render_job 内部写进 job.error，不向外抛。
+        # 带回 kind，worker 的日志才能按任务类型说人话（否则显示"0 个知识点"）。
+        from . import rendering
+        return {**rendering.run_render_job(job), "kind": "paper-render"}
 
     if job["kind"] in ("courseware-generate", "courseware-revise"):
         from . import courseware

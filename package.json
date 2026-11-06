@@ -17,6 +17,7 @@
     "test:preflight": "node scripts/test-preflight.cjs",
     "dev:api": "node scripts/dev-api.cjs",
     "test:python": "node scripts/test-python.cjs",
+    "test:migrations": "node scripts/verify-migrations.cjs",
     "test:seed": "node scripts/e2e-seed.cjs",
     "test:generate": "node scripts/test-view-generate.cjs",
     "smoke:boot": "node scripts/smoke-boot.cjs",

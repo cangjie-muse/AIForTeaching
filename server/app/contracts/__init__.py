@@ -9,6 +9,7 @@
     paper.py    —— 蓝图、候选证据、卷面视图、曝光事件、复核证据
     student.py  —— 学生投影白名单与泄露扫描
     artifact.py —— 通用 Artifact 的元数据、版本与访问事件形状
+    render.py   —— paper_render 行、渲染请求与卷种状态（任务 6）
 
 约定（与计划书 §2 对齐，按本仓库技术栈改写）：
     * 计划书写的是 frozen dataclass，这里换成 Pydantic 2 模型，便于路由层直接复用
@@ -60,6 +61,7 @@ from .student import (
     assert_student_safe,
     normalize_field_name,
 )
+from .render import PaperRenderRecord, RenderKindStatus, RenderRequest
 from .candidate import (
     REASON_MEANINGS,
     CandidateReason,
@@ -114,6 +116,10 @@ __all__ = [
     "ArtifactAccessEvent",
     "ArtifactMetadata",
     "ArtifactVersion",
+    # render（任务 6）
+    "PaperRenderRecord",
+    "RenderKindStatus",
+    "RenderRequest",
     # candidate（任务 3）
     "REASON_MEANINGS",
     "CandidateReason",
