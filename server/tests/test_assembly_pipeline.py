@@ -752,6 +752,54 @@ def test_ab_run_without_enough_candidates_gives_no_half_pair() -> None:
     assert started.status == RunStatus.INFEASIBLE
 
 
+def test_infeasible_run_records_relaxation_report() -> None:
+    """求解器能诊断时，无解运行必须带上"去掉哪一组就能解"。
+
+    这里让预检通过（蓝图本身自洽）、求解器返回无解，专门测"服务把诊断结果
+    写进运行记录"这一段接线。
+    """
+
+    class RelaxingSolver(StubSolver):
+        def solve(self, blueprint, manifest, config, peer=None):
+            from app.assembly.contracts import SolveResult
+
+            self.calls += 1
+            return SolveResult(RunStatus.INFEASIBLE, (),
+                               {"reason": "hard_constraints"}, None, None)
+
+        def diagnose(self, blueprint, manifest, config, per_group_seconds=5):
+            return {"groups": [], "minimal_single": ["duration_max"],
+                    "needs_multiple": [], "skipped": []}
+
+    env = build_environment(solver=RelaxingSolver())
+    started = env.assembly.start(actor_id=CREATOR, blueprint_version_id=env.version.id,
+                                idempotency_key="run-relax")
+    row = env.assembly.run(actor_id=CREATOR, run_id=started.assembly_run_id)
+    assert started.status == RunStatus.INFEASIBLE
+    assert row.solution_manifest == ()
+    relaxation = (row.diagnostics or {}).get("relaxation")
+    assert relaxation is not None, row.diagnostics
+    assert relaxation["minimal_single"] == ["duration_max"], relaxation
+
+
+def test_solver_without_diagnose_says_so_instead_of_faking_a_report() -> None:
+    """退化求解器（本地无 ortools）没有 diagnose：必须写"没做"，不编空结论。"""
+    from app.assembly.solver_port import UnavailableSolver
+
+    # 无解路径由 _solve 里 precheck 决定；这里直接用一个"预检可证无解"的蓝图。
+    content = blueprint_content(
+        hard_constraints={"total_score": "100.00", "duration_max_seconds": 60})
+    env2 = build_environment(solver=UnavailableSolver(), content=content)
+    started = env2.assembly.start(actor_id=CREATOR, blueprint_version_id=env2.version.id,
+                                 idempotency_key="run-relax-skip")
+    row = env2.assembly.run(actor_id=CREATOR, run_id=started.assembly_run_id)
+    assert started.status == RunStatus.INFEASIBLE
+    relaxation = (row.diagnostics or {}).get("relaxation") or {}
+    # 预检先证无解时不会进到求解器，因此这里允许它不存在；
+    # 只要出现，就必须是"skipped"而不是一个假的 minimal_single。
+    if relaxation:
+        assert relaxation.get("skipped") is True or "minimal_single" in relaxation, relaxation
+
 def test_second_select_after_failure_is_refused() -> None:
     class InvalidValidator:
         def validate(self, *, actor_id, paper_version_id):

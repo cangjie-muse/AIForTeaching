@@ -160,7 +160,14 @@ class CpSatSolver:
     # -- 建模 ---------------------------------------------------------------
 
     def _build(self, blueprint: BlueprintSnapshot,
-               manifest: CandidateManifest) -> _Model | None:
+               manifest: CandidateManifest,
+               skip: frozenset[str] = frozenset()) -> _Model | None:
+        """建模；`skip` 里的约束组不加入模型——只给诊断用的"放大副本"。
+
+        为什么要有 `skip`：无解时唯一有用的话是"**去掉哪一组约束就能解**"。
+        做法是在**明确标记的副本**里逐组移除、重解，原蓝图与本次运行的结果都不变。
+        这个参数只应由 `diagnose()` 使用；正常求解永远传空集合。
+        """
         model = cp_model.CpModel()
         need_seconds = requires_seconds(blueprint)
         candidates = {item.exercise_version_id: item for item in manifest.candidates}
@@ -180,7 +187,7 @@ class CpSatSolver:
                 slot_vars.append(var)
             model.AddExactlyOne(slot_vars)
 
-        self._add_uniqueness(model, blueprint, variables, candidates)
+        self._add_uniqueness(model, blueprint, variables, candidates, skip)
         self._add_score_equalities(model, blueprint, variables)
         needs_duration = (
             blueprint.hard_constraints.max_duration_seconds is not None
@@ -189,21 +196,23 @@ class CpSatSolver:
         )
         durations = (self._slot_durations(model, blueprint, by_slot, variables, candidates)
                      if needs_duration else {})
-        self._add_duration(model, blueprint, durations)
-        self._add_coverage(model, blueprint, variables, candidates)
-        self._add_kind_requirements(model, blueprint, variables, candidates)
+        self._add_duration(model, blueprint, durations, skip)
+        self._add_coverage(model, blueprint, variables, candidates, skip)
+        self._add_kind_requirements(model, blueprint, variables, candidates, skip)
         self._add_objectives(model, blueprint, variables, candidates, durations)
         return _Model(model, variables, by_slot, candidates)
 
     @staticmethod
-    def _add_uniqueness(model, blueprint: BlueprintSnapshot, variables, candidates) -> None:
+    def _add_uniqueness(model, blueprint: BlueprintSnapshot, variables, candidates,
+                         skip: frozenset[str] = frozenset()) -> None:
         """三条"同一道题不能进卷两次"的约束。"""
         by_stable = defaultdict(list)
         for (_, version_id), var in variables.items():
             by_stable[candidates[version_id].stable_exercise_id].append(var)
-        for group in by_stable.values():
-            if len(group) > 1:
-                model.AddAtMostOne(group)
+        if "uniqueness:stable" not in skip:
+            for group in by_stable.values():
+                if len(group) > 1:
+                    model.AddAtMostOne(group)
 
         # 题内互斥组（Candidate.conflict_group_ids）：同一组是"共用材料/互相泄答案"。
         by_conflict = defaultdict(list)
@@ -215,11 +224,12 @@ class CpSatSolver:
                 model.AddAtMostOne(group)
 
         # 蓝图级互斥组（conflict_groups / leak_groups）：按版本 id 指定成员。
-        for group in blueprint.hard_constraints.exclusion_groups:
-            members = [var for (_, version_id), var in variables.items()
-                       if version_id in group]
-            if len(members) > 1:
-                model.AddAtMostOne(members)
+        if "uniqueness:exclusion" not in skip:
+            for group in blueprint.hard_constraints.exclusion_groups:
+                members = [var for (_, version_id), var in variables.items()
+                           if version_id in group]
+                if len(members) > 1:
+                    model.AddAtMostOne(members)
 
     @staticmethod
     def _add_score_equalities(model, blueprint: BlueprintSnapshot, variables) -> None:
@@ -235,6 +245,57 @@ class CpSatSolver:
         要么恒真，要么说明蓝图有问题——两种情况都不该由求解器去"发现"。
         """
         return None
+
+    # -- 不可行诊断（只读副本） ---------------------------------------------
+
+    @staticmethod
+    def constraint_groups(blueprint: BlueprintSnapshot) -> tuple[str, ...]:
+        """可逐组放宽的约束键。顺序固定，报告才能稳定比较。"""
+        keys = ["duration_max", "uniqueness:stable", "uniqueness:exclusion"]
+        keys.extend(f"coverage:{index}" for index, _ in enumerate(
+            blueprint.hard_constraints.coverage_requirements))
+        keys.extend(f"kind:{index}" for index, _ in enumerate(
+            blueprint.hard_constraints.kind_requirements))
+        return tuple(keys)
+
+    def diagnose(self, blueprint: BlueprintSnapshot, manifest: CandidateManifest,
+                 config: SolverConfig, *, per_group_seconds: int = 5) -> dict:
+        """无解时逐组移除约束、重解，报告"去掉哪一组就能解"。
+
+        三条纪律：
+          1. **只读副本**：每次都在新模型上建，原蓝图、原运行结果一个字节都不改；
+          2. **只报告单组放宽**（不是"随便删几组"）：单组就够的列在 `minimal_single`，
+             需要多组的只列 `needs_multiple`——不假装做了组合搜索；
+          3. **时间有上限**：每组最多 `per_group_seconds` 秒，总数在 `budget_seconds` 内，
+             超了就把剩下的标成 `skipped`，而不是让教师等十分钟。
+        """
+        groups = self.constraint_groups(blueprint)
+        result: dict = {"groups": [], "minimal_single": [], "needs_multiple": [],
+                        "per_group_seconds": per_group_seconds, "skipped": []}
+        if not groups:
+            result["note"] = "这份蓝图没有可逐组放宽的约束"
+            return result
+        for key in groups:
+            built = self._build(blueprint, manifest, skip=frozenset({key}))
+            if built is None:
+                # 放宽这一组之后仍然连槽位都凑不满：与这组无关。
+                result["groups"].append({"key": key, "feasible": False,
+                                         "reason": "no_eligible_candidate"})
+                continue
+            solver = self._new_solver(config, per_group_seconds)
+            raw = solver.Solve(built.model)
+            feasible = raw in (cp_model.OPTIMAL, cp_model.FEASIBLE)
+            result["groups"].append({
+                "key": key,
+                "feasible": feasible,
+                "status": str(map_status(raw, 0 if not feasible else 1, False)),
+            })
+            if feasible:
+                result["minimal_single"].append(key)
+        result["needs_multiple"] = (
+            [] if result["minimal_single"]
+            else [item["key"] for item in result["groups"] if not item["feasible"]])
+        return result
 
     def _apply_peer_constraints(self, built: "_Model", blueprint: BlueprintSnapshot,
                                 peer: SolutionManifest) -> int:
@@ -297,16 +358,21 @@ class CpSatSolver:
         return sum(durations[slot.code] for slot in blueprint.slots)
 
     @staticmethod
-    def _add_duration(model, blueprint: BlueprintSnapshot, durations: dict) -> None:
+    def _add_duration(model, blueprint: BlueprintSnapshot, durations: dict,
+                     skip: frozenset[str] = frozenset()) -> None:
         maximum = blueprint.hard_constraints.max_duration_seconds
-        if maximum is None or not durations:
+        if maximum is None or not durations or "duration_max" in skip:
             return
         model.Add(
             sum(durations[slot.code] for slot in blueprint.slots) <= maximum)
 
     @staticmethod
-    def _add_coverage(model, blueprint: BlueprintSnapshot, variables, candidates) -> None:
-        for requirement in blueprint.hard_constraints.coverage_requirements:
+    def _add_coverage(model, blueprint: BlueprintSnapshot, variables, candidates,
+                      skip: frozenset[str] = frozenset()) -> None:
+        for index, requirement in enumerate(
+                blueprint.hard_constraints.coverage_requirements):
+            if f"coverage:{index}" in skip:
+                continue
             terms = []
             for (_, version_id), var in variables.items():
                 candidate = candidates[version_id]
@@ -325,9 +391,13 @@ class CpSatSolver:
 
     @staticmethod
     def _add_kind_requirements(model, blueprint: BlueprintSnapshot,
-                               variables, candidates) -> None:
+                               variables, candidates,
+                               skip: frozenset[str] = frozenset()) -> None:
         slot_section = {slot.code: slot.section_code for slot in blueprint.slots}
-        for requirement in blueprint.hard_constraints.kind_requirements:
+        for index, requirement in enumerate(
+                blueprint.hard_constraints.kind_requirements):
+            if f"kind:{index}" in skip:
+                continue
             terms = [
                 var for (slot_code, version_id), var in variables.items()
                 if candidates[version_id].exercise_kind == requirement.exercise_kind

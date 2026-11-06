@@ -343,6 +343,19 @@ class AssemblyService:
             }
         else:
             diagnostics = diagnose_infeasible(blueprint, manifest, result.diagnostics)
+            # 无解时唯一有用的话是"去掉哪一组约束就能解"。求解器支持就顺手要一份，
+            # 不支持（比如本地退化实现）就明确写"没做"，不编一个空结论充数。
+            relaxer = getattr(self.solver, "diagnose", None)
+            if result.status is RunStatus.INFEASIBLE and callable(relaxer):
+                try:
+                    diagnostics["relaxation"] = relaxer(
+                        blueprint, manifest, self.solver_config)
+                except Exception as error:  # noqa: BLE001 — 诊断失败不该改写运行结论
+                    diagnostics["relaxation"] = {
+                        "error": f"{type(error).__name__}: {error}"}
+            elif result.status is RunStatus.INFEASIBLE:
+                diagnostics["relaxation"] = {"skipped": True,
+                                             "note": "当前求解器不支持逐组放宽诊断"}
         return _with(
             row,
             status=result.status,

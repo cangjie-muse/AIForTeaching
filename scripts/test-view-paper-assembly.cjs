@@ -255,6 +255,31 @@ check('排队状态的说法不冒充完成',
 check('运行中状态也不冒充完成',
   App.paperAssemblyVerdict({ status: 'running', solutions: [] }).includes('没有结论'));
 
+// --- 不可行诊断的放宽提示 ---------------------------------------------------------
+
+const relaxHtml = App.paperAssemblyHtml(stateOf({ run: {
+  ...INFEASIBLE_RUN,
+  diagnostics: {
+    reason: 'hard_constraints',
+    issues: [],
+    relaxation: {
+      groups: [
+        { key: 'duration_max', feasible: true },
+        { key: 'uniqueness:stable', feasible: false },
+        { key: 'coverage:0', feasible: false }
+      ],
+      minimal_single: ['duration_max']
+    }
+  }
+}, runs: [INFEASIBLE_RUN] }));
+check('只列出去掉就能解的那一组',
+  relaxHtml.includes('data-relax="duration_max"')
+  && !relaxHtml.includes('data-relax="uniqueness:stable"'));
+check('放宽提示用中文说明约束',
+  relaxHtml.includes('全卷时长上限'));
+check('前缀约束键也能翻成人话',
+  App.paperAssemblyIssueText('coverage:0').includes('覆盖'));
+
 // --- A/B 勾选项 ------------------------------------------------------------------
 
 const abHtml = App.paperAssemblyHtml(stateOf({}));

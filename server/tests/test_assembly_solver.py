@@ -347,6 +347,47 @@ def test_pair_is_infeasible_when_peer_consumed_everything() -> None:
     assert second.diagnostics["reason"] in {"no_candidate_left_for_peer", "hard_constraints"}
 
 
+# ---------------------------------------------------------------------------
+# 不可行诊断：逐组放宽（只读副本）
+# ---------------------------------------------------------------------------
+
+def test_relaxation_finds_the_single_blocking_constraint() -> None:
+    """时长上限设成根本达不到时，报告应当指出"去掉 duration_max 就能解"。"""
+    bp = blueprint([slot("A1", "50.00"), slot("A2", "50.00")],
+                   hard=HardConstraints(max_duration_seconds=120))
+    candidates = [candidate(n, seconds=600) for n in (1, 2, 3)]
+    built = manifest(bp, candidates)
+    blocked = CpSatSolver().solve(bp, built, config())
+    assert blocked.status == RunStatus.INFEASIBLE
+    report = CpSatSolver().diagnose(bp, built, config(), per_group_seconds=3)
+    assert "duration_max" in report["minimal_single"], report
+    # 其它组不该被冤枉：它们与这次无解无关
+    assert "uniqueness:stable" not in report["minimal_single"], report
+
+
+def test_relaxation_is_read_only() -> None:
+    """诊断不能改动蓝图或候选清单：它建的是新模型。"""
+    from dataclasses import asdict
+
+    bp = blueprint([slot("A1", "50.00"), slot("A2", "50.00")],
+                   hard=HardConstraints(max_duration_seconds=120))
+    built = manifest(bp, [candidate(1, seconds=600), candidate(2, seconds=600)])
+    before = (asdict(bp), asdict(built))
+    CpSatSolver().diagnose(bp, built, config(), per_group_seconds=2)
+    assert (asdict(bp), asdict(built)) == before
+
+
+def test_relaxation_lists_groups_when_everything_is_feasible_alone() -> None:
+    """每个单组放宽都可行时，不要把某一组冤枉成"元凶"。"""
+    bp = blueprint([slot("A1", "50.00"), slot("A2", "50.00")],
+                   hard=HardConstraints(
+                       kind_requirements=(KindRequirement(None, "proof", 3, 3),)))
+    candidates = [candidate(1, kind="proof"), candidate(2, kind="proof")]
+    built = manifest(bp, candidates)
+    report = CpSatSolver().diagnose(bp, built, config(), per_group_seconds=3)
+    assert "kind:0" in report["minimal_single"], report
+
+
 def test_default_solver_uses_cp_sat_when_available() -> None:
     """`default_solver()` 不能永远返回"不可用"——服务器上 ortools 已装。
 

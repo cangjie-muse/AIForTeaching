@@ -39,7 +39,13 @@
     coverage_unreachable: '覆盖要求超出所有槽位能提供的上限',
     kind_requirement_unreachable: '题型数量要求超出可放该题型的槽位数',
     kind_requirement_invalid: '题型数量区间写反了（最少大于最多）',
-    mutually_exclusive_mandatory: '两道必选题落在同一个互斥组里'
+    mutually_exclusive_mandatory: '两道必选题落在同一个互斥组里',
+    // 放宽诊断用的约束键（不是问题码，但教师读的是同一栏）
+    duration_max: '全卷时长上限',
+    'uniqueness:stable': '同一道题只能进一个槽位',
+    'uniqueness:exclusion': '互斥组内只能有一道题',
+    coverage: '覆盖要求',
+    kind: '题型数量要求'
   };
 
   // 运行失败时的原因码（服务端 diagnostics.reason）。
@@ -129,7 +135,11 @@
   };
 
   A.paperAssemblyIssueText = function (code) {
-    return ISSUE_TEXT[code] || '未识别的诊断项（以服务端说明为准）';
+    if (ISSUE_TEXT[code]) return ISSUE_TEXT[code];
+    // 约束键形如 coverage:0 / kind:1，前缀映射到人话
+    const prefix = String(code).split(':')[0];
+    if (ISSUE_TEXT[prefix]) return ISSUE_TEXT[prefix];
+    return '未识别的诊断项（以服务端说明为准）';
   };
 
   /**
@@ -376,6 +386,13 @@
     if (diagnostics.detail && !A.paperAssemblyDegraded(run)) {
       lines.push(`<li>${escape(diagnostics.detail)}</li>`);
     }
+    const relaxation = diagnostics.relaxation || {};
+    (relaxation.groups || []).forEach(group => {
+      if (!group.feasible) return;
+      // 只列"去掉就能解"的那几组：把全部约束逐一列出会让教师以为可以随便删约束。
+      lines.push(`<li data-relax="${escape(group.key)}">
+        <b>去掉这组约束就能解：</b>${escape(A.paperAssemblyIssueText(group.key))}</li>`);
+    });
     const degraded = A.paperAssemblyDegraded(run);
     const degradedBlock = degraded
       ? `<div class="assembly-degraded" role="alert">
