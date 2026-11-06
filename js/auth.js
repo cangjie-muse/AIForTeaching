@@ -19,6 +19,7 @@
     analytics: ['teacher', 'admin'],
     content: ['teacher', 'admin'],
     review: ['teacher', 'admin'],
+  workbench: ['teacher', 'admin'],
   classes: ['teacher', 'admin'],
   visibility: ['teacher', 'admin'],
     construction: ['teacher', 'admin'],

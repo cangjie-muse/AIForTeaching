@@ -74,4 +74,67 @@
         <tbody>${rows}</tbody>
       </table></div>`;
   };
+
+  // ---------------------------------------------------------------------------
+  // 页面入口
+  // ---------------------------------------------------------------------------
+
+  function S() {
+    return A.state.workbench = A.state.workbench || {
+      courseId: null, data: null, loading: false, error: null
+    };
+  }
+
+  /* 进入工作台时取一次数；课程切换或点刷新时重取。
+   *
+   * 不做轮询：工作台的数据只在教师做动作（校验/提交/渲染/发布）之后才变，
+   * 那些动作自己会触发刷新。定时轮询只会让"没变化"也变成一次请求。 */
+  A.loadPaperWorkbench = function (courseId, { force = false } = {}) {
+    const state = S();
+    if (!courseId) return;
+    const changed = state.courseId !== courseId;
+    if (!force && !changed && (state.data || state.loading)) return;
+    state.courseId = courseId;
+    state.loading = true;
+    state.error = null;
+    A.api.paperWorkbench(courseId)
+      .then(payload => { state.data = payload; state.loading = false; A.render(); })
+      .catch(error => {
+        state.loading = false;
+        state.error = error?.message || '读取工作台失败';
+        A.render();
+      });
+  };
+
+  A.views.workbench = function () {
+    const state = S();
+    const course = A.course;
+    const heading = A.sectionTitle(
+      'PAPER WORKBENCH',
+      '组卷工作台',
+      '冻结 Release → 建卷 → 整卷校验 → 双人复核 → 导出三类卷 → 发布打印作业。每一步都要留证据。',
+      `<div class="button-row">${A.button('刷新', 'workbench-refresh', 'refresh')}</div>`
+    );
+    if (!course) {
+      return heading + `<div class="panel"><p class="muted">先选择一门课程。</p></div>`;
+    }
+    if (state.loading && !state.data) {
+      return heading + `<div class="panel"><p class="muted">正在读取工作台…</p></div>`;
+    }
+    if (state.error && !state.data) {
+      return heading + `<div class="panel"><h2>读不到工作台</h2>
+        <p class="muted">${escape(state.error)}</p>
+        <div class="button-row">${A.button('重试', 'workbench-retry', 'refresh')}</div></div>`;
+    }
+    return heading + `<div class="panel">${A.paperWorkbenchHtml(state.data)}</div>`;
+  };
+
+  A.after.workbench = function () { A.loadPaperWorkbench(A.course?.id); };
+
+  A.actions['workbench-refresh'] = function () {
+    A.loadPaperWorkbench(A.course?.id, { force: true });
+  };
+  A.actions['workbench-retry'] = function () {
+    A.loadPaperWorkbench(A.course?.id, { force: true });
+  };
 })();

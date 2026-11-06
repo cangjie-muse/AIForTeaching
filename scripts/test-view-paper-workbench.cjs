@@ -69,6 +69,28 @@ const hostile = App.paperWorkbenchHtml({
 });
 check('课程号被转义', !hostile.includes('<img') && hostile.includes('&lt;img'));
 
+// --- 页面入口 -----------------------------------------------------------------
+check('注册了视图 workbench', typeof App.views.workbench === 'function');
+check('注册了进入后取数钩子', typeof App.after.workbench === 'function');
+check('注册了刷新动作', typeof App.actions['workbench-refresh'] === 'function'
+  && typeof App.actions['workbench-retry'] === 'function');
+
+App.course = { id: 'analysis', title: '数学分析 I' };
+// 图标与按钮由 visual-identity.js 提供；本文件只测工作台的渲染分支，给占位即可。
+App.icon = App.icon || (() => '<svg/>');
+App.button = App.button || ((label, action) => `<button data-action="${action}">${label}</button>`);
+App.state.workbench = { courseId: 'analysis', data: payload, loading: false, error: null };
+const page = App.views.workbench();
+check('页面包含标题与表格', page.includes('组卷工作台') && page.includes('workbench-table'));
+check('页面嵌入了下一步文案', page.includes('跑整卷校验'));
+
+App.state.workbench = { courseId: 'analysis', data: null, loading: true, error: null };
+check('加载中给出提示而不是空白', App.views.workbench().includes('正在读取工作台'));
+
+App.state.workbench = { courseId: 'analysis', data: null, loading: false, error: '<b>boom</b>' };
+const failed = App.views.workbench();
+check('读失败时显示错误并转义', failed.includes('读不到工作台') && failed.includes('&lt;b&gt;'));
+
 console.log();
 if (failures.length) {
   console.log(`✗ ${failures.length} 项未通过：${failures.join('、')}`);

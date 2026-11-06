@@ -569,6 +569,9 @@
     changePassword,
     accounts,
     health: () => request('GET', '/api/v1/health'),
+    // 组卷工作台：一次聚合查回"这门课每份卷到哪一步"，避免四次往返与状态错位。
+    paperWorkbench: courseRef => request('GET',
+      `/api/v1/paper-workbench?course_ref=${encodeURIComponent(courseRef)}`),
     coursewareChapters: (courseId) =>
       request('GET', `/api/v1/courseware/chapters${queryString({ course_id: courseId })}`),
     coursewareDeck: (deckId, version) =>
