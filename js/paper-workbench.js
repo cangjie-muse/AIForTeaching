@@ -129,10 +129,11 @@
         <p class="muted">${escape(state.error)}</p>
         <div class="button-row">${A.button('重试', 'workbench-retry', 'refresh')}</div></div>`;
     }
-    // 每行给一个进编辑器的入口：工作台和编辑器之间必须有真实通路，
-    // 否则教师看得到卷子却改不了它。
+    // 每行给两个入口：改内容进编辑器，走流程（校验/复核/导出/发布/撤回）进
+    // 审核发布页。只留"编辑"会让教师以为发布也该在编辑器里点，找不到就只能猜。
     const linkFor = p => `<a href="${A.url('paper-editor', course.id,
-      { version: p.paper_version_id })}">编辑</a>`;
+      { version: p.paper_version_id })}">编辑</a>
+      <a href="${A.url('paper-ops', course.id, { version: p.paper_version_id })}">审核与发布</a>`;
     return heading + `<div class="panel">${A.paperWorkbenchHtml(state.data, { linkFor })}</div>`;
   };
 

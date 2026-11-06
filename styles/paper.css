@@ -1,0 +1,78 @@
+/* 组卷工作台 / 卷面编辑器 / 整卷审核与发布 三页的样式。
+ *
+ * 单独一份而不是塞进 views.css：这三页是同一件事的三个阶段（看进度 → 改内容 →
+ * 走流程），放在一起改起来才不用在 35KB 里翻。命名全部带前缀，避免和既有页面
+ * 的 .panel / .notice 抢样式。
+ *
+ * 两条约束写在样式里而不是靠人记住：
+ *   - 表格一律允许横向滚动：分节、班级、时间点都可能很长，撑破页面比换行难读。
+ *   - 禁用状态的按钮保持可见（只降对比度），因为旁边就写着"为什么不能点"，
+ *     整个隐藏掉反而让人以为这一页少了功能。
+ */
+
+.workbench-head h3,
+.editor-head h3,
+.ops-head h3 { margin: 0 0 6px; font-size: 17px; color: #24406b; }
+.workbench-head p,
+.editor-head p { margin: 0; }
+
+.workbench-table,
+.editor-table,
+.ops-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.workbench-table th,
+.workbench-table td,
+.editor-table th,
+.editor-table td,
+.ops-table th,
+.ops-table td { padding: 9px 10px; border-bottom: 1px solid #edf1f7; text-align: left; }
+
+.workbench-table thead th,
+.editor-table thead th,
+.ops-table thead th { color: #778ba7; font-weight: 600; background: #f6f9fd; white-space: nowrap; }
+.workbench-table tbody tr:hover,
+.editor-table tbody tr:hover { background: #f8fbff; }
+.workbench-table td.next { color: #315b94; }
+
+/* 分节标题横跨整行：它属于下面那几行，不属于任何一列 */
+.editor-table .section-row th { background: #eef4fc; color: #3c5d8d; font-weight: 600; }
+
+.editor-table input[type="text"] { width: 88px; font-variant-numeric: tabular-nums; }
+.editor-table .ops { white-space: nowrap; }
+.editor-table .ops .btn { margin-right: 6px; padding: 4px 9px; font-size: 11px; }
+
+.ops-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.ops-status { margin: 0; font-size: 12px; color: #4d6a94; }
+
+.ops-steps { list-style: none; margin: 18px 0; padding: 0; display: grid; gap: 10px; }
+.ops-step { padding: 12px 14px; border: 1px solid #e7eef8; border-radius: 10px; background: #fbfdff; }
+.ops-step-main { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.ops-step-main b { font-size: 13px; color: #2c4a76; }
+.ops-step .muted { margin: 6px 0 0; line-height: 1.7; }
+
+/* 禁用的按钮只降对比度、不隐藏：旁边的说明就是"为什么不能点" */
+.ops-step .btn[disabled] { opacity: .55; cursor: not-allowed; }
+
+.ops-renders,
+.ops-assignments,
+.ops-withdraw { margin-top: 18px; }
+.ops-renders h4,
+.ops-assignments h4 { margin: 0 0 10px; font-size: 14px; color: #2c4a76; }
+.ops-table a { color: #2f5fa8; font-weight: 600; }
+.ops-table a:hover { text-decoration: underline; }
+
+.ops-form { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 8px 12px; margin-top: 14px; align-items: center; }
+.ops-form label { font-size: 12px; color: #6b84a8; }
+.ops-form input,
+.ops-form select { width: 100%; max-width: 320px; }
+.ops-form .button-row { grid-column: 2; }
+.ops-form .muted { grid-column: 1 / -1; margin: 2px 0 0; }
+
+.ops-withdraw label { display: block; font-size: 12px; color: #6b84a8; margin-bottom: 6px; }
+.ops-withdraw textarea { width: 100%; max-width: 560px; }
+
+@media (max-width: 720px) {
+  /* 窄屏：表格改成块级逐行，避免横向滚动条把内容推出去 */
+  .workbench-table, .editor-table, .ops-table { display: block; overflow-x: auto; }
+  .ops-form { grid-template-columns: 1fr; }
+  .ops-form .button-row { grid-column: 1; }
+}

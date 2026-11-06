@@ -104,7 +104,8 @@ App.featuredCourse = () => App.courses.find(course => course.id === 'course-symp
 // 点「知识图谱」会直接掉进辛几何那门课——像是平台替你选了课，实际上你还没选。
 // 现在没有当前课程时，它们一律指向 #/pick/<page>（选课页）。
 App.coursePages = ['overview', 'outline', 'graph', 'exercises', 'ai', 'qa',
-  'resources', 'teaching', 'courseware', 'analytics'];
+  'resources', 'teaching', 'courseware', 'analytics', 'workbench',
+  'paper-editor', 'paper-ops'];
 // 路由解析抽成纯函数：`#/course/x/graph`、`#/pick/graph`、`#/catalog` 三种形态
 // 各自的含义要能单独验证——路由错一处，用户点「知识图谱」就会落到别的课程或空白页。
 App.parseHash = function (hash) {

@@ -87,6 +87,8 @@ check('页面包含标题与表格', page.includes('组卷工作台') && page.in
 check('页面嵌入了下一步文案', page.includes('跑整卷校验'));
 check('每行有进编辑器的链接', page.includes('paper-editor')
   && page.includes('version='), '编辑器必须能从工作台进入');
+check('每行有进审核发布页的链接', page.includes('paper-ops')
+  && page.includes('审核与发布'), '校验/复核/发布不在编辑器里，必须另给入口');
 
 App.state.workbench = { courseId: 'analysis', data: null, loading: true, error: null };
 check('加载中给出提示而不是空白', App.views.workbench().includes('正在读取工作台'));
