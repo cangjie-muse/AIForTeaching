@@ -115,7 +115,168 @@
   };
 
   A.paperEditError = function (error) {
-    const code = error && error.code;
+    // ApiError 把服务端的 detail 原样放在 .detail 上；域错误码在 detail.code 里。
+    const code = (error && error.code) || (error && error.detail && error.detail.code);
     return MESSAGES[code] || (error && error.message) || '保存失败';
   };
+
+  A.findPaperSlot = function (paper, slotId) {
+    for (const section of (paper && paper.sections) || []) {
+      for (const slot of section.slots || []) {
+        if (slot.id === slotId) return { section, slot };
+      }
+    }
+    return null;
+  };
+
+  // ---------------------------------------------------------------------------
+  // 页面入口
+  // ---------------------------------------------------------------------------
+
+  function S() {
+    return A.state.paperEditor = A.state.paperEditor || {
+      versionId: null, paper: null, loading: false, error: null,
+      message: null, saving: false, scores: {}
+    };
+  }
+
+  A.loadPaper = function (versionId, { force = false } = {}) {
+    const state = S();
+    if (!versionId) return;
+    if (!force && state.versionId === versionId && (state.paper || state.loading)) return;
+    state.versionId = versionId;
+    state.loading = true;
+    state.error = null;
+    A.api.paperVersion(versionId)
+      .then(paper => {
+        state.paper = paper;
+        state.scores = {};
+        state.loading = false;
+        A.render();
+      })
+      .catch(error => {
+        state.loading = false;
+        state.error = A.paperEditError(error);
+        A.render();
+      });
+  };
+
+  function withPendingScores(paper, scores) {
+    if (!paper) return paper;
+    return {
+      ...paper,
+      sections: (paper.sections || []).map(section => ({
+        ...section,
+        slots: (section.slots || []).map(slot => (
+          scores[slot.id] === undefined ? slot : { ...slot, score: scores[slot.id] }
+        ))
+      }))
+    };
+  }
+
+  function save(scores) {
+    const state = S();
+    if (!state.paper || state.saving) return;
+    let payload;
+    try {
+      payload = A.paperEditPayload(withPendingScores(state.paper, scores || {}), { score: scores || {} });
+    } catch (error) {
+      // 前端的规则错误（分值格式、越界调序）直接说给用户，不发给服务端。
+      state.error = error.message;
+      state.message = null;
+      A.render();
+      return;
+    }
+    if (!payload.operations.length) {
+      state.message = '没有需要保存的改动。';
+      state.error = null;
+      A.render();
+      return;
+    }
+    autoSave(state, payload);
+  }
+
+  function autoSave(state, payload) {
+    state.saving = true;
+    state.error = null;
+    state.message = null;
+    A.render();
+    // 幂等键一次提交一个：教师手点"保存"算一次新的意图，重试由他自己发起。
+    const key = `paper-${state.versionId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    A.api.patchPaper(state.versionId, payload, key)
+      .then(updated => {
+        state.paper = updated;
+        state.scores = {};
+        state.saving = false;
+        state.message = `已保存（编辑序号 ${updated.edit_seq}）。`;
+        A.render();
+      })
+      .catch(error => {
+        state.saving = false;
+        state.error = A.paperEditError(error);
+        A.render();
+      });
+  }
+
+  A.views['paper-editor'] = function () {
+    const state = S();
+    const versionId = A.route.params.get('version');
+    const heading = A.sectionTitle(
+      'PAPER EDITOR',
+      '卷面编辑',
+      '改分值、调顺序都要带编辑序号：两个人同时打开时，后保存的一定会知道别人改过。',
+      `<div class="button-row">${A.button('重新读取', 'paper-reload', 'refresh')}</div>`
+    );
+    if (!versionId) {
+      return heading + `<div class="panel"><p class="muted">缺少卷版本号：从组卷工作台进入。</p></div>`;
+    }
+    if (state.loading && !state.paper) {
+      return heading + `<div class="panel"><p class="muted">正在读取卷面…</p></div>`;
+    }
+    if (state.error && !state.paper) {
+      return heading + `<div class="panel"><h2>读不到卷面</h2>
+        <p class="muted">${escape(state.error)}</p></div>`;
+    }
+    const banner = state.error
+      ? `<div class="notice bad">${escape(state.error)}</div>`
+      : (state.message ? `<div class="notice">${escape(state.message)}</div>` : '');
+    return heading + banner + `<div class="panel">${
+      A.paperEditorHtml(withPendingScores(state.paper, state.scores))}</div>`;
+  };
+
+  A.after['paper-editor'] = function () {
+    A.loadPaper(A.route.params.get('version'));
+  };
+
+  A.actions['paper-reload'] = function () {
+    A.loadPaper(A.route.params.get('version'), { force: true });
+  };
+
+  A.actions['paper-save'] = function () {
+    const state = S();
+    document.querySelectorAll('[data-field="score"]').forEach(input => {
+      const row = input.closest('[data-slot]');
+      if (row) state.scores[row.dataset.slot] = input.value;
+    });
+    save(state.scores);
+  };
+
+  function moveSlot(slotId, delta) {
+    const state = S();
+    if (!state.paper) return;
+    const found = A.findPaperSlot(state.paper, slotId);
+    if (!found) return;
+    const target = Number(found.slot.slot_no) + delta;
+    try {
+      const payload = A.paperEditPayload(state.paper, { move: [{ slotId, to: target }] });
+      if (!payload.operations.length) return;
+      autoSave(state, payload);
+    } catch (error) {
+      state.error = error.message;
+      A.render();
+    }
+  }
+
+  A.actions['paper-slot-up'] = button => moveSlot(button.dataset.id, -1);
+  A.actions['paper-slot-down'] = button => moveSlot(button.dataset.id, 1);
 })();

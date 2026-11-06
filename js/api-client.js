@@ -572,6 +572,11 @@
     // 组卷工作台：一次聚合查回"这门课每份卷到哪一步"，避免四次往返与状态错位。
     paperWorkbench: courseRef => request('GET',
       `/api/v1/paper-workbench?course_ref=${encodeURIComponent(courseRef)}`),
+    // 卷面读取与编辑：编辑必须带 Idempotency-Key，重试才不会变成第二次编辑。
+    paperVersion: id => request('GET', `/api/v1/paper-versions/${encodeURIComponent(id)}`),
+    patchPaper: (id, body, key) => request('PATCH',
+      `/api/v1/paper-versions/${encodeURIComponent(id)}/slots`,
+      { body, headers: { 'Idempotency-Key': key } }),
     coursewareChapters: (courseId) =>
       request('GET', `/api/v1/courseware/chapters${queryString({ course_id: courseId })}`),
     coursewareDeck: (deckId, version) =>

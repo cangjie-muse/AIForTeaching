@@ -21,7 +21,9 @@ const sandbox = {
   document: { getElementById: () => null, addEventListener() {}, querySelector: () => null,
     querySelectorAll: () => [], body: { classList: { add() {}, remove() {} } } },
   location: { hash: '#/course/analysis/workbench' },
-  localStorage: { getItem: () => null, setItem() {}, removeItem() {} }
+  localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
+  // App.url() 用 URLSearchParams 拼查询串；jsdom 里自带，vm 沙箱里要显式给。
+  URLSearchParams
 };
 sandbox.window = sandbox;
 vm.createContext(sandbox);
@@ -83,6 +85,8 @@ App.state.workbench = { courseId: 'analysis', data: payload, loading: false, err
 const page = App.views.workbench();
 check('页面包含标题与表格', page.includes('组卷工作台') && page.includes('workbench-table'));
 check('页面嵌入了下一步文案', page.includes('跑整卷校验'));
+check('每行有进编辑器的链接', page.includes('paper-editor')
+  && page.includes('version='), '编辑器必须能从工作台进入');
 
 App.state.workbench = { courseId: 'analysis', data: null, loading: true, error: null };
 check('加载中给出提示而不是空白', App.views.workbench().includes('正在读取工作台'));

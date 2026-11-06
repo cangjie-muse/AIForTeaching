@@ -22,7 +22,9 @@ const sandbox = {
   document: { getElementById: () => null, addEventListener() {}, querySelector: () => null,
     querySelectorAll: () => [], body: { classList: { add() {}, remove() {} } } },
   location: { hash: '#/course/analysis/paper-editor' },
-  localStorage: { getItem: () => null, setItem() {}, removeItem() {} }
+  localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
+  // App.parseHash() 用 URLSearchParams 解析 ?version=；vm 沙箱里要显式给。
+  URLSearchParams
 };
 sandbox.window = sandbox;
 vm.createContext(sandbox);
@@ -97,6 +99,32 @@ check('0 位置被拒', throws(() => App.paperEditPayload(paper, { move: [{ slot
 check('409 过期给的是"别人改过了"', App.paperEditError({ code: 'stale_version' }).includes('别人刚刚改过'));
 check('非草稿给的是"克隆新卷"', App.paperEditError({ code: 'paper_not_draft' }).includes('克隆'));
 check('未知错误回落到 message', App.paperEditError({ code: 'x', message: '原始错误' }) === '原始错误');
+check('服务端 detail.code 也能识别', App.paperEditError({
+  message: 'HTTP 409', detail: { code: 'stale_version' } }).includes('别人刚刚改过'));
+
+// --- 页面入口 -----------------------------------------------------------------
+check('注册了视图 paper-editor', typeof App.views['paper-editor'] === 'function');
+check('注册了进入后取数钩子', typeof App.after['paper-editor'] === 'function');
+check('注册了保存与调序动作', typeof App.actions['paper-save'] === 'function'
+  && typeof App.actions['paper-slot-up'] === 'function'
+  && typeof App.actions['paper-slot-down'] === 'function');
+
+check('能按 id 找到槽位', App.findPaperSlot(paper, 's2').slot.code === 'A2'
+  && App.findPaperSlot(paper, 'nope') === null);
+
+App.route = App.parseHash('#/course/analysis/paper-editor?version=pv-1');
+App.state.paperEditor = { versionId: 'pv-1', paper, loading: false, error: null,
+  message: null, saving: false, scores: { s1: '45.00' } };
+const editorPage = App.views['paper-editor']();
+check('页面带标题与表格', editorPage.includes('卷面编辑') && editorPage.includes('editor-table'));
+check('待保存的分值立即反映在输入框', editorPage.includes('value="45.00"'));
+
+App.state.paperEditor.scores = {};
+App.state.paperEditor.error = '别人刚刚改过这份卷。';
+check('保存失败时就地显示原因', App.views['paper-editor']().includes('别人刚刚改过'));
+
+App.route = App.parseHash('#/course/analysis/paper-editor');
+check('缺 version 参数时给指引', App.views['paper-editor']().includes('缺少卷版本号'));
 
 console.log();
 if (failures.length) {

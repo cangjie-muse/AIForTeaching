@@ -32,7 +32,8 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
-  A.paperWorkbenchHtml = function (payload) {
+  A.paperWorkbenchHtml = function (payload, options) {
+    const linkFor = (options && options.linkFor) || null;
     if (!payload || !Array.isArray(payload.papers)) {
       return `<div class="workbench empty"><p>还没有读取到工作台数据。</p></div>`;
     }
@@ -54,6 +55,7 @@
       const renders = Number(paper.renders_ready) || 0;
       const published = Number(paper.assignments_published) || 0;
       const action = ACTION_LABEL[paper.next_action] || paper.next_action || '';
+      const edit = linkFor ? linkFor(paper) : '';
       return `<tr data-status="${escape(paper.status)}">
         <td>v${escape(paper.version_no)}</td>
         <td>${escape(paper.paper_kind)}</td>
@@ -62,6 +64,7 @@
         <td>${renders}/3</td>
         <td>${published}</td>
         <td class="next">${escape(action)}</td>
+        <td>${edit}</td>
       </tr>`;
     }).join('');
 
@@ -69,7 +72,7 @@
       <table class="workbench-table">
         <thead><tr>
           <th>版本</th><th>类型</th><th>状态</th><th>总分</th>
-          <th>渲染</th><th>已发布</th><th>下一步</th>
+          <th>渲染</th><th>已发布</th><th>下一步</th><th></th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`;
@@ -126,7 +129,11 @@
         <p class="muted">${escape(state.error)}</p>
         <div class="button-row">${A.button('重试', 'workbench-retry', 'refresh')}</div></div>`;
     }
-    return heading + `<div class="panel">${A.paperWorkbenchHtml(state.data)}</div>`;
+    // 每行给一个进编辑器的入口：工作台和编辑器之间必须有真实通路，
+    // 否则教师看得到卷子却改不了它。
+    const linkFor = p => `<a href="${A.url('paper-editor', course.id,
+      { version: p.paper_version_id })}">编辑</a>`;
+    return heading + `<div class="panel">${A.paperWorkbenchHtml(state.data, { linkFor })}</div>`;
   };
 
   A.after.workbench = function () { A.loadPaperWorkbench(A.course?.id); };
