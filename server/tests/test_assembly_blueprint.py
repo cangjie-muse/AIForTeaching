@@ -252,6 +252,26 @@ def test_ab_mode_is_refused_until_implemented() -> None:
         raise AssertionError("A/B 未实现时不能当单卷跑")
 
 
+def test_manual_blueprint_is_refused_with_a_way_out() -> None:
+    """手工蓝图不能跑求解：报错必须说清"另存为约束组卷蓝图"。"""
+    body = content()
+    manual = SimpleNamespace(id=VERSION_ID, content=body, assembly_mode="manual")
+    try:
+        blueprint_snapshot(manual)
+    except BlueprintTranslationError as error:
+        assert "手工组卷" in str(error), str(error)
+        assert "constraint_assisted" in str(error), "必须给出可执行的下一步"
+    else:
+        raise AssertionError("手工蓝图交给求解器必须被拒绝")
+
+
+def test_constraint_assisted_blueprint_is_accepted() -> None:
+    body = content()
+    assisted = SimpleNamespace(id=VERSION_ID, content=body,
+                               assembly_mode="constraint_assisted")
+    assert blueprint_snapshot(assisted).blueprint_version_id == VERSION_ID
+
+
 def test_unknown_variant_mode_is_rejected() -> None:
     try:
         blueprint_snapshot(version(content(hard={"variant_mode": "parallel"})))

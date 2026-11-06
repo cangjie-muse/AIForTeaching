@@ -262,8 +262,20 @@ def _slot_specs(version_id: UUID, sections: Iterable[Any]) -> tuple[SlotSpec, ..
 
 
 def blueprint_snapshot(version: Any) -> BlueprintSnapshot:
-    """`BlueprintVersionRow` → `BlueprintSnapshot`（只读、不触库）。"""
+    """`BlueprintVersionRow` → `BlueprintSnapshot`（只读、不触库）。
+
+    手工蓝图在这里被拒绝：`assembly_mode=manual` 的意思是"这份卷由教师逐题挑选"，
+    把它交给求解器会得到一份**教师没打算让机器决定**的卷子，而且阶段 A 的建卷路径
+    也会因为"手工蓝图不能声称来自求解运行"而拒绝落卷——两条路都堵着，早点报错
+    比让教师跑完一次求解再看到 409 好。
+    """
     content = version.content
+    mode = str(getattr(version, "assembly_mode", "") or "").strip()
+    if mode == "manual":
+        raise BlueprintTranslationError(
+            "这份蓝图是手工组卷（assembly_mode=manual）：它没有约束求解所需的"
+            "槽位条件。要跑求解，请先另存为约束组卷蓝图（assembly_mode=constraint_assisted）。"
+        )
     hard_raw = dict(getattr(content, "hard_constraints", None) or {})
     soft_raw = dict(getattr(content, "soft_objectives", None) or {})
     variant_mode = str(hard_raw.get("variant_mode", "single")).strip() or "single"

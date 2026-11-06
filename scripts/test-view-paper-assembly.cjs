@@ -243,6 +243,17 @@ const hostileHtml = App.paperAssemblyHtml(stateOf({
 check('外部字符串被转义', !hostileHtml.includes('<img')
   && hostileHtml.includes('&lt;img'));
 
+// --- 手工蓝图不能跑求解 ------------------------------------------------------------
+
+const manualHtml = App.paperAssemblyHtml(stateOf({
+  selected: { ...VERSION, assembly_mode: 'manual' },
+  blueprints: [{ ...VERSION, assembly_mode: 'manual' }]
+}));
+check('手工蓝图页说明不能跑求解', manualHtml.includes('手工组卷'));
+check('手工蓝图页不给开始求解按钮', !manualHtml.includes('assembly-start'));
+check('手工蓝图页给出可执行下一步',
+  manualHtml.includes('constraint_assisted') && manualHtml.includes('paper-build'));
+
 // --- 方案对照 --------------------------------------------------------------------
 
 const twoSolutions = { ...OPTIMAL_RUN, solutions: [

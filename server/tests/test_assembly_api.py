@@ -57,6 +57,7 @@ TEACHER = {"X-Actor": "acc-teacher", "X-Roles": "teacher"}
 STUDENT = {"X-Actor": "acc-student", "X-Roles": "student"}
 VERSION = UUID("4a0e0000-0000-5000-8000-000000000002")
 RUN = UUID("7a1b0000-0000-4000-8000-000000000001")
+PEER_RUN = UUID("7a1b0000-0000-4000-8000-000000000011")
 NOW = datetime(2026, 11, 6, 6, 0, tzinfo=timezone.utc)
 
 
@@ -417,6 +418,70 @@ def test_comparison_index_out_of_range_is_422() -> None:
 def test_student_cannot_compare_solutions() -> None:
     response = client(StubService()).get(
         f"/api/v1/assembly-runs/{RUN}/comparison", headers=STUDENT)
+    assert response.status_code == 403, response.text
+
+
+def _pair_service():
+    """两次运行、同一份蓝图、互不重叠：用来测配对成功的路径。"""
+    base = _two_solution_service()
+
+    class PairService(StubService):
+        def __init__(self) -> None:
+            super().__init__(row=base.row)
+            self.blueprint = base.blueprint
+            self.peer = base.row.model_copy(update={"id": PEER_RUN})
+
+        def run(self, *, actor_id, run_id):
+            if run_id == RUN:
+                return self.row
+            if run_id == PEER_RUN:
+                return self.peer
+            raise RunNotFound("运行不存在")
+
+    return PairService()
+
+
+def test_ab_pair_reports_rejection_with_issues() -> None:
+    """两个方案共用同一道题且没有锚题 → 409 + 可展示的问题清单。"""
+    response = client(_pair_service()).get(
+        f"/api/v1/assembly-runs/{RUN}/ab-pair?peer_run_id={PEER_RUN}", headers=TEACHER)
+    assert response.status_code == 409, response.text
+    detail = response.json()["detail"]
+    assert detail["code"] == "ab_pair_rejected"
+    assert detail["issues"], "拒绝时必须给出可展示的问题"
+    assert "不代表统计等值" in detail["note"]
+
+
+def test_ab_pair_accepts_declared_anchor() -> None:
+    anchor = str(UUID(int=1))
+    response = client(_pair_service()).get(
+        f"/api/v1/assembly-runs/{RUN}/ab-pair?peer_run_id={PEER_RUN}&index=0&peer_index=0"
+        f"&anchors={anchor}", headers=TEACHER)
+    # 方案 0 的两卷都用 A1 槽位但题目不同（UUID(1) vs UUID(2)），所以本来就无重叠；
+    # 这里断言的是"声明锚题不会让接口出错，且结论仍然是结构匹配、无等值主张"。
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["statistical_equivalence"] is False
+    assert "分别提交审核" in body["next_step"]
+
+
+def test_ab_pair_unknown_run_is_404() -> None:
+    response = client(_pair_service()).get(
+        f"/api/v1/assembly-runs/{RUN}/ab-pair?peer_run_id={UUID(int=777)}",
+        headers=TEACHER)
+    assert response.status_code == 404, response.text
+
+
+def test_ab_pair_index_out_of_range_is_422() -> None:
+    response = client(_pair_service()).get(
+        f"/api/v1/assembly-runs/{RUN}/ab-pair?peer_run_id={PEER_RUN}&peer_index=9",
+        headers=TEACHER)
+    assert response.status_code == 422, response.text
+
+
+def test_student_cannot_pair() -> None:
+    response = client(_pair_service()).get(
+        f"/api/v1/assembly-runs/{RUN}/ab-pair?peer_run_id={PEER_RUN}", headers=STUDENT)
     assert response.status_code == 403, response.text
 
 

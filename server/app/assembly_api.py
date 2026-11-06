@@ -31,6 +31,7 @@ from pydantic import BaseModel, ConfigDict
 
 from . import db
 from .assembly.contracts import RunStatus, SolverConfig
+from .assembly.comparator import STRUCTURE_NOTE
 from .assembly.diagnostics import candidate_supply, precheck
 from .assembly.materialize import AssemblyMaterializer, AssemblyValidationBlocked
 from .assembly.repository import AssemblyRunRow, PostgresAssemblyRunRepository
@@ -423,6 +424,69 @@ def compare_solutions(
         "shared_family_ids": [str(item) for item in comparison.shared_family_ids],
         "anchors": [str(item) for item in comparison.anchors],
         "summary": comparison.extra,
+    }
+
+
+@router.get("/assembly-runs/{run_id}/ab-pair")
+def ab_pair(
+    run_id: UUID,
+    peer_run_id: UUID,
+    index: int = 0,
+    peer_index: int = 0,
+    anchors: str = "",
+    actor: Actor = Depends(require_teacher),
+    service: AssemblyService = Depends(get_assembly_service),
+) -> dict[str, Any]:
+    """把两次运行的方案配成 A/B 卷；配不上就 409，并带可展示的问题清单。
+
+    为什么是"配对判定"而不是"跑两次就算 A/B"：两次求解很可能选到同一道题或同族题，
+    那不叫两个版本，叫同一套题印了两遍。判定规则与 `comparison` 接口同一套
+    （`compare_structure`），所以两处不会给出互相矛盾的结论。
+
+    注意本接口**不建卷**：配好对之后仍要分别走"选方案建卷"、分别送审、分别渲染。
+    返回里的 `next_step` 就是这句话。
+    """
+    from .assembly.ab import AbPairError, pair_solutions
+    from .assembly.contracts import solution_from_json
+
+    actor_id = ref_uuid("account", actor.id)
+    try:
+        primary_row = service.run(actor_id=actor_id, run_id=run_id)
+        peer_row = service.run(actor_id=actor_id, run_id=peer_run_id)
+        for row, row_index in ((primary_row, index), (peer_row, peer_index)):
+            if not row.solution_manifest:
+                raise RunNotSolved(f"运行 {row.id} 没有方案（状态 {row.status}）")
+            if not 0 <= row_index < len(row.solution_manifest):
+                raise SolutionIndexInvalid(
+                    f"方案序号 {row_index} 越界（运行 {row.id} 共 "
+                    f"{len(row.solution_manifest)} 个方案）")
+        blueprint = service._load_blueprint(  # noqa: SLF001
+            actor_id, primary_row.blueprint_version_id)
+        anchor_ids = tuple(UUID(item) for item in (anchors or "").split(",") if item.strip())
+        pair = pair_solutions(
+            blueprint,
+            solution_from_json(primary_row.solution_manifest[index]),
+            solution_from_json(peer_row.solution_manifest[peer_index]),
+            anchors=anchor_ids,
+            primary_blueprint_version_id=primary_row.blueprint_version_id,
+            peer_blueprint_version_id=peer_row.blueprint_version_id,
+        )
+    except AbPairError as exc:
+        raise _error(409, exc.code, str(exc),
+                     {"issues": list(exc.issues),
+                      "structurally_matched": (
+                          None if exc.comparison is None
+                          else exc.comparison.structurally_matched),
+                      "note": STRUCTURE_NOTE}) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise _map_build_error(exc) from exc
+    payload = pair.payload()
+    return {
+        "assembly_run_id": str(run_id),
+        "peer_run_id": str(peer_run_id),
+        "left": index,
+        "right": peer_index,
+        **payload,
     }
 
 

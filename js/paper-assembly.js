@@ -325,6 +325,13 @@
   function configForm(state) {
     const config = state.config;
     const disabled = state.busy ? ' disabled' : '';
+    // 手工蓝图不能跑求解（服务端也会拒）：界面上先说清，而不是让人点了才看到 422。
+    if (state.selected && state.selected.assembly_mode === 'manual') {
+      return `<p class="assembly-needs-assist">这份蓝图是<strong>手工组卷</strong>：
+        它没有约束求解所需的槽位条件，不能跑求解。先到「建卷」页把它另存为
+        <strong>约束组卷</strong>蓝图（assembly_mode=constraint_assisted），再回到本页。</p>
+        <div class="button-row">${A.link('去建卷页', 'paper-build', state.courseId, 'pen', '', {})}</div>`;
+    }
     return `<div class="assembly-form">
       <label for="assembly-seed">随机种子</label>
       <input id="assembly-seed" data-input="assembly-seed" value="${escape(config.random_seed)}">
