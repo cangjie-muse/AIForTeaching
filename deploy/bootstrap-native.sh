@@ -99,8 +99,12 @@ echo "  ↓ 下面这步要下载 OR-Tools（约 100 MB），进度条会走，�
 ok "依赖装好：$("$VENV_PY" -c "from importlib.metadata import version as v; print('ortools', v('ortools'))")"
 
 say "5. 迁移"
-"$VENV_PY" db/migrate.py --apply
-"$VENV_PY" db/migrate.py --status | tail -3
+# migrate.py 从环境变量或 --url 取连接串。这里显式把 .env 里的值传进去：
+# 脚本自己并没有 export 它，直接跑会得到"缺少 DATABASE_URL"。
+DB_URL="$(sed -n 's/^DATABASE_URL=//p' .env)"
+[ -n "$DB_URL" ] || die ".env 里没有 DATABASE_URL"
+"$VENV_PY" db/migrate.py --apply  --url "$DB_URL"
+"$VENV_PY" db/migrate.py --status --url "$DB_URL" | tail -3
 
 say "6. 起服务（systemd）"
 sudo tee /etc/systemd/system/mathagent-api.service >/dev/null <<EOF
