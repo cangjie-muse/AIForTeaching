@@ -159,6 +159,13 @@
     return `/api/v1/paper-renders/${encodeURIComponent(renderId)}/download`;
   }
 
+  /* 预览是另一条路由（inline 对 attachment）：复核人要"看到的就是要打印的那一版"，
+   * 让人先下载再看，常常就变成"看的是上一次下载的文件"。 */
+  function previewUrl(renderId) {
+    if (A.api && A.api.paperRenderPreviewUrl) return A.api.paperRenderPreviewUrl(renderId);
+    return `/api/v1/paper-renders/${encodeURIComponent(renderId)}/preview`;
+  }
+
   function rendersBlock(state) {
     const renders = (state.renders && state.renders.renders) || [];
     const byKind = {};
@@ -168,7 +175,10 @@
       const link = item
         ? `<a href="${escape(renderUrl(item.render_id))}" download>下载${RENDER_LABEL[kind]}</a>`
         : '<span class="muted">未生成</span>';
-      return `<tr data-kind="${kind}"><td>${RENDER_LABEL[kind]}</td><td>${link}</td></tr>`;
+      const preview = item
+        ? `<a href="${escape(previewUrl(item.render_id))}" target="_blank" rel="noopener">预览</a>`
+        : '<span class="muted">—</span>';
+      return `<tr data-kind="${kind}"><td>${RENDER_LABEL[kind]}</td><td>${preview}</td><td>${link}</td></tr>`;
     }).join('');
     // 本仓库的渲染产物是可打印 HTML，不是 PDF。与其让人下载后才发现，不如先写出来。
     const noticeText = state.renders && state.renders.pdf_implemented === false
@@ -176,7 +186,7 @@
       : '';
     return `<section class="panel ops-renders" aria-label="打印产物">
       <h4>打印产物</h4>
-      <table class="ops-table"><thead><tr><th>卷种</th><th>下载</th></tr></thead>
+      <table class="ops-table"><thead><tr><th>卷种</th><th>预览</th><th>下载</th></tr></thead>
         <tbody>${rows}</tbody></table>${noticeText}</section>`;
   }
 

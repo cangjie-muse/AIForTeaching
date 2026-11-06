@@ -180,7 +180,16 @@ const renderRow = (html, kind) => {
 check('三类产物各一行', ['student', 'answer', 'rubric'].every(kind =>
   renderRow(approvedHtml, kind).includes(`下载`)));
 check('产物下载地址可点', approvedHtml.includes('/api/v1/paper-renders/r-answer/download'));
+// 预览与下载是两条路由：复核人要先在浏览器里看到卷面，而不是先存一个文件再打开。
+check('每行都有预览入口', ['student', 'answer', 'rubric'].every(kind =>
+  renderRow(approvedHtml, kind).includes('/preview')));
+check('预览走独立路由而不是下载',
+  approvedHtml.includes('/api/v1/paper-renders/r-answer/preview')
+  && !renderRow(approvedHtml, 'answer').match(/<a href="[^"]*\/preview"[^>]*download/),
+  '预览链接不能带 download 属性');
+check('预览在新标签页打开', renderRow(approvedHtml, 'answer').includes('target="_blank"'));
 check('产物未生成时写"未生成"', renderRow(draftHtml, 'student').includes('未生成'));
+check('产物未生成时不给预览链接', !renderRow(draftHtml, 'student').includes('/preview'));
 check('没有 PDF 依赖时先说明产物是可打印 HTML',
   approvedHtml.includes('可打印 HTML'), '别让人下载后才发现');
 

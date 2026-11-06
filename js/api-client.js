@@ -599,6 +599,10 @@
       { body: { render_kinds: kinds }, headers: { 'Idempotency-Key': key } }),
     paperRenderUrl: renderId =>
       `${base()}/api/v1/paper-renders/${encodeURIComponent(renderId)}/download`,
+    // 预览与下载是两条路由（安全头不同：inline 对 attachment），前端也不能自己
+    // 拼路径——清单里给了 preview_path，这里只是把它接成同源绝对地址。
+    paperRenderPreviewUrl: renderId =>
+      `${base()}/api/v1/paper-renders/${encodeURIComponent(renderId)}/preview`,
     paperAssignments: id => request('GET',
       `/api/v1/paper-versions/${encodeURIComponent(id)}/assignments`),
     createAssignment: (body, key) => request('POST', '/api/v1/assignments',

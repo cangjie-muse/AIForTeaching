@@ -292,6 +292,8 @@ def test_list_reports_current_manifest_renders_and_missing_kinds() -> None:
     assert body["missing_kinds"] == ["rubric"]
     # 顺序永远按 student/answer/rubric：列表顺序随数据库返回顺序变，教师会以为少了卷种
     assert body["renders"][0]["download_path"].endswith(f"{STUDENT_RENDER}/download")
+    # 前端不能自己拼 preview 路径：render_id 只在服务端的响应里出现
+    assert body["renders"][0]["preview_path"].endswith(f"{STUDENT_RENDER}/preview")
     # 没有 PDF 依赖就不要在接口里假装有：前端要能把这句话显示给教师
     assert body["pdf_implemented"] is False
     assert body["media_type"].startswith("text/html")
@@ -361,6 +363,64 @@ def test_download_of_withdrawn_paper_is_410() -> None:
     service = StubRenderService(download_error=PaperRenderWithdrawnError("卷子已撤回"))
     response = client_with(service).get(
         f"/api/v1/paper-renders/{STUDENT_RENDER}/download", headers=TEACHER)
+    assert response.status_code == 410, response.text
+
+
+# ---------------------------------------------------------------------------
+# 预览：同一份字节、另一套安全头
+# ---------------------------------------------------------------------------
+
+def test_preview_is_inline_but_still_sandboxed() -> None:
+    """预览必须 inline（否则浏览器只会弹下载框，复核人永远看不到卷面），
+    但 inline 绝不等于放弃限制：nosniff + CSP sandbox + no-store 一个都不能少。"""
+    response = client_with(StubRenderService()).get(
+        f"/api/v1/paper-renders/{STUDENT_RENDER}/preview", headers=TEACHER)
+    assert response.status_code == 200, response.text
+    assert response.content == b"<html>paper</html>"
+    assert response.headers["content-type"].startswith("text/html")
+    assert response.headers["content-disposition"].startswith("inline;")
+    # sandbox 是 inline 的代价：没有它，同源 HTML 就是一段可执行脚本
+    assert response.headers["content-security-policy"] == "sandbox"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_preview_and_download_serve_identical_bytes() -> None:
+    """两条路由只该差在 Content-Disposition 上；差在别处就说明有人复制了一份逻辑。"""
+    service = StubRenderService()
+    download = client_with(service).get(
+        f"/api/v1/paper-renders/{ANSWER_RENDER}/download", headers=TEACHER)
+    preview = client_with(service).get(
+        f"/api/v1/paper-renders/{ANSWER_RENDER}/preview", headers=TEACHER)
+    assert preview.content == download.content
+    assert preview.headers["content-security-policy"] == download.headers["content-security-policy"]
+    assert preview.headers["x-content-type-options"] == download.headers["x-content-type-options"]
+    assert preview.headers["cache-control"] == download.headers["cache-control"]
+    # 文件名相同：复核人从预览切到下载时不该怀疑是两份不同的卷子
+    assert (preview.headers["content-disposition"].split("filename=", 1)[1]
+            == download.headers["content-disposition"].split("filename=", 1)[1])
+
+
+def test_preview_unknown_render_is_404() -> None:
+    response = client_with(StubRenderService()).get(
+        f"/api/v1/paper-renders/{RUBRIC_RENDER}/preview", headers=TEACHER)
+    assert response.status_code == 404, response.text
+    assert response.json()["detail"]["code"] == "render_not_found"
+
+
+def test_preview_denied_is_403() -> None:
+    response = client_with(StubRenderService(denied=True)).get(
+        f"/api/v1/paper-renders/{ANSWER_RENDER}/preview", headers=TEACHER)
+    assert response.status_code == 403, response.text
+    assert response.json()["detail"]["code"] == "render_scope_denied"
+
+
+def test_preview_of_withdrawn_paper_is_410() -> None:
+    from app.rendering import PaperRenderWithdrawnError
+
+    service = StubRenderService(download_error=PaperRenderWithdrawnError("卷子已撤回"))
+    response = client_with(service).get(
+        f"/api/v1/paper-renders/{STUDENT_RENDER}/preview", headers=TEACHER)
     assert response.status_code == 410, response.text
 
 

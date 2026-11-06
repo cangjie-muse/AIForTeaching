@@ -5,6 +5,7 @@
       → 202 { "jobs": [{ "render_kind", "job_id" }], "already_ready": [...] }
     GET  /api/v1/paper-versions/{id}/renders              三类产物清单（最近一版卷面）
     GET  /api/v1/paper-renders/{render_id}/download       按卷种分别授权的下载
+    GET  /api/v1/paper-renders/{render_id}/preview        按卷种分别授权的浏览器内预览
 
 为什么必须有入队入口：`submit-review` 硬性要求三类卷都已渲染，而任务 6 只做了
 worker 与渲染服务，没有任何 HTTP 方式把渲染任务入队。结果就是教师永远撞
@@ -23,6 +24,10 @@ paper_render，几十秒到几分钟。放在请求里必然超时，然后被�
 `Content-Disposition: attachment`、`X-Content-Type-Options: nosniff`、
 `Content-Security-Policy: sandbox`——教师需要的是下载后用浏览器打印，不是把它
 当成应用的一部分执行。
+
+预览为什么是另一条路由：复核人需要"看到的就是要打印的那一版"，所以要有 inline
+的入口；但 inline 的风险靠 `CSP: sandbox` 管住（脚本不执行），安全头与下载分开写，
+就不会有人为了省事把下载也改成 inline。
 """
 
 from __future__ import annotations
@@ -207,6 +212,7 @@ def list_paper_renders(
                 "output_hash": by_kind[kind].output_hash,
                 "created_at": getattr(by_kind[kind], "created_at", None),
                 "download_path": f"/api/v1/paper-renders/{by_kind[kind].id}/download",
+                "preview_path": f"/api/v1/paper-renders/{by_kind[kind].id}/preview",
             }
             for kind in RENDER_KINDS if kind in by_kind
         ],
@@ -242,15 +248,7 @@ def download_paper_render(
     服务层会重新走一遍 `paper.render.<kind>` 权限并核对落盘字节的
     `output_hash`——手工拼一个 render_id 换不到别人的答案卷，改过文件也下不出来。
     """
-    try:
-        body, record, subject = service.download(ref_uuid("account", actor.id), render_id)
-    except PermissionError as exc:
-        # 不区分"不存在"与"没权限"会不会更好？这里刻意区分：不存在的渲染就是 404，
-        # 存在但越权才是 403。保密资源的存在性本身不敏感（uuid 不可枚举）。
-        raise _error(403, "render_scope_denied", str(exc)) from exc
-    except Exception as exc:  # noqa: BLE001
-        raise _render_error(exc) from exc
-
+    body, record, subject = _render_bytes(service, actor, render_id)
     headers = {
         "Content-Disposition": f"attachment; filename={_attachment_name(record.render_kind, subject)}",
         # 同源 HTML 一旦被内联渲染就成了可执行文档；强制下载 + nosniff + sandbox
@@ -260,6 +258,42 @@ def download_paper_render(
         "Cache-Control": "no-store",
     }
     return Response(content=body, media_type=MIME_TYPE, headers=headers)
+
+
+@router.get("/paper-renders/{render_id}/preview")
+def preview_paper_render(
+    render_id: UUID,
+    actor: Actor = Depends(require_teacher),
+    service: Any = Depends(get_render_service),
+) -> Response:
+    """在浏览器里直接看这一类产物（教师复核"打印出来到底长什么样"）。
+
+    为什么单独一条路由而不是给 download 加 `?inline=1`：两条路的安全头必须不同
+    （attachment 对 inline），写在同一个处理函数里迟早有人手一抖把下载也改成
+    inline——那等于把"可打印 HTML"变成一个同源可执行文档入口。这里仍然是
+    `CSP: sandbox` + `nosniff` + `no-store`，脚本不会执行、也不会被缓存。
+    授权与哈希校验完全复用 download（`_render_bytes`），预览拿不到的东西下载也拿不到。
+    """
+    body, record, subject = _render_bytes(service, actor, render_id)
+    headers = {
+        "Content-Disposition": f"inline; filename={_attachment_name(record.render_kind, subject)}",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "sandbox",
+        "Cache-Control": "no-store",
+    }
+    return Response(content=body, media_type=MIME_TYPE, headers=headers)
+
+
+def _render_bytes(service: Any, actor: Actor, render_id: UUID) -> tuple[bytes, Any, Any]:
+    """取产物字节并统一错误映射；下载与预览共用（两处状态码不会漂）。"""
+    try:
+        return service.download(ref_uuid("account", actor.id), render_id)
+    except PermissionError as exc:
+        # 不区分"不存在"与"没权限"会不会更好？这里刻意区分：不存在的渲染就是 404，
+        # 存在但越权才是 403。保密资源的存在性本身不敏感（uuid 不可枚举）。
+        raise _error(403, "render_scope_denied", str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise _render_error(exc) from exc
 
 
 def _course_ref(course_id: UUID) -> str:
