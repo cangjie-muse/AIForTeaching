@@ -1,0 +1,32 @@
+# 服务器运行时镜像：Python 3.12 + 全部后端依赖（含 OR-Tools）
+#
+# 为什么用 Docker 而不是在宿主机建 venv：
+#   * 这台服务器是 Ubuntu 26.04，自带 python3 已经是 3.13/3.14，而
+#     OR-Tools 9.11.4210 **只提供到 cp312** 的 wheel（已核对 PyPI：无 cp313/cp314）。
+#     在宿主机上要么装不到 3.12，要么就得从源码编译解释器——都是无谓的风险。
+#   * 镜像里的 python3.12 直接 `pip install ortools` 就能装（manylinux 轮子）。
+#   * 代码用 bind mount 挂进去，改代码不用重建镜像。
+#
+# 只装依赖，不 COPY 代码：代码始终来自宿主机挂载，避免"镜像里的旧代码"这种幽灵问题。
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# curl 用于容器健康检查；其余保持最小
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /srv/mathagent
+
+# 先装依赖（与代码解耦，改代码不会让这层失效）
+COPY server/requirements.txt /tmp/requirements.txt
+COPY server/requirements-assembly.txt /tmp/requirements-assembly.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt \
+ && pip install --no-cache-dir -r /tmp/requirements-assembly.txt \
+ && python -c "from importlib.metadata import version; print('ortools', version('ortools'))"
+
+# 运行期默认命令由 compose 覆盖
+CMD ["uvicorn", "app.main:app", "--app-dir", "server", "--host", "0.0.0.0", "--port", "8000"]
