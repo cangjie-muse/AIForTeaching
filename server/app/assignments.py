@@ -218,6 +218,7 @@ class AssignmentUnitOfWork(Protocol):
     def add(self, row: AssignmentRow) -> AssignmentRow: ...
     def save(self, row: AssignmentRow) -> AssignmentRow: ...
     def get(self, assignment_id: UUID) -> AssignmentRow | None: ...
+    def list_for_paper(self, paper_version_id: UUID) -> tuple[AssignmentRow, ...]: ...
     def items(self, assignment_id: UUID) -> tuple[AssignmentItemRow, ...]: ...
     def save_items(self, rows: Iterable[AssignmentItemRow]) -> None: ...
     def exposure_events(self, family_ids: Iterable[UUID]) -> tuple[ExposureEvent, ...]: ...
@@ -300,6 +301,12 @@ class _InMemoryAssignmentUnitOfWork:
 
     def get(self, assignment_id: UUID) -> AssignmentRow | None:
         return self.repo.rows.get(assignment_id)
+
+    def list_for_paper(self, paper_version_id: UUID) -> tuple[AssignmentRow, ...]:
+        # 新的在前：教师打开卷子时最关心"我刚建的那份发给哪个班了"。
+        rows = [row for row in self.repo.rows.values()
+                if row.paper_version_id == paper_version_id]
+        return tuple(sorted(rows, key=lambda row: row.created_at, reverse=True))
 
     def items(self, assignment_id: UUID) -> tuple[AssignmentItemRow, ...]:
         return tuple(self.repo.items.get(assignment_id, ()))
@@ -432,6 +439,21 @@ class _PostgresAssignmentUnitOfWork:
         )
         row = self.cur.fetchone()
         return self._row(row) if row else None
+
+    def list_for_paper(self, paper_version_id: UUID) -> tuple[AssignmentRow, ...]:
+        """同一份卷可以发给多个班；发布按钮要的是"这份卷现在有哪些作业"。
+
+        按 created_at 倒序：一份卷常常先发一个班做试点，再扩到其它班，
+        最上面那条才是教师此刻要操作的对象。
+        """
+        self.cur.execute(
+            f"""SELECT {_ASSIGNMENT_COLUMNS}
+                  FROM assessment.assignment
+                 WHERE paper_version_id = %s
+                 ORDER BY created_at DESC, id""",
+            (paper_version_id,),
+        )
+        return tuple(self._row(row) for row in self.cur.fetchall())
 
     def items(self, assignment_id: UUID) -> tuple[AssignmentItemRow, ...]:
         self.cur.execute(
@@ -873,6 +895,28 @@ class AssignmentService:
             self._require(actor_id, row.course_ref, row.offering_ref,
                           course_id=row.course_id, read=True)
             return AssignmentView(assignment=row, items=uow.items(assignment_id))
+
+    def list_for_paper(self, *, actor_id: UUID,
+                       paper_version_id: UUID) -> tuple[AssignmentRow, ...]:
+        """这份卷已经登记过哪些作业（草稿/已发布/已撤回都在里面）。
+
+        授权从**卷子的课程**派生，而不是从某个作业行派生：只拿得到 assignment_id
+        的人没法用别的课程范围绕开判定；卷子不存在就先 404，不泄露"它有没有作业"。
+        只读，所以用 read 动作——助教能看发布进度，但不能因此获得写权限。
+        """
+        if self.repository is None:
+            raise AssignmentError("缺少作业仓储")
+        with self.repository.unit_of_work() as uow:
+            paper = uow.load_paper(paper_version_id)
+            if paper is None:
+                raise AssignmentNotFoundError(f"卷子不存在：{paper_version_id}")
+            course_ref = uow.lookup_ref("course", paper.course_id)
+            if not course_ref:
+                raise AssignmentInputError(
+                    "卷子的课程没有 id_ref 映射：无法确定课程范围（历史数据需先回填）")
+            self._require(actor_id, course_ref, None, course_id=paper.course_id,
+                          read=True)
+            return uow.list_for_paper(paper_version_id)
 
     # -- 内部 -------------------------------------------------------------
     def _require(self, actor_id: UUID, course_ref: str, offering_ref: str | None,

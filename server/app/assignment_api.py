@@ -4,6 +4,7 @@
     POST /api/v1/assignments/{id}/publish     发布终检 + 固定投影 + 写曝光事件
     POST /api/v1/assignments/{id}/withdraw    严重撤回（保留提交读数，作废后续使用）
     GET  /api/v1/assignments/{id}             读作业与其固定投影
+    GET  /api/v1/paper-versions/{id}/assignments  这份卷已登记的作业（含草稿）
 
 三个写接口都要 `Idempotency-Key`。这里不能像 Release 冻结那样靠内容寻址：
 发布与撤回是**状态迁移**，同一份请求在不同时刻调用意义不同（第一次是发布，
@@ -39,6 +40,7 @@ from .assignments import (
     AssignmentInputError,
     AssignmentNotApprovedError,
     AssignmentNotFoundError,
+    AssignmentRow,
     AssignmentService,
     AssignmentSourceIncompleteError,
     AssignmentStateError,
@@ -212,3 +214,21 @@ def read_assignment(
 ) -> AssignmentView:
     with _assignment_errors():
         return service.get(actor_id=_actor_uuid(actor), assignment_id=assignment_id)
+
+
+@router.get("/paper-versions/{paper_version_id}/assignments",
+            response_model=list[AssignmentRow])
+def list_paper_assignments(
+    paper_version_id: UUID,
+    actor: Actor = Depends(require_teacher),
+    service: AssignmentService = Depends(get_assignment_service),
+) -> list[AssignmentRow]:
+    """这份卷已经登记过哪些作业——发布面板靠它决定"有没有草稿可发"。
+
+    没有这个读接口，页面只能让教师重复建草稿（同卷同班建两份作业），或者在
+    前端自己拼 assignment_id；两者都会把"哪份是真的"变成猜测。
+    """
+    with _assignment_errors():
+        rows = service.list_for_paper(
+            actor_id=_actor_uuid(actor), paper_version_id=paper_version_id)
+    return list(rows)

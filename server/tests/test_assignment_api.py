@@ -303,6 +303,57 @@ def test_withdraw_without_reason_is_422() -> None:
 
 
 # ---------------------------------------------------------------------------
+# 四、这份卷已登记的作业（发布面板的数据源）
+# ---------------------------------------------------------------------------
+
+def test_paper_assignments_lists_drafts_and_published_ones() -> None:
+    client, _ = client_for()
+    first = make_draft(client)
+    client.post(f"/api/v1/assignments/{first}/publish",
+                headers={**TEACHER, "Idempotency-Key": "p-1"})
+    # 第二份换个班再建一个草稿：一份卷可以发给多个班
+    second = client.post(
+        "/api/v1/assignments",
+        json=create_payload(offering_ref="class-2026-02"),
+        headers={**TEACHER, "Idempotency-Key": "c-2"})
+    assert second.status_code == 201, second.text
+
+    listed = client.get(f"/api/v1/paper-versions/{PAPER_VERSION_ID}/assignments",
+                        headers=TEACHER)
+    assert listed.status_code == 200, listed.text
+    rows = listed.json()
+    assert len(rows) == 2
+    by_id = {row["id"]: row for row in rows}
+    assert by_id[first]["status"] == "published"
+    assert by_id[second.json()["assignment"]["id"]]["status"] == "draft"
+    # 面板要知道"发给哪个班"，否则草稿列表对教师没有意义
+    assert {row["offering_ref"] for row in rows} == {OFFERING_REF, "class-2026-02"}
+
+
+def test_paper_assignments_is_empty_before_anything_is_created() -> None:
+    client, _ = client_for()
+    listed = client.get(f"/api/v1/paper-versions/{PAPER_VERSION_ID}/assignments",
+                        headers=TEACHER)
+    assert listed.status_code == 200, listed.text
+    assert listed.json() == []
+
+
+def test_paper_assignments_requires_course_scope() -> None:
+    client, _ = client_for(denied=True)
+    listed = client.get(f"/api/v1/paper-versions/{PAPER_VERSION_ID}/assignments",
+                        headers=TEACHER)
+    assert listed.status_code == 403, listed.text
+    assert listed.json()["detail"]["code"] == "course_scope_denied"
+
+
+def test_paper_assignments_of_unknown_paper_is_404() -> None:
+    client, _ = client_for()
+    listed = client.get(f"/api/v1/paper-versions/{uuid4()}/assignments",
+                        headers=TEACHER)
+    assert listed.status_code == 404, listed.text
+
+
+# ---------------------------------------------------------------------------
 # 手动收集
 # ---------------------------------------------------------------------------
 
