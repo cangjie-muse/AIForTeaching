@@ -1,6 +1,45 @@
 # 智慧武大数学课程平台
 
-更新：2026-10-11。阶段：v0.11 本地学院展示版，14 门课程已接入并提供建设期汇总页。
+更新：2026-11-06。阶段：v0.11 本地学院展示版，14 门课程已接入并提供建设期汇总页；
+《固定卷组卷与在线作答》阶段 A（手工固定卷）已打通到"可双审、可打印、可发布、可撤回"。
+
+## 阶段 A 固定卷链路（2026-11-06）
+
+按 `docs/superpowers/plans/2026-11-05-paper-implementation-suite.md`（总控）与
+`2026-11-05-paper-01-manual-fixed-papers.md`（分计划）推进，阶段 A 的任务 1—10 已落地。
+计划书按 Next.js 写，本仓库是原生 JS，路径换成 `js/paper-*.js` + `server/app/*.py`；
+进度以 git 提交为准，计划书里的复选框没有回填。
+
+- 数据与契约：`db/migrations/0027`—`0033`，`server/app/contracts/`（蓝图、候选、纸卷、
+  校验报告、渲染、学生侧投影）。assessment 命名空间 FORCE RLS；本仓库的文本课程号
+  （`analysis`）与 uuid 之间由 `assessment.id_ref` 桥接，服务端统一用 `ref_uuid` 推导。
+- 领域服务：`blueprints.py`（蓝图版本）、`candidates.py`（候选资格与不可变快照）、
+  `papers.py`（建卷/编辑/克隆/清单哈希）、`validation.py`（独立整卷校验，重算 manifest）、
+  `paper_review.py`（提交审核、两位非贡献者复核、聚合 review_manifest_hash、撤回）、
+  `rendering.py`（学生卷/答案卷/量规卷分离）、`assignments.py`（打印作业固定投影、
+  发布终检、严重撤回写 withdrawn 曝光事件）、`workbench.py`（工作台聚合）。
+- HTTP：`/api/v1/paper-blueprints…`、`/courses/{course_ref}/paper-blueprints`、
+  `…/candidate-snapshots`、`…/candidates`、`…/candidate-labels`、`/paper-versions…`
+  （建卷、PATCH slots、validate、submit-review、approve、withdraw、renders、
+  assignments）、`/paper-renders/{id}/download`、`/assignments…`、`/paper-workbench`。
+- 前端四页：`#/course/{id}/workbench` 组卷工作台、`paper-build` 建卷（蓝图+候选+挑题）、
+  `paper-editor` 卷面编辑、`paper-ops` 整卷审核与发布。代码在 `js/paper-workbench.js`、
+  `js/paper-build.js`、`js/paper-editor.js`、`js/paper-ops.js`、`styles/paper.css`，
+  入口与角色闸门在 `js/app.js`、`js/auth.js`、`js/core.js`、`index.html`。
+
+验证（本机 2026-11-06）：`npm run check` 前端部分全过，含 paper 四页视图测试
+（workbench 21、build 76、editor 29、ops 70 项）；Python 域测试除 6 个"要写系统临时
+目录"的套件（test_script_env、test_llm_endpoint_resolution、test_homework、test_keystore、
+test_envfile、test_render_security）外全部通过——这 6 个在本机沙箱里
+`PermissionError: WinError 5 …\AppData\Local\Temp\dsh-*`，与 paper 改动无关。
+阶段 A 的端到端验收在 `server/tests/test_paper_acceptance.py`（10 项）：真实蓝图 →
+候选快照 → 建卷 → 独立校验 → 双人复核 → 发布打印作业 → 撤回，含"学生侧投影不含答案"
+与"approved 卷不能原位修改"两条硬断言。
+
+未验证 / 已知限制：整链只在内存仓储 + FastAPI 依赖替身上跑过，没有连真实 PostgreSQL 与
+渲染 worker；三类打印产物是可打印 HTML（本仓库无 PDF 依赖，接口显式返回
+`pdf_implemented: false`）；前端只有 `node:vm` 视图测试（渲染与纯函数），没有 Playwright
+浏览器自动化。阶段 B（约束组卷）尚未开始。
 
 ## 图谱当前节点的下属内容汇总（2026-10-11）
 
