@@ -1,7 +1,38 @@
 # 智慧武大数学课程平台
 
 更新：2026-11-06。阶段：v0.11 本地学院展示版，14 门课程已接入并提供建设期汇总页；
-《固定卷组卷与在线作答》阶段 A（手工固定卷）已打通到"可双审、可打印、可发布、可撤回"。
+《固定卷组卷与在线作答》阶段 A（手工固定卷）已打通到"可双审、可打印、可发布、可撤回"；
+阶段 B（约束组卷）已落地候选快照与求解运行模型，**CP-SAT 部分被本机无外网阻塞**。
+
+## 阶段 B 约束组卷：已落地到哪里（2026-11-06）
+
+按 `2026-11-05-paper-02-constrained-assembly.md` 任务 1 推进，映射到本仓库：
+
+- `server/app/assembly/contracts.py`：求解状态（`RunStatus`）、整数单位模型
+  （分值→分/100、秒、权重全整数）、`Candidate`/`CandidateManifest`/
+  `SolutionManifest`/`SolveResult` 等 DTO 与 manifest 哈希；哈希复用
+  `server/app/contracts/hashing.py`，没有第二份 canonical hash。
+- `server/app/assembly/blueprint.py`：把阶段 A 的蓝图版本翻译成求解器输入。槽位身份用
+  uuid5（同槽位永远同 id，回放才成立）；不认识的**硬**约束键记进
+  `HardConstraints.unsupported_keys` 并上报；不认识的**软**目标键直接报错；
+  `variant_mode=ab` 明确拒绝（A/B 尚未实现，不当单卷跑）。
+- `server/app/assembly/candidate.py`：`AssemblyCandidateService` 固定候选 manifest；
+  `recent_use_count / exposure_count / answer_released` 全部从真实
+  `assessment.item_exposure_event` 统计，不接受调用方自报；`StageACandidateSource`
+  直接用阶段 A 的 `CandidateService.snapshot` 取权威候选（授权、Release、审核都在那边）。
+- `db/migrations/0034_assembly_run.sql`：新增 `assessment.assembly_run`（幂等键唯一、
+  方案≤3、无解不许带方案、终态需完成时间、FORCE RLS），解除 0027 的
+  `ck_paper_manual_only` 并加上"组卷来源两列必须成对 + 序号 0..2"。
+- 依赖：`server/requirements-assembly.txt` 钉 `ortools==9.11.4210`。
+
+验证（本机 2026-11-06）：`server/tests/test_assembly_blueprint.py` 18 项、
+`test_assembly_candidate.py` 18 项通过；`npm run test:migrations` 34/34 迁移、
+断言 10/10（含 0034 的 12 条真引擎行为）。
+
+**阻塞项（不是通过）**：本机没有外网（pypi 与三个镜像均"基础连接已经关闭"，
+无代理环境变量），`pip install ortools==9.11.4210` 装不上，因此 CP-SAT 求解器
+（任务 2/3）与后续 materialize/A-B 无法在本机产出真实运行证据。候选固定与迁移
+部分刻意与求解器解耦，所以它们是已验证的。
 
 ## 阶段 A 固定卷链路（2026-11-06）
 

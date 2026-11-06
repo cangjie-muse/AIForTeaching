@@ -1,0 +1,10 @@
+# 约束组卷（阶段 B）专用依赖：OR-Tools CP-SAT
+#
+# 为什么单独成文件，不并进 server/requirements.txt：
+#   ortools 是带 C++ 求解器的二进制轮子（体积大、平台矩阵窄），只有
+#   server/app/assembly/solver.py 用它。放进主依赖会让"只想跑阶段 A 手工卷"的
+#   部署也背上它，并在没有对应轮子的平台上把整个服务卡在安装阶段。
+#
+# 版本必须与 server/tests/test_assembly_candidate.py 的锁定断言一致：
+# 求解结论要能回放，跨版本重解只允许产生**新运行**，不能覆盖历史结果。
+ortools==9.11.4210

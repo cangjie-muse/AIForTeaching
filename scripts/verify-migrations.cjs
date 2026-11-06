@@ -36,7 +36,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
-const checkReviewEvidence = require('./verify-paper-review-behaviour.cjs'), checkAssignmentPublishFields = require('./verify-assignment-publish-behaviour.cjs');  // 迁移行为断言拆成独立文件，本文件已到 max-lines 上限
+const checkReviewEvidence = require('./verify-paper-review-behaviour.cjs'), checkAssignmentPublishFields = require('./verify-assignment-publish-behaviour.cjs'), checkAssemblyRunBehaviour = require('./verify-assembly-run-behaviour.cjs'), checkSlotAndItemRules = require('./verify-slot-and-item-behaviour.cjs');  // 迁移行为断言拆成独立文件，本文件已到 max-lines 上限
 
 const root = path.resolve(__dirname, '..');
 const MIGRATIONS_DIR = path.join(root, 'db', 'migrations');
@@ -617,22 +617,6 @@ async function checkAssignmentTimeline(db, ids) {
   return `合法插入接受；倒挂两种（visible>due、due>hard_close）都被 23514 拒绝（约束 ${visibleAfterDue.constraint}）`;
 }
 
-async function checkSlotUnique(db, ids) {
-  const error = await expectSqlError(db, `
-    INSERT INTO assessment.paper_slot (id, section_id, code, slot_no, score, content_hash)
-    VALUES ($1, $2, $3, $4, $5, $6)`,
-  ['2a2a2a2a-2a2a-4a2a-8a2a-2a2a2a2a2a2a', ids.section, 'A3', -1, 10.00, hash64('slot3')]);
-  assert.equal(error.code, '23505', `同一 section 内重复 slot_no 应触发 23505，实际 SQLSTATE ${error.code}`);
-  return `同 section 再插 slot_no=-1 被 23505 拒绝（负数也在唯一索引里，同一临时值只能占一个槽）`;
-}
-
-async function checkAppendOnly(db, ids) {
-  const error = await expectSqlError(db, 'UPDATE assessment.assignment_item SET score = score + 1 WHERE id = $1', [ids.assignmentItem]);
-  assert.equal(error.code, 'P0001', `assignment_item 的 UPDATE 应被触发器以 P0001 拒绝，实际 SQLSTATE ${error.code}`);
-  assert.ok(/append-only/i.test(error.message), `报错应含 append-only，实际：${error.message}`);
-  return `UPDATE 被拒：SQLSTATE ${error.code} / ${error.message}`;
-}
-
 async function checkDraftEditable(db, ids) {
   await db.query('UPDATE assessment.paper_version SET total_score = 101.00 WHERE id = $1', [ids.paperDraft]);
   const row = await first(db, 'SELECT total_score::text AS text FROM assessment.paper_version WHERE id = $1', [ids.paperDraft]);
@@ -647,11 +631,12 @@ function buildChecks(ids) {
     { title: 'assessment 各表 numeric(8,2) 真是 8 位精度 2 位小数', run: (db) => checkNumericScale(db, ids) },
     { title: 'paper_version/section/slot/render 四表 relrowsecurity + relforcerowsecurity 均真', run: (db) => checkRowLevelSecurity(db, ids) },
     { title: 'assessment.assignment 的 visible_at <= due_at <= hard_close_at 拒绝倒挂', run: (db) => checkAssignmentTimeline(db, ids) },
-    { title: 'UNIQUE(section_id, slot_no) 在真引擎里生效（负数也不例外）', run: (db) => checkSlotUnique(db, ids) },
-    { title: 'assignment_item 只允许追加（UPDATE 被触发器拒绝）', run: (db) => checkAppendOnly(db, ids) },
+    { title: 'UNIQUE(section_id, slot_no) 与 assignment_item 只追加都由引擎把关', run: (db) => checkSlotAndItemRules(db, ids, expectSqlError, hash64) },
     { title: 'draft 卷仍可改（反向对照，证明触发器没挡过宽）', run: (db) => checkDraftEditable(db, ids) },
     { title: '0032 复核证据：逐人唯一 + 贡献者不能自批 + append-only', run: (db) => checkReviewEvidence(db, ids, expectSqlError) },
-    { title: '0033 发布痕迹：已发布必须有 published_at，撤回必须有理由', run: (db) => checkAssignmentPublishFields(db, ids, expectSqlError) }  ];
+    { title: '0033 发布痕迹：已发布必须有 published_at，撤回必须有理由', run: (db) => checkAssignmentPublishFields(db, ids, expectSqlError) },
+    { title: '0034 求解运行：无解不许带方案 + 最多 3 个 + 组卷来源成对', run: (db) => checkAssemblyRunBehaviour(db, ids, expectSqlError) }
+  ];
 }
 
 async function runBehaviourChecks(db, report) {
