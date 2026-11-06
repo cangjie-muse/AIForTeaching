@@ -1,4 +1,4 @@
-﻿/* 登录、会话、按角色的页面闸门。
+/* 登录、会话、按角色的页面闸门。
  *
  * 三件事分开看：
  *   1. 状态：A.state.auth 里只有"我现在是谁"（未登录 / 学生 / 教师 / 管理员）；
@@ -22,6 +22,7 @@
     workbench: ['teacher', 'admin'],
     'paper-build': ['teacher', 'admin'],
     'paper-assembly': ['teacher', 'admin'],
+    'online-exam': ['student', 'teacher', 'admin'],
     'paper-editor': ['teacher', 'admin'],
     'paper-ops': ['teacher', 'admin'],
     classes: ['teacher', 'admin'],

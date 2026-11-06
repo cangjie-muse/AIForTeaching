@@ -644,6 +644,20 @@
     assemblyPair: (runId, peerRunId, left, right, anchors) => request('GET',
       `/api/v1/assembly-runs/${encodeURIComponent(runId)}/ab-pair`
       + queryString({ peer_run_id: peerRunId, index: left, peer_index: right, anchors })),
+    // 在线作答（阶段 C）：开始要幂等键；保存是 PATCH，冲突时服务端带回最新本人响应。
+    assignmentAttempt: assignmentId => request('GET',
+      `/api/v1/assignments/${encodeURIComponent(assignmentId)}/attempt`),
+    startAttempt: (assignmentId, key) => request('POST',
+      `/api/v1/assignments/${encodeURIComponent(assignmentId)}/attempts`,
+      { headers: { 'Idempotency-Key': key } }),
+    attemptDetail: attemptId => request('GET',
+      `/api/v1/attempts/${encodeURIComponent(attemptId)}`),
+    saveAttemptSlot: (attemptId, slotId, body) => request('PATCH',
+      `/api/v1/attempts/${encodeURIComponent(attemptId)}/slots/${encodeURIComponent(slotId)}`,
+      { body }),
+    finalizeAttempt: (attemptId, key) => request('POST',
+      `/api/v1/attempts/${encodeURIComponent(attemptId)}/finalize`,
+      { headers: { 'Idempotency-Key': key } }),
     assemblySolutionPaper: (runId, index, key, variantGroupId, variantLabel) => request('POST',
       `/api/v1/assembly-runs/${encodeURIComponent(runId)}/solutions/${index}/paper`
       + queryString({ variant_group_id: variantGroupId, variant_label: variantLabel }),
