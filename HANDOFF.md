@@ -42,14 +42,21 @@
 - `scripts/load_assembly.py`：1,000 候选/50 槽位受控负载。真实结果（2026-11-06）：
   固定候选 manifest 67 ms、每槽供给 16 ms、预检 17 ms；**求解耗时未计入**，
   脚本 JSON 的 `limits` 字段与测试都钉住了这一点。
+- **求解入队与 worker**：`db/migrations/0035` 让 `pipeline_job.kind` 认识
+  `paper-assembly`（`generation.claim_next()` 白名单同步——只改一处的后果是
+  "能入队却永远没人领"）；`AssemblyService.start(enqueue_only=True)` 只建 queued 行
+  并入队（202 响应**不含** solutions）；`AssemblyService.execute(run_id)` 是 worker
+  路径，幂等（终态不重解）、求解输入用运行行里固定的候选清单（重取会让重试换一套
+  输入）、清单哈希对不上时记 FAILED 且不求解。前端排队时明确说"还没有结论"。
 - 阶段 A 的两处必要改动：`blueprints.py` 允许 `constraint_assisted`；
   `papers.py` 的 INSERT 真的写 `assembly_run_id/selected_solution_index`，并按蓝图
   模式双向校验来源。
 
 验证（本机 2026-11-06）：`test_assembly_blueprint/candidate/diagnostics/comparator/
-pipeline/api` 合计 106 项、`test_load_assembly.py` 5 项、
-`test-view-paper-assembly.cjs` 66 项全过；`npm run test:migrations`
-34/34 迁移、断言 11/11；阶段 A 的 blueprints/papers/validation/acceptance 无回归。
+ab/pipeline/api/worker` 合计 128 项、`test_load_assembly.py` 5 项、
+`test-view-paper-assembly.cjs` 73 项全过；`npm run test:migrations`
+35/35 迁移、断言 12/12、SQL 级重放 9/9；阶段 A 的 blueprints/papers/validation/
+acceptance 无回归。
 
 **阻塞项（不是通过）**：本机没有外网（pypi 与三个镜像均"基础连接已经关闭"，
 无代理环境变量），`pip install ortools==9.11.4210` 装不上。`default_solver()`
