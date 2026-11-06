@@ -43,6 +43,7 @@ from .qa_corpus import router as qa_corpus_router
 from .review import router as review_router
 from .review_nodes import router as review_nodes_router
 from .visibility import router as visibility_router
+from .workbench_api import router as workbench_router
 
 APP_ENV = os.environ.get("APP_ENV", "dev").lower()
 
@@ -116,6 +117,7 @@ app.include_router(paper_versions_router)
 app.include_router(paper_reviews_router)
 app.include_router(release_contexts_router)
 app.include_router(assignment_router)
+app.include_router(workbench_router)
 
 
 _ROOT = Path(__file__).resolve().parents[2]
