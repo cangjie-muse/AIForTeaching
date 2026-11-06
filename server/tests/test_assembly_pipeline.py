@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import sys
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -32,6 +33,9 @@ from app.assembly.contracts import (  # noqa: E402
     RunStatus,
     SolveResult,
     make_solution_manifest,
+    solution_from_json,
+    solution_hash_matches,
+    solution_to_json,
     make_solution_set,
     score_to_hundredths,
     solution_from_json,
@@ -581,6 +585,51 @@ def test_validation_failure_marks_run_failed_and_keeps_the_draft() -> None:
     assert row.status == RunStatus.FAILED, "复验不通过后这次运行不能再被选择"
     assert row.diagnostics["validation"]["valid"] is False
     assert row.solution_manifest, "方案仍在（证据保留），但状态不允许再用"
+
+
+def test_solution_violating_the_blueprint_never_creates_a_paper() -> None:
+    """求解器给出的方案不满足蓝图（这里：分值被改）→ 拒绝建卷，运行标 FAILED。
+
+    这是"CP-SAT 硬约束与独立复验一致"那条门禁在不接求解器时也能验的部分：
+    方案复验只看方案与蓝图，所以它今天就能抓出"求解器算错"。
+    """
+    from app.assembly.verification import SolutionVerificationError
+
+    env = build_environment()
+    started = env.assembly.start(actor_id=CREATOR, blueprint_version_id=env.version.id,
+                                idempotency_key="run-bad-solution")
+    row = env.assembly.run(actor_id=CREATOR, run_id=started.assembly_run_id)
+    original = solution_from_json(row.solution_manifest[0])
+    # 造一份"自身哈希自洽、但分值不符合蓝图"的方案：这样"载荷被改过"那道检查不会
+    # 触发，测到的就纯粹是方案复验这一层。
+    broken_selection = replace(original.selections[0], score_hundredths=1)
+    broken = make_solution_manifest(
+        variant_label=original.variant_label,
+        selections=(broken_selection,) + original.selections[1:],
+        objective_terms=original.objective_terms,
+        objective_value=original.objective_value,
+        best_bound=original.best_bound,
+        optimality_gap_milli=original.optimality_gap_milli,
+        solver_status=original.solver_status,
+        optimal_proven=original.optimal_proven,
+        structure_report=original.structure_report,
+    )
+    assert solution_hash_matches(broken)
+    env.runs.rows[row.id] = row.model_copy(
+        update={"solution_manifest": (solution_to_json(broken),)})
+
+    try:
+        env.assembly.select(actor_id=CREATOR, run_id=started.assembly_run_id,
+                            index=0, idempotency_key="pick-bad")
+    except SolutionVerificationError as error:
+        assert "score_mismatch" in {item.code for item in error.issues}, error.payload()
+    else:
+        raise AssertionError("分值不符合蓝图的方案不能建卷")
+    assert env.proxy.created == [], "复验不通过时一份卷子都不能建"
+    after = env.assembly.run(actor_id=CREATOR, run_id=started.assembly_run_id)
+    assert after.status == RunStatus.FAILED, "方案不满足蓝图的运行不能再被选"
+    assert after.diagnostics["verification"]["valid"] is False
+    assert after.diagnostics["verification"]["issues"][0]["code"] == "score_mismatch"
 
 
 def test_second_select_after_failure_is_refused() -> None:

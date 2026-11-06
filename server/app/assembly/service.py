@@ -41,6 +41,7 @@ from .contracts import (
 )
 from .diagnostics import diagnose_infeasible, issues_to_payload, precheck
 from .materialize import AssemblyMaterializer, AssemblyValidationBlocked, MaterializeError
+from .verification import SolutionVerificationError
 from .repository import AssemblyRunRow
 
 
@@ -350,6 +351,13 @@ class AssemblyService:
         blueprint = self._load_blueprint(actor_id, row.blueprint_version_id)
         solution = solution_from_json(row.solution_manifest[index])
         self._verify_solution(row, index, solution)
+        # 用运行行里固定的那份候选清单做方案复验：建卷前的最后一道门，
+        # 也是"求解器算错"与"别人改过库"两种情况的共同拦截面。
+        manifest = candidate_manifest_from_json(
+            dict(row.candidate_manifest),
+            manifest_hash=row.candidate_manifest_hash,
+            candidate_snapshot_id=row.candidate_snapshot_id,
+        )
         try:
             materialized = self.materializer.materialize(
                 actor_id=actor_id,
@@ -359,7 +367,12 @@ class AssemblyService:
                 assembly_run_id=row.id,
                 selected_solution_index=index,
                 idempotency_key=f"{key}:paper",
+                manifest=manifest,
             )
+        except SolutionVerificationError as blocked:
+            # 方案本身不满足蓝图：不建卷，把问题写进运行诊断并标失败。
+            self._record_verification_failure(row, blocked)
+            raise
         except AssemblyValidationBlocked as blocked:
             self._record_validation_failure(row, blocked)
             raise
@@ -400,6 +413,27 @@ class AssemblyService:
         recorded = row.solution_manifest[index].get("manifest_hash")
         if recorded and recorded != solution.manifest_hash:
             raise SolutionMismatch("方案载荷与运行记录里的 manifest_hash 不一致")
+
+    def _record_verification_failure(self, row: AssemblyRunRow,
+                                     blocked: "SolutionVerificationError") -> None:
+        """方案不满足蓝图：运行标 FAILED（不被再选），诊断里留下具体问题。
+
+        为什么不只是抛错了事：教师下次打开页面看到的是"这次运行失败了以及为什么"，
+        而不是一个仍然显示"有 2 个方案"的历史行——后者会让人反复点同一个坏方案。
+        """
+        diagnostics = dict(row.diagnostics)
+        diagnostics["verification"] = {
+            "valid": False,
+            "issues": blocked.payload(),
+        }
+        failed = _with(
+            row,
+            status=RunStatus.FAILED,
+            diagnostics=diagnostics,
+            completed_at=self._clock(),
+        )
+        with self.repository.unit_of_work() as uow:
+            uow.update(failed)
 
     def _record_validation_ok(self, row: AssemblyRunRow, materialized: Any) -> None:
         diagnostics = dict(row.diagnostics)

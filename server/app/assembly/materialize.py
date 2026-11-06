@@ -18,6 +18,7 @@ from typing import Any, Sequence
 from uuid import UUID
 
 from ..contracts.paper import SlotSelection
+from .verification import SolutionVerificationError, assert_solution_valid
 from .contracts import (
     BlueprintSnapshot,
     PaperDraft,
@@ -89,11 +90,19 @@ class AssemblyMaterializer:
     def materialize(self, *, actor_id: UUID, blueprint: BlueprintSnapshot,
                     solution: SolutionManifest, candidate_snapshot_id: UUID,
                     assembly_run_id: UUID, selected_solution_index: int,
-                    idempotency_key: str) -> MaterializedPaper:
+                    idempotency_key: str,
+                    manifest: Any = None) -> MaterializedPaper:
         """建草稿卷时必须带组卷来源：`paper_version.assembly_run_id` +
         `selected_solution_index` 是"这份卷从哪来"的唯一证据。少了它们，卷子会被
         当成手工卷（0034 的 CHECK 允许两列都空），回放就此断链。
+
+        给了 `manifest` 就先做**方案复验**（`verify_solution`）：分值、总分、时长、
+        覆盖、题型、互斥、同题重复、所选题是否在候选里——这些都能由方案本身证明。
+        放在建卷之前，是为了"求解器算错"不会留下一份半成品卷子：草稿看起来和正常
+        卷子一模一样，删起来还会牵连 edit_seq 与审核记录。
         """
+        if manifest is not None:
+            assert_solution_valid(blueprint, manifest, solution)
         selections = selections_for(solution, blueprint)
         draft = self.papers.create_manual_draft(
             actor_id=actor_id,
