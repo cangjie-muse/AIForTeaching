@@ -120,7 +120,15 @@ class SlotSelection(ContractModel):
 
 
 class PaperSlotView(ContractModel):
-    """已固定卷面上的一个槽位；只读写入数据库的权威字段。"""
+    """已固定卷面上的一个槽位；只读写入数据库的权威字段。
+
+    `release_context_id` 与 `content_hash` 是任务 4 追加的可选字段（只做加法）：
+      * 前者让"槽位固定来源"落到槽位本身，而不是只能从整卷推断——打印作业项
+        （assignment_item）投影的来源字段就是这四个 + 实例；
+      * 后者是槽位与依赖的完整内容哈希（0027 的 `paper_slot.content_hash` 是
+        NOT NULL，契约里不给出去，前端与回放就看不到槽位级完整性判据）。
+    空槽位（draft 允许的缺口）这四个来源字段全为 None，绝不出现"只有题号"的槽位。
+    """
 
     id: UUID
     section_code: str
@@ -131,10 +139,12 @@ class PaperSlotView(ContractModel):
     exercise_instance_id: UUID | None = None
     exercise_family_id: UUID | None = None
     source_release_id: UUID | None = None
+    release_context_id: UUID | None = None
     score: Score = Field(ge=0)
     estimated_seconds: int | None = Field(default=None, ge=0)
     display_config: dict[str, object] = {}
     dependency_manifest_hash: str | None = None
+    content_hash: str | None = Field(default=None, min_length=64, max_length=64)
 
 
 class PaperSectionView(ContractModel):
@@ -144,6 +154,7 @@ class PaperSectionView(ContractModel):
     sort_order: int = Field(ge=0)
     section_score: Score = Field(ge=0)
     slots: tuple[PaperSlotView, ...]
+    content_hash: str | None = Field(default=None, min_length=64, max_length=64)
 
 
 class PaperView(ContractModel):

@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aiforteaching.local/contracts/assessment/paper.schema.json",
+  "title": "paper-manifest/v1",
+  "description": "手工固定卷版本的内容形状，与 server/app/contracts/paper.py 的 PaperView / PaperSectionView / PaperSlotView 逐字段对应（HTTP 传输层另附 paper_id / version_no / candidate_snapshot_id 等元数据，见 server/app/papers.py 的 PaperVersionRow）。所有分值都是两位小数的 JSON 字符串（不是数字）：JS 端拿到数字就会用二进制浮点求和，100 分卷会变成 99.99999999999999。$defs.section / $defs.slot 禁止额外字段：多一个 answer 或 solution 就是多一条泄露通道。manifest 只由本文件的字段计算（不含 id / created_at / edit_seq），所以同一内容无论第几版、由谁何时创建，manifest_hash 相同。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "blueprint_version_id",
+    "release_context_id",
+    "course_id",
+    "status",
+    "total_score",
+    "duration_seconds",
+    "edit_seq",
+    "manifest_hash",
+    "sections"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "blueprint_version_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "release_context_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "course_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "offering_id": {
+      "type": ["string", "null"],
+      "format": "uuid"
+    },
+    "purpose": {
+      "enum": ["formal", "coursework", "practice"]
+    },
+    "paper_kind": {
+      "type": ["string", "null"],
+      "enum": ["formal", "coursework", "practice", null]
+    },
+    "status": {
+      "enum": ["draft", "in_review", "approved", "withdrawn"]
+    },
+    "total_score": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d{2}$"
+    },
+    "duration_seconds": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "edit_seq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "manifest_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "review_manifest_hash": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/section"
+      }
+    }
+  },
+  "$defs": {
+    "section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "title", "sort_order", "section_score", "slots"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "instruction": {
+          "type": "string"
+        },
+        "sort_order": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "section_score": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d{2}$"
+        },
+        "slots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/slot"
+          }
+        },
+        "content_hash": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "slot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "section_code", "code", "slot_no", "score"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "section_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "slot_no": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "exercise_id": {
+          "type": ["string", "null"],
+          "format": "uuid"
+        },
+        "exercise_version_id": {
+          "type": ["string", "null"],
+          "format": "uuid"
+        },
+        "exercise_instance_id": {
+          "type": ["string", "null"],
+          "format": "uuid"
+        },
+        "exercise_family_id": {
+          "type": ["string", "null"],
+          "format": "uuid"
+        },
+        "source_release_id": {
+          "type": ["string", "null"],
+          "format": "uuid"
+        },
+        "release_context_id": {
+          "type": ["string", "null"],
+          "format": "uuid"
+        },
+        "score": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d{2}$"
+        },
+        "estimated_seconds": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "display_config": {
+          "type": "object"
+        },
+        "dependency_manifest_hash": {
+          "type": ["string", "null"]
+        },
+        "content_hash": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    }
+  }
+}

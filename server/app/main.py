@@ -34,6 +34,7 @@ from .courseware import router as courseware_router
 from .homework import router as homework_router
 from .imports import router as imports_router
 from .paper_blueprints import router as paper_blueprints_router
+from .paper_versions import router as paper_versions_router
 from .qa import router as qa_router
 from .qa_corpus import router as qa_corpus_router
 from .review import router as review_router
@@ -108,6 +109,7 @@ app.include_router(visibility_router)
 app.include_router(classes_router)
 app.include_router(imports_router)
 app.include_router(paper_blueprints_router)
+app.include_router(paper_versions_router)
 
 
 _ROOT = Path(__file__).resolve().parents[2]

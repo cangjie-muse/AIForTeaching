@@ -235,6 +235,8 @@ class CandidateUnitOfWork(Protocol):
 
     def latest(self, blueprint_version_id: UUID) -> CandidateSnapshot | None: ...
 
+    def get(self, snapshot_id: UUID) -> CandidateSnapshot | None: ...
+
 
 # ---------------------------------------------------------------------------
 # 内存实现（单元测试 / 无库环境）
@@ -304,6 +306,13 @@ class InMemoryCandidateRepository:
         newest = max(candidates, key=lambda item: (item.created_at, str(item.id)))
         # 读取路径不是"刚刚创建"，created 一律 False，避免 GET 也声称 201 语义。
         return newest.model_copy(update={"created": False})
+
+    def get(self, snapshot_id: UUID) -> CandidateSnapshot | None:
+        for snapshot in self.snapshots.values():
+            if snapshot.id == snapshot_id:
+                # 读取路径：created 一律 False（不是本次请求新建的）。
+                return snapshot.model_copy(update={"created": False})
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -576,6 +585,24 @@ class _PostgresCandidateUnitOfWork:
             created_at=row["created_at"],
         )
 
+    def get(self, snapshot_id: UUID) -> CandidateSnapshot | None:
+        """按 id 读取一份已存候选清单（纸卷建卷时**固定**用它，而不是取最新）。"""
+        self.cur.execute(
+            """SELECT id, candidate_manifest, candidate_manifest_hash, created_at
+                 FROM assessment.candidate_snapshot
+                WHERE id = %s""",
+            (snapshot_id,),
+        )
+        row = self.cur.fetchone()
+        if not row:
+            return None
+        return _snapshot_from_manifest(
+            _as_dict(row["candidate_manifest"]),
+            id=row["id"],
+            manifest_hash=row["candidate_manifest_hash"],
+            created_at=row["created_at"],
+        )
+
 
 # ---------------------------------------------------------------------------
 # manifest 与序列化
@@ -618,6 +645,23 @@ def _snapshot_from_manifest(
         created_at=created_at,
         created=False,
         manifest=dict(manifest),
+    )
+
+
+def snapshot_from_manifest(
+    manifest: Mapping[str, Any],
+    *,
+    id: UUID,
+    manifest_hash: str,
+    created_at: datetime,
+) -> CandidateSnapshot:
+    """公开入口：把 `candidate_manifest` jsonb 还原成快照视图。
+
+    纸卷服务（server/app/papers.py）按快照 id 读取，需要与候选服务同一套解析规则；
+    这里只暴露一个转发函数，避免把私有实现 import 到另一个模块后各自演化。
+    """
+    return _snapshot_from_manifest(
+        manifest, id=id, manifest_hash=manifest_hash, created_at=created_at
     )
 
 
@@ -776,6 +820,33 @@ class CandidateService:
             raise CandidateSnapshotNotFoundError(str(scope.blueprint_version_id))
         return stored
 
+    def get_snapshot(self, *, actor_id: UUID, scope: CandidateScope,
+                     snapshot_id: UUID) -> CandidateSnapshot:
+        """按 id 读取快照，并核对它确实属于这个蓝图版本/Release/范围。
+
+        纸卷（paper_version.candidate_snapshot_id）必须固定到**建卷那一刻**的候选清单：
+        取"最新快照"会让一次重新冻结 Release 悄悄改变可替换的题目集合。所以读的是
+        指定 id，并且四元组（蓝图版本、Release、用途、课程/班级）必须与当前范围一致；
+        任何一项不符都是 `CandidateScopeError`（路由映射 422 `snapshot_mismatch`）。
+        """
+        self._authorise(actor_id, READ_ACTION, scope)
+        with self._unit_of_work() as uow:
+            stored = uow.get(snapshot_id)
+        if stored is None:
+            raise CandidateSnapshotNotFoundError(str(snapshot_id))
+        if (
+            stored.blueprint_version_id != scope.blueprint_version_id
+            or stored.release_context_id != scope.release_context_id
+            or stored.purpose != scope.purpose
+            or stored.course_id != scope.course_id
+            or stored.offering_id != scope.offering_id
+        ):
+            raise CandidateScopeError(
+                f"candidate snapshot {snapshot_id} 不属于蓝图版本 "
+                f"{scope.blueprint_version_id} 的当前范围"
+            )
+        return stored
+
     # -- 内部 ---------------------------------------------------------------
     def _unit_of_work(self) -> ContextManager[CandidateUnitOfWork]:
         if self.repository is None:
@@ -803,4 +874,5 @@ __all__ = [
     "license_is_valid",
     "manifest_hash",
     "release_scope_reasons",
+    "snapshot_from_manifest",
 ]
