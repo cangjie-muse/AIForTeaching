@@ -170,6 +170,7 @@ def main() -> int:
     parser.add_argument("--candidates", type=int, default=1000)
     parser.add_argument("--slots", type=int, default=50)
     parser.add_argument("--json", action="store_true", help="只输出 JSON 摘要")
+    parser.add_argument("--seconds", type=int, default=30, help="求解时限（秒）")
     args = parser.parse_args()
     global QUIET
     # --json 时 stdout 必须只有 JSON：混进一行耗时打印，调用方就解析不了。
@@ -208,12 +209,15 @@ def main() -> int:
     installed = ortools_version()
     if installed:
         solver = default_solver()
-        config = SolverConfig(time_limit_seconds=30, max_solutions=1)
+        config = SolverConfig(time_limit_seconds=args.seconds, max_solutions=1)
         started = time.perf_counter()
         result = solver.solve(blueprint, manifest, config)
         solve_ms = (time.perf_counter() - started) * 1000
         solver_ran = True
-        solver_note = f"{result.status}（ortools {installed}，{solve_ms:.0f} ms）"
+        reason = result.diagnostics.get("reason", "-")
+        variables = result.diagnostics.get("variables", 0)
+        solver_note = (f"{result.status}（ortools {installed}，{solve_ms:.0f} ms；"
+                       f"{reason}；变量 {variables}）")
         timings["solve"] = solve_ms
 
     summary = {

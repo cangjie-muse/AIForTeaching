@@ -111,16 +111,28 @@ class CpSatSolver:
         if built is None:
             return SolveResult(RunStatus.INFEASIBLE, (), {"reason": "no_eligible_candidate"},
                                None, None)
-        solutions = self._solve_all(built.model, blueprint, manifest, built, config)
+        solutions, verdict = self._solve_all(
+            built.model, blueprint, manifest, built, config)
+        diagnostics = {
+            "solutions": len(solutions),
+            "verdict": str(verdict),
+            # 规模：教师看到"为什么慢"时，这两个数字比任何形容词都管用。
+            "variables": len(built.variables),
+            "slots": len(blueprint.slots),
+        }
         if not solutions:
-            return SolveResult(RunStatus.INFEASIBLE, (), {"reason": "hard_constraints"},
-                               None, None)
+            # 空列表有两种含义：真的无解，或者时间不够。必须按 verdict 说清楚，
+            # 否则"调大时限就能解"会被误报成"这份蓝图不可能满足"。
+            if verdict is RunStatus.TIMEOUT:
+                diagnostics["reason"] = "time_limit_no_solution"
+            else:
+                diagnostics["reason"] = "hard_constraints"
+            return SolveResult(verdict, (), diagnostics, None, None)
         first = solutions[0]
-        status = first.solver_status
         return SolveResult(
-            status=status,
+            status=verdict,
             solution_sets=(make_solution_set(tuple(solutions)),),
-            diagnostics={"solutions": len(solutions)},
+            diagnostics=diagnostics,
             best_bound=first.best_bound,
             optimality_gap_milli=first.optimality_gap_milli,
         )
@@ -184,12 +196,18 @@ class CpSatSolver:
 
     @staticmethod
     def _add_score_equalities(model, blueprint: BlueprintSnapshot, variables) -> None:
-        total = sum(
-            score_to_hundredths(slot.score) * sum(
-                var for (code, _), var in variables.items() if code == slot.code)
-            for slot in blueprint.slots
-        )
-        model.Add(total == score_to_hundredths(blueprint.total_score))
+        """分值约束：**不**再加"总分 == 蓝图总分"这条线性等式。
+
+        为什么去掉它（1,000 候选 / 50 槽位的首跑：31 秒后回 UNKNOWN、一个解都没给）：
+        每个槽位都有 `AddExactlyOne`，槽位分值又是常量，所以"总分"在模型里本来就是
+        常量 = Σ 槽位分，与蓝图总分是否相等**与选择无关**。把它写成一条 50,000 项的
+        线性等式，只是让 CP-SAT 每次求解都去处理一个必然成立的巨约束，纯属自找麻烦。
+
+        蓝图的分数自洽由 `diagnostics.precheck` 负责（`blueprint_score_mismatch` /
+        `section_score_mismatch`），不自洽时根本不会调到这里。也就是说：这条等式
+        要么恒真，要么说明蓝图有问题——两种情况都不该由求解器去"发现"。
+        """
+        return None
 
     @staticmethod
     def _add_duration(model, blueprint: BlueprintSnapshot, variables, candidates) -> None:
@@ -292,17 +310,28 @@ class CpSatSolver:
     # -- 求解 ---------------------------------------------------------------
 
     def _solve_all(self, model, blueprint: BlueprintSnapshot, manifest: CandidateManifest,
-                   built: _Model, config: SolverConfig) -> list[SolutionManifest]:
-        """最多解 `config.max_solutions` 个互不相同的方案。"""
+                   built: _Model, config: SolverConfig) -> tuple[list[SolutionManifest], RunStatus]:
+        """最多解 `config.max_solutions` 个互不相同的方案。
+
+        返回 (方案列表, 结论)。**结论必须由这里给出**，不能让 `solve()` 从"有没有解"
+        反推：超时（UNKNOWN）与无解（INFEASIBLE）都会得到空列表，反推就会把
+        "时间不够"说成"约束冲突"——1,000 候选的首跑正是这样被误报的。
+        """
         solutions: list[SolutionManifest] = []
         remaining = config.time_limit_seconds
+        verdict = RunStatus.INFEASIBLE
         for index in range(config.max_solutions):
             budget = max(1, remaining // (config.max_solutions - index))
             solver = self._new_solver(config, budget)
             raw = solver.Solve(model)
-            status = map_status(raw, len(solutions), solver.WallTime() >= budget - 0.001)
-            if raw in (cp_model.INFEASIBLE, cp_model.MODEL_INVALID) or (
-                    raw == cp_model.UNKNOWN and not solutions):
+            hit_limit = solver.WallTime() >= budget - 0.001
+            verdict = map_status(raw, len(solutions), hit_limit)
+            if raw in (cp_model.INFEASIBLE, cp_model.MODEL_INVALID):
+                verdict = map_status(raw, len(solutions), False)
+                break
+            if raw == cp_model.UNKNOWN:
+                # 时间到了：已经解出来的方案仍然可用，但没有最优性结论。
+                verdict = RunStatus.TIMEOUT
                 break
             if raw not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
                 break
@@ -317,7 +346,7 @@ class CpSatSolver:
             if remaining <= 0 or index + 1 >= config.max_solutions:
                 break
             self._forbid(model, built, selection)
-        return solutions
+        return solutions, verdict
 
     @staticmethod
     def _new_solver(config: SolverConfig, seconds: int):
