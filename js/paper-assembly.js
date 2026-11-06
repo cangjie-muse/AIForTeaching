@@ -92,7 +92,8 @@
       runs: [], run: null, supply: null, comparison: null, pair: null, queued: null,
       loading: false, loaded: false,
       busy: null, error: null, message: null, created: null,
-      config: { random_seed: '20261105', time_limit_seconds: '30', max_solutions: '3' }
+      config: { random_seed: '20261105', time_limit_seconds: '30', max_solutions: '3',
+        ab: false }
     };
   }
 
@@ -196,10 +197,15 @@
       // 上限 3 是规格与 0034 的 CHECK；这里先挡，避免一次注定 422 的请求。
       throw new Error('方案数只能是 1—3');
     }
+    if (config.ab && solutions !== 1) {
+      // A/B 是"两卷各一个方案"；每卷再多给备选，方案数组会超过 3 项而上不了库。
+      throw new Error('勾选 A/B 时方案数只能是 1（两卷各一个方案）');
+    }
     return {
       random_seed: seed,
       time_limit_seconds: seconds,
-      max_solutions: solutions
+      max_solutions: solutions,
+      ab: !!config.ab
     };
   };
 
@@ -345,6 +351,11 @@
       <label for="assembly-solutions">方案数（1—3）</label>
       <input id="assembly-solutions" data-input="assembly-solutions"
         value="${escape(config.max_solutions)}">
+      <label class="assembly-ab">
+        <input type="checkbox" id="assembly-ab" data-input="assembly-ab"
+          ${config.ab ? 'checked' : ''}> 同时生成 A/B 两卷
+      </label>
+      <small class="muted">A/B 两卷共享蓝图与候选清单，除锚题外不共用题目；分别送审、分别渲染。</small>
       ${A.button('开始求解', 'assembly-start', 'refresh', disabled, 'primary')}
     </div>`;
   }
@@ -605,6 +616,14 @@
   // ---------------------------------------------------------------------------
   // 动作
   // ---------------------------------------------------------------------------
+
+  A.inputs['assembly-ab'] = input => {
+    const state = S();
+    state.config.ab = !!input.checked;
+    // A/B 每卷一个方案：勾上时把方案数固定成 1，避免发出注定 422 的请求。
+    if (state.config.ab) state.config.max_solutions = '1';
+    A.render();
+  };
 
   A.actions['assembly-refresh'] = function () {
     S().loaded = false;

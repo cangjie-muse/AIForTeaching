@@ -149,9 +149,23 @@ class StubSolver:
             raise self.error
         if self.drop_solutions:
             return SolveResult(self.status, (), {}, None, None)
+        # A/B：模拟求解器的 peer 语义——把 peer 已选的题（除锚题）排除后取候选。
+        blocked = set()
+        if peer is not None:
+            anchors = set(blueprint.anchor_version_ids)
+            blocked = {item.exercise_version_id for item in peer.selections} - anchors
+            blocked |= {item.exercise_family_id for item in peer.selections
+                        if item.exercise_version_id not in anchors}
+        available = [item for item in manifest.candidates
+                     if item.exercise_version_id not in blocked
+                     and item.exercise_family_id not in blocked]
+        if len(available) < len(blueprint.slots):
+            return SolveResult(RunStatus.INFEASIBLE, (),
+                               {"reason": "no_candidate_left_for_peer",
+                                "peer_blocked_variables": len(blocked)}, None, None)
         selections = []
         for index, slot in enumerate(blueprint.slots):
-            candidate = manifest.candidates[(index + self.pick_offset) % len(manifest.candidates)]
+            candidate = available[(index + self.pick_offset) % len(available)]
             selections.append(AssemblySelection(
                 slot_id=slot.slot_id,
                 slot_code=slot.code,
@@ -671,6 +685,71 @@ def test_label_without_group_is_refused_before_creating_a_paper() -> None:
         assert "invalid_variant_identity" in str(error) or "variant_group_id" in str(error)
     else:
         raise AssertionError("只有字母没有分组的建卷请求必须被拒绝")
+
+
+def _single_slot_environment():
+    """一个槽位、七道候选：够 A 卷选一道、B 卷再选另一道。"""
+    content = blueprint_content()
+    content = content.model_copy(update={
+        "sections": (BlueprintSection(
+            code="A", title="单题",
+            slots=(BlueprintSlot(code="A1", score=Decimal("100.00")),)),),
+        "total_score": Decimal("100.00"),
+    })
+    return build_environment(content=content)
+
+
+def test_ab_run_produces_two_labelled_solutions() -> None:
+    """`ab=True` 的运行必须给出 A、B 两卷，且带同一个分组 id。"""
+    from app.assembly.contracts import SolverConfig
+
+    env = _single_slot_environment()
+    env.assembly.solver_config = SolverConfig(max_solutions=1, ab=True)
+    started = env.assembly.start(actor_id=CREATOR, blueprint_version_id=env.version.id,
+                                idempotency_key="run-ab")
+    row = env.assembly.run(actor_id=CREATOR, run_id=started.assembly_run_id)
+    assert started.status in {RunStatus.OPTIMAL, RunStatus.FEASIBLE}, row.diagnostics
+    assert len(row.solution_manifest) == 2, row.diagnostics
+    labels = [solution_from_json(item).variant_label for item in row.solution_manifest]
+    assert labels == ["A", "B"], labels
+    assert row.diagnostics["ab"] is True
+    group = row.diagnostics["variant_group_id"]
+    assert group and len(str(UUID(str(group)))) == 36
+
+
+def test_ab_volumes_can_be_materialized_with_their_identity() -> None:
+    from app.assembly.contracts import SolverConfig
+
+    env = _single_slot_environment()
+    env.assembly.solver_config = SolverConfig(max_solutions=1, ab=True)
+    started = env.assembly.start(actor_id=CREATOR, blueprint_version_id=env.version.id,
+                                idempotency_key="run-ab-papers")
+    group = UUID(str(env.assembly.run(actor_id=CREATOR, run_id=started.assembly_run_id)
+                     .diagnostics["variant_group_id"]))
+    paper_a = env.assembly.select(actor_id=CREATOR, run_id=started.assembly_run_id,
+                                  index=0, idempotency_key="ab-a")
+    paper_b = env.assembly.select(actor_id=CREATOR, run_id=started.assembly_run_id,
+                                  index=1, idempotency_key="ab-b")
+    stored = [env.papers.repository.versions[paper_a.paper_version_id],
+              env.papers.repository.versions[paper_b.paper_version_id]]
+    # 身份由服务自动补齐：调用方一个参数都没传
+    assert [item.variant_label for item in stored] == ["A", "B"]
+    assert {item.variant_group_id for item in stored} == {group}
+
+
+def test_ab_run_without_enough_candidates_gives_no_half_pair() -> None:
+    """第二卷解不出时不给任何方案：半对（只有 A）会让教师误以为可以发卷。"""
+    from app.assembly.contracts import SolverConfig
+
+    env = _single_slot_environment()
+    env.assembly.solver_config = SolverConfig(max_solutions=1, ab=True)
+    # 把候选压到 1 道：A 卷会把它用掉，B 卷必然解不出
+    env.candidate_repo.records = env.candidate_repo.records[:1]
+    started = env.assembly.start(actor_id=CREATOR, blueprint_version_id=env.version.id,
+                                idempotency_key="run-ab-short")
+    row = env.assembly.run(actor_id=CREATOR, run_id=started.assembly_run_id)
+    assert row.solution_manifest == (), "半对不能落库"
+    assert started.status == RunStatus.INFEASIBLE
 
 
 def test_second_select_after_failure_is_refused() -> None:

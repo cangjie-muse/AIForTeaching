@@ -208,6 +208,26 @@ def test_enqueue_only_returns_202_without_a_solution() -> None:
     assert service.starts[0]["enqueue_only"] is True
 
 
+def test_ab_flag_reaches_the_service() -> None:
+    """`ab: true` 必须一路传到求解配置：只在界面上写"A/B"没有意义。"""
+    service = StubService()
+    response = client(service).post(
+        f"/api/v1/paper-blueprint-versions/{VERSION}/assembly-runs",
+        json={"ab": True}, headers={**TEACHER, "Idempotency-Key": "run-ab"})
+    assert response.status_code == 201, response.text
+    assert service.solver_config.ab is True
+
+
+def test_ab_with_max_solutions_above_one_is_422() -> None:
+    """A/B 每卷只能一个方案：两个方案 × 两卷 = 4 项，超过 0034 的上限 3。"""
+    response = client(StubService()).post(
+        f"/api/v1/paper-blueprint-versions/{VERSION}/assembly-runs",
+        json={"ab": True, "max_solutions": 2},
+        headers={**TEACHER, "Idempotency-Key": "run-ab-bad"})
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"]["code"] == "solver_config_invalid"
+
+
 def test_missing_idempotency_key_is_400() -> None:
     service = StubService()
     response = client(service).post(

@@ -255,6 +255,23 @@ check('排队状态的说法不冒充完成',
 check('运行中状态也不冒充完成',
   App.paperAssemblyVerdict({ status: 'running', solutions: [] }).includes('没有结论'));
 
+// --- A/B 勾选项 ------------------------------------------------------------------
+
+const abHtml = App.paperAssemblyHtml(stateOf({}));
+check('求解表单有 A/B 勾选项', abHtml.includes('assembly-ab'));
+check('A/B 勾选项说明不共用题目', abHtml.includes('除锚题外不共用题目'));
+check('A/B 勾选项说明要分别送审',
+  abHtml.includes('分别送审') && abHtml.includes('分别渲染'));
+
+const abOn = App.paperAssemblyConfig({ random_seed: '1', time_limit_seconds: '5',
+  max_solutions: '1', ab: true });
+check('勾选 A/B 时请求带 ab=true', abOn.ab === true);
+check('勾选 A/B 且方案数为 1 时通过', abOn.max_solutions === 1);
+check('勾选 A/B 却要 3 个方案时被前端拦住',
+  throwsMessage(() => App.paperAssemblyConfig({ random_seed: '1',
+    time_limit_seconds: '5', max_solutions: '3', ab: true })).includes('A/B'),
+  '方案数组会超过 0034 的 3 项上限');
+
 // --- 手工蓝图不能跑求解 ------------------------------------------------------------
 
 const manualHtml = App.paperAssemblyHtml(stateOf({

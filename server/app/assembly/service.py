@@ -22,6 +22,8 @@ from uuid import UUID, uuid4
 from ..releases import utcnow
 from .blueprint import blueprint_snapshot
 from .candidate import AssemblyCandidateService, StageACandidateSource
+from dataclasses import replace as _dc_replace
+
 from .contracts import (
     SOLVED_STATUSES,
     AssemblyStartResult,
@@ -37,6 +39,7 @@ from .contracts import (
     solution_hash_matches,
     solution_to_json,
     to_json_value,
+    make_solution_set,
     verify_candidate_manifest,
 )
 from .diagnostics import diagnose_infeasible, issues_to_payload, precheck
@@ -79,6 +82,23 @@ TERMINAL_STATUSES = frozenset({
     RunStatus.OPTIMAL, RunStatus.FEASIBLE, RunStatus.INFEASIBLE,
     RunStatus.TIMEOUT, RunStatus.FAILED, RunStatus.CANCELLED,
 })
+
+
+def replace_variant_label(solution: SolutionManifest, label: str) -> SolutionManifest:
+    """换标签并**重算**方案哈希：标签是哈希输入的一部分，直接赋值会让哈希失效。"""
+    from .contracts import make_solution_manifest
+
+    return make_solution_manifest(
+        variant_label=label,
+        selections=solution.selections,
+        objective_terms=solution.objective_terms,
+        objective_value=solution.objective_value,
+        best_bound=solution.best_bound,
+        optimality_gap_milli=solution.optimality_gap_milli,
+        solver_status=solution.solver_status,
+        optimal_proven=solution.optimal_proven,
+        structure_report=solution.structure_report,
+    )
 
 
 def _key(value: str | None) -> str:
@@ -124,6 +144,15 @@ class AssemblyService:
             source=StageACandidateSource(candidates=candidates, versions=blueprints),
             clock=clock,
         )
+
+    @property
+    def ab_requested(self) -> bool:
+        """本次运行是否要 A/B 两卷：由调用方写进 `solver_config` 的 `ab` 决定。
+
+        放在配置里而不是构造参数，是因为 worker 重跑时只读运行行的 `solver_config`
+        ——配置是这次运行的完整输入，重跑必须得到同样的行为。
+        """
+        return bool(getattr(self.solver_config, "ab", False))
 
     # -- 启动 ---------------------------------------------------------------
     def start(self, *, actor_id: UUID, blueprint_version_id: UUID,
@@ -227,7 +256,7 @@ class AssemblyService:
                 completed_at=self._clock(),
             )
         try:
-            result = self.solver.solve(blueprint, manifest, self.solver_config)
+            result = self._solve_maybe_pair(blueprint, manifest)
         except Exception as error:  # noqa: BLE001 — 求解器异常一律落成 FAILED
             # 不能把异常往上抛成 500：教师需要看到"这次运行失败了、为什么"，
             # 而不是一个没有运行记录的崩溃。
@@ -242,6 +271,57 @@ class AssemblyService:
                 completed_at=self._clock(),
             )
         return self._finish(blueprint, manifest, row, result)
+
+    def _solve_maybe_pair(self, blueprint: BlueprintSnapshot,
+                          manifest: CandidateManifest) -> SolveResult:
+        """单卷求解；`solver_config` 里要求 A/B 时解出两卷并合并成一个结果。
+
+        A/B 必须**成对**：只要第二卷没解出来，这次运行就不给任何方案。
+        半对（只有 A 卷）看起来能用，实际会让教师拿一份"B 卷还没生成"的测试去发卷，
+        比直接失败危险得多。
+        """
+        from .ab import variant_group_id
+
+        single_config = _dc_replace(self.solver_config, max_solutions=1)
+        first = self.solver.solve(blueprint, manifest, single_config)
+        if not self.ab_requested:
+            return first
+        if first.status not in SOLVED_STATUSES or not first.solution_sets:
+            return first
+        peer = first.solution_sets[0].variants[0]
+        second = self.solver.solve(blueprint, manifest, single_config, peer=peer)
+        if second.status not in SOLVED_STATUSES or not second.solution_sets:
+            return SolveResult(
+                status=second.status,
+                solution_sets=(),
+                diagnostics={
+                    **dict(second.diagnostics or {}),
+                    "reason": second.diagnostics.get("reason", "ab_pair_failed"),
+                    "note": "A/B 第二卷未解出：本次运行不提供成对方案",
+                },
+                best_bound=None,
+                optimality_gap_milli=None,
+            )
+        second_variant = second.solution_sets[0].variants[0]
+        paired_first = replace_variant_label(peer, "A")
+        paired_second = replace_variant_label(second_variant, "B")
+        group = variant_group_id(blueprint.blueprint_version_id, paired_first, paired_second)
+        return SolveResult(
+            status=first.status,
+            solution_sets=(
+                make_solution_set((paired_first,)),
+                make_solution_set((paired_second,)),
+            ),
+            diagnostics={
+                **dict(first.diagnostics or {}),
+                "ab": True,
+                "variant_group_id": str(group),
+                "peer_blocked_variables": second.diagnostics.get("peer_blocked_variables", 0),
+                "peer_status": str(second.status),
+            },
+            best_bound=first.best_bound,
+            optimality_gap_milli=first.optimality_gap_milli,
+        )
 
     def _finish(self, blueprint: BlueprintSnapshot, manifest: CandidateManifest,
                 row: AssemblyRunRow, result: SolveResult) -> AssemblyRunRow:
@@ -307,6 +387,19 @@ class AssemblyService:
                 manifest_hash=row.candidate_manifest_hash,
                 candidate_snapshot_id=row.candidate_snapshot_id,
             )
+            # 重跑必须用**运行行里记的**求解配置：否则入队时要求 A/B、worker 跑成
+            # 单卷，同一把幂等键会产出两种形态的结果。
+            stored = dict(row.solver_config or {})
+            if stored:
+                self.solver_config = SolverConfig(
+                    random_seed=int(stored.get("random_seed",
+                                               self.solver_config.random_seed)),
+                    time_limit_seconds=int(stored.get(
+                        "time_limit_seconds", self.solver_config.time_limit_seconds)),
+                    num_workers=int(stored.get("num_workers", 1)),
+                    max_solutions=int(stored.get("max_solutions", 1)),
+                    ab=bool(stored.get("ab", False)),
+                )
             if not verify_candidate_manifest(blueprint, manifest):
                 # 库里的清单被改过：宁可失败，也不拿一份说不清来路的题去求解。
                 failed = _with(row, status=RunStatus.FAILED, diagnostics={
@@ -359,6 +452,13 @@ class AssemblyService:
             manifest_hash=row.candidate_manifest_hash,
             candidate_snapshot_id=row.candidate_snapshot_id,
         )
+        # A/B 运行自带身份：分组在运行时已派生进诊断，标签在方案上。
+        # 调用方没显式给时自动补上——否则"配成 A/B"只是页面上的字，落不到卷子上。
+        if variant_group_id is None and variant_label is None:
+            group = (row.diagnostics or {}).get("variant_group_id")
+            if group and solution.variant_label in {"A", "B"}:
+                variant_group_id = UUID(str(group))
+                variant_label = solution.variant_label
         try:
             materialized = self.materializer.materialize(
                 actor_id=actor_id,

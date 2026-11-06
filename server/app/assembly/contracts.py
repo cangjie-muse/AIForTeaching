@@ -161,10 +161,17 @@ class SolverConfig:
     time_limit_seconds: int = 30
     num_workers: int = 1
     max_solutions: int = 3
+    # 解 A/B 两卷（设计 §7.4）。它进 `solver_config` 而不是构造参数，是因为 worker
+    # 重跑时只读运行行里的配置——配置必须覆盖这次运行的全部行为输入。
+    ab: bool = False
 
     def __post_init__(self) -> None:
         if not 1 <= self.max_solutions <= 3:
             raise ValueError("max_solutions must be between 1 and 3")
+        if self.ab and self.max_solutions != 1:
+            # A/B 的语义是"两卷各自一个方案"；每卷再来 3 个备选会让运行行里的
+            # 方案数组变成 6 项，而 0034 的约束上限是 3。
+            raise ValueError("A/B 求解要求 max_solutions == 1（两卷各一个方案）")
         if self.time_limit_seconds < 1:
             raise ValueError("time_limit_seconds must be positive")
         if self.num_workers != 1:

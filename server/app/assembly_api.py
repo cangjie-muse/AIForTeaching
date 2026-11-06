@@ -94,6 +94,8 @@ class SolverConfigIn(BaseModel):
     max_solutions: int = 3
     # True 时只入队、不同步求解：1,000 候选/50 槽位的求解会超过任何合理的请求超时。
     enqueue_only: bool = False
+    # True 时一次解出 A/B 两卷（设计 §7.4）；两卷必须成对，否则不给任何方案。
+    ab: bool = False
 
 
 class AssemblyRunOut(BaseModel):
@@ -281,10 +283,17 @@ def start_assembly_run(
     key = _key(idempotency_key)
     config = body or SolverConfigIn()
     try:
+        # A/B 每卷只允许一个方案。调用方只说 `ab: true` 时把方案数默认成 1，
+        # 而不是逼他同时写 `max_solutions: 1`；如果他**显式**写了 2，
+        # 则由 SolverConfig 拒绝（那是真的冲突，不该被静默改写）。
+        requested = config.model_fields_set
+        max_solutions = (1 if config.ab and "max_solutions" not in requested
+                         else config.max_solutions)
         solver_config = SolverConfig(
             random_seed=config.random_seed,
             time_limit_seconds=config.time_limit_seconds,
-            max_solutions=config.max_solutions,
+            max_solutions=max_solutions,
+            ab=config.ab,
         )
     except ValueError as exc:
         # 配置非法是**请求**的问题（422），不是服务器故障（500）。这条线要划清：

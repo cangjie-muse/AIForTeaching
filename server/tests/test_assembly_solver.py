@@ -269,6 +269,81 @@ def test_max_solutions_is_capped_at_three() -> None:
 # 组合根：装了 ortools 就必须真的用它
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# A/B（peer）约束：设计 §7.4
+# ---------------------------------------------------------------------------
+
+def _two_slot_blueprint(anchors=()) -> BlueprintSnapshot:
+    bp = blueprint([slot("A1", "50.00"), slot("A2", "50.00")],
+                   hard=HardConstraints(anchor_version_ids=tuple(anchors)))
+    return bp
+
+
+def test_peer_never_reuses_a_non_anchor_question() -> None:
+    """A 卷用掉的两道题，B 卷不得再用；候选足够时必须解出来且不重叠。"""
+    bp = _two_slot_blueprint()
+    candidates = [candidate(n) for n in range(1, 7)]
+    built = manifest(bp, candidates)
+    first = CpSatSolver().solve(bp, built, config())
+    assert first.solution_sets, first.diagnostics
+    peer = first.solution_sets[0].variants[0]
+    second = CpSatSolver().solve(bp, built, config(), peer=peer)
+    assert second.solution_sets, second.diagnostics
+    used_a = {item.exercise_version_id for item in peer.selections}
+    used_b = {item.exercise_version_id for item in second.solution_sets[0].variants[0].selections}
+    assert not (used_a & used_b), f"A/B 共用题目：{used_a & used_b}"
+    assert second.diagnostics["peer_blocked_variables"] > 0
+
+
+def test_peer_also_blocks_the_same_family() -> None:
+    """同族题也算重叠：题干不同、材料相同，另一卷等于泄露答案路径。"""
+    bp = _two_slot_blueprint()
+    shared_family = 500
+    candidates = [
+        candidate(1, family=shared_family),
+        candidate(2, family=shared_family),   # 与 1 同族
+        candidate(3), candidate(4), candidate(5), candidate(6),
+    ]
+    built = manifest(bp, candidates)
+    first = CpSatSolver().solve(bp, built, config())
+    peer = first.solution_sets[0].variants[0]
+    peer_families = {item.exercise_family_id for item in peer.selections}
+    second = CpSatSolver().solve(bp, built, config(), peer=peer)
+    assert second.solution_sets, second.diagnostics
+    families_b = {item.exercise_family_id
+                  for item in second.solution_sets[0].variants[0].selections}
+    assert not (peer_families & families_b), f"A/B 共用同族：{peer_families & families_b}"
+
+
+def test_anchor_may_be_shared_between_volumes() -> None:
+    """显式声明的锚题允许两卷共用——它们是可比性支点（§7.4.2）。"""
+    anchor_candidate = candidate(1)
+    bp = _two_slot_blueprint(anchors=(anchor_candidate.exercise_version_id,))
+    candidates = [anchor_candidate, candidate(2), candidate(3), candidate(4)]
+    built = manifest(bp, candidates)
+    first = CpSatSolver().solve(bp, built, config())
+    peer = first.solution_sets[0].variants[0]
+    second = CpSatSolver().solve(bp, built, config(), peer=peer)
+    assert second.solution_sets, second.diagnostics
+    selected_a = {item.exercise_version_id for item in peer.selections}
+    selected_b = {item.exercise_version_id for item in second.solution_sets[0].variants[0].selections}
+    shared = selected_a & selected_b
+    assert shared <= {anchor_candidate.exercise_version_id}, shared
+
+
+def test_pair_is_infeasible_when_peer_consumed_everything() -> None:
+    """候选刚好被 A 卷用完时，B 卷必须报无解，而不是偷偷复用题目。"""
+    bp = _two_slot_blueprint()
+    candidates = [candidate(1), candidate(2)]
+    built = manifest(bp, candidates)
+    first = CpSatSolver().solve(bp, built, config())
+    peer = first.solution_sets[0].variants[0]
+    second = CpSatSolver().solve(bp, built, config(), peer=peer)
+    assert second.status == RunStatus.INFEASIBLE
+    assert second.solution_sets == ()
+    assert second.diagnostics["reason"] in {"no_candidate_left_for_peer", "hard_constraints"}
+
+
 def test_default_solver_uses_cp_sat_when_available() -> None:
     """`default_solver()` 不能永远返回"不可用"——服务器上 ortools 已装。
 

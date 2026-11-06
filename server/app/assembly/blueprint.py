@@ -40,6 +40,7 @@ KNOWN_HARD_KEYS = frozenset({
     "duration_required",
     "conflict_groups",
     "leak_groups",
+    "anchor_version_ids",
     "coverage_requirements",
     "kind_requirements",
 })
@@ -297,7 +298,9 @@ def blueprint_snapshot(version: Any) -> BlueprintSnapshot:
         hard_constraints=_hard_constraints(hard_raw),
         soft_objectives=_soft_objectives(soft_raw),
         assembly_mode=variant_mode,
-        anchor_version_ids=(),
+        # 锚题：A/B 两卷允许共用这几道（设计 §7.4.2），必须显式声明。
+        anchor_version_ids=tuple(_uuid_list(hard_raw.get("anchor_version_ids"),
+                                      where="anchor_version_ids")),
         visible_from=None,
     )
 

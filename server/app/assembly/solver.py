@@ -102,15 +102,32 @@ class CpSatSolver:
     def solve(self, blueprint: BlueprintSnapshot, manifest: CandidateManifest,
               config: SolverConfig,
               peer: SolutionManifest | None = None) -> SolveResult:
-        if peer is not None:
-            # A/B 需要"锚题固定 + 其余不重叠"，那是另一组约束，没有实现就不能假装。
-            raise ValueError("A/B（peer）约束尚未实现：不能把单卷求解结果当成 A/B 卷")
+        """解一份卷；给了 `peer` 就按 A/B 语义解**第二卷**。
+
+        `peer` 的语义（设计 §7.4）：
+          * 锚题（`blueprint.anchor_version_ids`）可以与 peer 共用——它们是两卷的
+            可比性支点；
+          * **其它已选题一律禁止**：既不重复稳定题目，也不使用同族题，否则另一卷
+            等于泄露答案路径（§7.4.3）；
+          * 卷内原有约束（同一 stable 不进两槽、互斥组）照旧生效。
+
+        这里不做"跑两次再希望不重叠"——两次独立求解随时可能选到同题，
+        判定失败后只能重跑，教师无法预期。约束必须在模型里。
+        """
         if not manifest.candidates:
             return SolveResult(RunStatus.INFEASIBLE, (), {"reason": "no_candidates"}, None, None)
         built = self._build(blueprint, manifest)
         if built is None:
             return SolveResult(RunStatus.INFEASIBLE, (), {"reason": "no_eligible_candidate"},
                                None, None)
+        if peer is not None:
+            removed = self._apply_peer_constraints(built, blueprint, peer)
+            if removed <= 0:
+                # 全部候选都被 peer 占掉了：这一卷不可能组出来，而且原因是"没有
+                # 剩下的题"，不是"时限不够"。
+                return SolveResult(RunStatus.INFEASIBLE, (),
+                                   {"reason": "no_candidate_left_for_peer",
+                                    "blocked_variables": removed}, None, None)
         solutions, verdict = self._solve_all(
             built.model, blueprint, manifest, built, config)
         diagnostics = {
@@ -120,6 +137,9 @@ class CpSatSolver:
             "variables": len(built.variables),
             "slots": len(blueprint.slots),
         }
+        if peer is not None:
+            diagnostics["peer_variant"] = peer.variant_label
+            diagnostics["peer_blocked_variables"] = getattr(self, "_last_blocked", 0)
         if not solutions:
             # 空列表有两种含义：真的无解，或者时间不够。必须按 verdict 说清楚，
             # 否则"调大时限就能解"会被误报成"这份蓝图不可能满足"。
@@ -215,6 +235,31 @@ class CpSatSolver:
         要么恒真，要么说明蓝图有问题——两种情况都不该由求解器去"发现"。
         """
         return None
+
+    def _apply_peer_constraints(self, built: "_Model", blueprint: BlueprintSnapshot,
+                                peer: SolutionManifest) -> int:
+        """把 peer 已选的题（除锚题外）从本卷的可选集合里删掉；返回删掉的变量数。
+
+        删法是 `x == 0` 而不是"从模型里移除变量"：CP-SAT 没有"移除变量"的概念，
+        而且保留变量能让诊断说清"被封了多少个组合"，比静默缩小模型更好排查。
+
+        同一族也一并封掉：题干不同但共用材料的题，放进另一卷等于把 A 卷的答案
+        路径指出来（§7.4.3）。
+        """
+        anchors = {version_id for version_id in blueprint.anchor_version_ids}
+        blocked_versions = {item.exercise_version_id for item in peer.selections} - anchors
+        blocked_families = {
+            item.exercise_family_id for item in peer.selections
+            if item.exercise_version_id not in anchors
+        }
+        removed = 0
+        for (slot_code, version_id), var in built.variables.items():
+            candidate = built.candidates[version_id]
+            if version_id in blocked_versions or candidate.exercise_family_id in blocked_families:
+                built.model.Add(var == 0)
+                removed += 1
+        self._last_blocked = removed
+        return removed
 
     @staticmethod
     def _slot_durations(model, blueprint: BlueprintSnapshot, by_slot, variables,
