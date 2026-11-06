@@ -241,9 +241,14 @@ class SaveResponseResult(ContractModel):
 
     @classmethod
     def empty(cls, *, attempt_id: UUID, slot_id: UUID) -> "SaveResponseResult":
-        """尚无任何服务端修订（revision_no=0）：只用于初始 base 冲突的回应。"""
+        """尚无任何服务端修订（revision_no=0）：只用于初始 base 冲突的回应。
+
+        `client_revision_id` 用 `"-"` 而不是空串：契约要求 1—200 字符，空串会被
+        Pydantic 拒绝（第一次跑就撞上了）。这个占位符表示"服务端没有可对应的修订"，
+        前端看到 revision_no=0 就该按"从零开始"处理。
+        """
         now = datetime.now(timezone.utc)
-        return cls(attempt_id=attempt_id, slot_id=slot_id, client_revision_id="",
+        return cls(attempt_id=attempt_id, slot_id=slot_id, client_revision_id="-",
                    revision_no=0, server_received_at=now, raw_response=None,
                    parse_status="empty")
 
