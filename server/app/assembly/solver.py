@@ -162,10 +162,17 @@ class CpSatSolver:
 
         self._add_uniqueness(model, blueprint, variables, candidates)
         self._add_score_equalities(model, blueprint, variables)
-        self._add_duration(model, blueprint, variables, candidates)
+        needs_duration = (
+            blueprint.hard_constraints.max_duration_seconds is not None
+            or (blueprint.soft_objectives.target_duration_seconds is not None
+                and blueprint.soft_objectives.duration_weight)
+        )
+        durations = (self._slot_durations(model, blueprint, by_slot, variables, candidates)
+                     if needs_duration else {})
+        self._add_duration(model, blueprint, durations)
         self._add_coverage(model, blueprint, variables, candidates)
         self._add_kind_requirements(model, blueprint, variables, candidates)
-        self._add_objectives(model, blueprint, variables, candidates)
+        self._add_objectives(model, blueprint, variables, candidates, durations)
         return _Model(model, variables, by_slot, candidates)
 
     @staticmethod
@@ -210,15 +217,47 @@ class CpSatSolver:
         return None
 
     @staticmethod
-    def _add_duration(model, blueprint: BlueprintSnapshot, variables, candidates) -> None:
+    def _slot_durations(model, blueprint: BlueprintSnapshot, by_slot, variables,
+                        candidates) -> dict:
+        """给每个槽位建一个"本槽时长"辅助变量，时长约束与目标都只加 50 项。
+
+        为什么必须这么做（1,000 候选 / 50 槽位的实测）：直接写
+        `Σ(所有 37,500 个变量的时长) <= 9000`，以及目标里的
+        `|Σ(37,500 项) - 目标|`，会让 CP-SAT 在 60 秒里连**一个可行解**都没找到
+        （返回 UNKNOWN）。而被求和的量在每个槽位里都是"恰好一个"，完全可以先按槽位
+        聚合成一个整型辅助变量：约束从 37,500 项降到 50 项，量级问题就消失了。
+
+        这不是"为了跑得快而放松约束"：聚合同一槽位的和是数学恒等，
+        原约束一条没少。
+        """
+        durations: dict[str, object] = {}
+        for slot in blueprint.slots:
+            seconds = {
+                item.exercise_version_id: int(item.estimated_seconds or 0)
+                for item in by_slot[slot.code]
+            }
+            if not seconds:  # pragma: no cover - _build 已挡掉空槽位
+                continue
+            var = model.NewIntVar(min(seconds.values()), max(seconds.values()),
+                                  f"dur_{slot.code}")
+            model.Add(var == sum(
+                seconds[version_id] * variables[(slot.code, version_id)]
+                for version_id in seconds
+            ))
+            durations[slot.code] = var
+        return durations
+
+    @staticmethod
+    def _total_duration(model, blueprint: BlueprintSnapshot, durations: dict):
+        return sum(durations[slot.code] for slot in blueprint.slots)
+
+    @staticmethod
+    def _add_duration(model, blueprint: BlueprintSnapshot, durations: dict) -> None:
         maximum = blueprint.hard_constraints.max_duration_seconds
-        if maximum is None:
+        if maximum is None or not durations:
             return
-        duration = sum(
-            (candidates[version_id].estimated_seconds or 0) * var
-            for (_, version_id), var in variables.items()
-        )
-        model.Add(duration <= maximum)
+        model.Add(
+            sum(durations[slot.code] for slot in blueprint.slots) <= maximum)
 
     @staticmethod
     def _add_coverage(model, blueprint: BlueprintSnapshot, variables, candidates) -> None:
@@ -255,20 +294,21 @@ class CpSatSolver:
                 model.Add(sum(terms) <= requirement.max_count)
 
     @staticmethod
-    def _add_objectives(model, blueprint: BlueprintSnapshot, variables, candidates) -> None:
+    def _add_objectives(model, blueprint: BlueprintSnapshot, variables, candidates,
+                        durations: dict | None = None) -> None:
         """整数软目标：全部转成"偏差 × 权重"的和，越小越好。
 
         只用整数比例（万分比 / 秒），不做归一化到 0..1 的浮点加权——那会让
-        "同一输入同一结果"这句话失去意义。
+        "同一输入同一结果"这句话失去意义。时长偏差用按槽位聚合后的辅助变量，
+        避免目标函数里出现 37,500 项的和式（那会让求解器找不到任何可行解）。
         """
         soft = blueprint.soft_objectives
         penalties = []
+        durations = durations or {}
 
-        if soft.target_duration_seconds is not None and soft.duration_weight:
-            duration = sum(
-                (candidates[version_id].estimated_seconds or 0) * var
-                for (_, version_id), var in variables.items()
-            )
+        if (soft.target_duration_seconds is not None and soft.duration_weight
+                and durations):
+            duration = self._total_duration(model, blueprint, durations)
             deviation = model.NewIntVar(0, 10 ** 8, "dev_duration")
             model.AddAbsEquality(deviation, duration - soft.target_duration_seconds)
             penalties.append(soft.duration_weight * deviation)

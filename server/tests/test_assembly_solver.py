@@ -185,12 +185,45 @@ def test_coverage_and_kind_requirements_are_enforced() -> None:
             assert covered.exercise_version_id in kinds, "覆盖要求必须选中那一道题"
 
 
-def test_infeasible_returns_no_solutions() -> None:
+def test_blueprint_score_mismatch_is_precheck_not_solver() -> None:
+    """总分与槽位分对不上：由**预检**拦下，求解器不再用一条恒真等式去"发现"它。
+
+    这条断言是首跑后的修正：原来总分等式写在模型里，于是"蓝图自相矛盾"表现为
+    INFEASIBLE；去掉那条冗余等式后，求解器会正常给出方案——因为槽位分之和本来
+    就不在选择里。蓝图自洽归 precheck 管（`blueprint_score_mismatch`），
+    求解器不该替它背锅。
+    """
+    from app.assembly.diagnostics import precheck
+
     bp = blueprint([slot("A1", "50.00"), slot("A2", "60.00")], total="100.00")
-    result = CpSatSolver().solve(bp, manifest(bp, [candidate(1), candidate(2)]), config())
+    built_manifest = manifest(bp, [candidate(1), candidate(2)])
+    assert "blueprint_score_mismatch" in {item.code for item in precheck(bp, built_manifest)}
+
+
+def test_infeasible_when_a_slot_has_no_eligible_candidate() -> None:
+    """某槽位一个合格候选都没有 → 无解，且一条方案都不给。"""
+    bp = blueprint([slot("A1", "50.00"),
+                    slot("A2", "50.00", allowed_kinds=("calculation",))])
+    proof_only = [candidate(1, kind="proof"), candidate(2, kind="proof")]
+    result = CpSatSolver().solve(bp, manifest(bp, proof_only), config())
     assert result.status == RunStatus.INFEASIBLE
     assert result.solution_sets == ()
     assert result.has_solutions is False
+
+
+def test_timeout_without_a_solution_is_not_reported_as_infeasible() -> None:
+    """超时与无解必须分开报：前者调大时限或缩小规模，后者要改蓝图。"""
+    bp = blueprint([slot("A1", "100.00")])
+    many = [candidate(n) for n in range(1, 401)]
+    result = CpSatSolver().solve(bp, manifest(bp, many),
+                                 config(time_limit_seconds=1, max_solutions=3))
+    if result.status == RunStatus.TIMEOUT:
+        assert result.diagnostics["reason"] == "time_limit_no_solution"
+        assert result.diagnostics["verdict"] == "timeout"
+    else:
+        # 机器快、1 秒内解出来也算正常：此时必须是"有解"，且 reason 不是无解
+        assert result.solution_sets
+        assert result.diagnostics["reason"] != "hard_constraints"
 
 
 # ---------------------------------------------------------------------------
