@@ -36,7 +36,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
-const checkReviewEvidence = require('./verify-paper-review-behaviour.cjs'), checkAssignmentPublishFields = require('./verify-assignment-publish-behaviour.cjs'), checkAssemblyRunBehaviour = require('./verify-assembly-run-behaviour.cjs'), checkSlotAndItemRules = require('./verify-slot-and-item-behaviour.cjs'), checkPaperProvenance = require('./verify-paper-provenance-behaviour.cjs');  // 迁移行为断言拆成独立文件，本文件已到 max-lines 上限
+const checkReviewEvidence = require('./verify-paper-review-behaviour.cjs'), checkAssignmentPublishFields = require('./verify-assignment-publish-behaviour.cjs'), checkAssemblyRunBehaviour = require('./verify-assembly-run-behaviour.cjs'), checkSlotAndItemRules = require('./verify-slot-and-item-behaviour.cjs'), checkPaperProvenance = require('./verify-paper-provenance-behaviour.cjs'), checkAssemblyJobKind = require('./verify-assembly-job-kind.cjs');  // 迁移行为断言拆成独立文件，本文件已到 max-lines 上限
 
 const root = path.resolve(__dirname, '..');
 const MIGRATIONS_DIR = path.join(root, 'db', 'migrations');
@@ -636,7 +636,8 @@ function buildChecks(ids) {
     { title: '0032 复核证据：逐人唯一 + 贡献者不能自批 + append-only', run: (db) => checkReviewEvidence(db, ids, expectSqlError) },
     { title: '0033 发布痕迹：已发布必须有 published_at，撤回必须有理由', run: (db) => checkAssignmentPublishFields(db, ids, expectSqlError) },
     { title: '0034 求解运行：无解不许带方案 + 最多 3 个 + 组卷来源成对', run: (db) => checkAssemblyRunBehaviour(db, ids, expectSqlError) },
-    { title: '0034 落卷来源：组卷成对、手工两列仍空、单边补写被拒', run: (db) => checkPaperProvenance(db, ids) }
+    { title: '0034 落卷来源：组卷成对、手工两列仍空、单边补写被拒', run: (db) => checkPaperProvenance(db, ids) },
+    { title: '0035 求解可以入队：paper-assembly 是合法 kind 且 worker 会领', run: (db) => checkAssemblyJobKind(db) }
   ];
 }
 

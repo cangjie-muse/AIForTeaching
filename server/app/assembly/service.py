@@ -32,10 +32,12 @@ from .contracts import (
     SolutionManifest,
     SolverConfig,
     SolveResult,
+    candidate_manifest_from_json,
     solution_from_json,
     solution_hash_matches,
     solution_to_json,
     to_json_value,
+    verify_candidate_manifest,
 )
 from .diagnostics import diagnose_infeasible, issues_to_payload, precheck
 from .materialize import AssemblyMaterializer, AssemblyValidationBlocked, MaterializeError
@@ -72,6 +74,12 @@ class IdempotencyConflict(AssemblyError):
     code = "idempotency_conflict"
 
 
+TERMINAL_STATUSES = frozenset({
+    RunStatus.OPTIMAL, RunStatus.FEASIBLE, RunStatus.INFEASIBLE,
+    RunStatus.TIMEOUT, RunStatus.FAILED, RunStatus.CANCELLED,
+})
+
+
 def _key(value: str | None) -> str:
     cleaned = (value or "").strip()
     if not cleaned or len(cleaned) > 200:
@@ -94,6 +102,7 @@ class AssemblyService:
         candidates: Any = None,
         candidate_service: AssemblyCandidateService | None = None,
         materializer: AssemblyMaterializer | None = None,
+        enqueuer: Callable[[UUID, str], int | None] | None = None,
         solver_config: SolverConfig | None = None,
         solver_name: str = "cp-sat",
         solver_version: str = "",
@@ -104,6 +113,7 @@ class AssemblyService:
         self.solver = solver
         self.blueprints = blueprints
         self.materializer = materializer
+        self.enqueuer = enqueuer
         self.solver_config = solver_config or SolverConfig()
         self.solver_name = solver_name
         self.solver_version = solver_version
@@ -116,8 +126,14 @@ class AssemblyService:
 
     # -- 启动 ---------------------------------------------------------------
     def start(self, *, actor_id: UUID, blueprint_version_id: UUID,
-              idempotency_key: str) -> AssemblyStartResult:
-        """启动一次求解；同一 (教师, 键) 重试返回同一运行。"""
+              idempotency_key: str, enqueue_only: bool = False) -> AssemblyStartResult:
+        """启动一次求解；同一 (教师, 键) 重试返回同一运行。
+
+        `enqueue_only=True` 时只建运行行并入队 `paper-assembly` 任务，**不同步求解**：
+        1,000 候选/50 槽位的求解会超过任何合理的 HTTP 超时，此时把结论交给 worker。
+        入队失败不吞：运行会停在 queued 且没有 job_id，教师看得到"排队中但没人领"，
+        比假装成功好。
+        """
         key = _key(idempotency_key)
         blueprint = self._load_blueprint(actor_id, blueprint_version_id)
         with self.repository.unit_of_work() as uow:
@@ -132,6 +148,8 @@ class AssemblyService:
 
             manifest = self.candidate_service.snapshot(
                 actor_id=actor_id, blueprint=blueprint)
+            if enqueue_only:
+                return self._start_queued(uow, actor_id, blueprint, manifest, key)
             run_id = self._new_id()
             started_at = self._clock()
             row = AssemblyRunRow(
@@ -158,6 +176,39 @@ class AssemblyService:
             uow.update(finished)
             return AssemblyStartResult(
                 assembly_run_id=finished.id, status=finished.status, reused=False)
+
+    def _start_queued(self, uow: Any, actor_id: UUID, blueprint: BlueprintSnapshot,
+                      manifest: CandidateManifest, key: str) -> AssemblyStartResult:
+        """建 queued 行 + 入队 job；这条路径不碰求解器。"""
+        if self.enqueuer is None:
+            # 没有队列端口时不能假装"排队中"：那会让教师一直等一个没人领的任务。
+            raise AssemblyError(
+                "缺少队列端口：enqueue_only 需要能写入 pipeline_job")
+        run_id = self._new_id()
+        now = self._clock()
+        row = AssemblyRunRow(
+            id=run_id,
+            blueprint_version_id=blueprint.blueprint_version_id,
+            actor_id=actor_id,
+            idempotency_key=key,
+            candidate_manifest=to_json_value(manifest),
+            candidate_manifest_hash=manifest.manifest_hash,
+            candidate_snapshot_id=self._snapshot_id(manifest),
+            solver_name=self.solver_name,
+            solver_version=self.solver_version,
+            solver_config=to_json_value(self.solver_config),
+            status=RunStatus.QUEUED,
+            created_at=now,
+        )
+        stored = uow.add(row)
+        if stored.id != run_id:
+            return AssemblyStartResult(
+                assembly_run_id=stored.id, status=stored.status, reused=True)
+        job_id = self.enqueuer(run_id, str(actor_id))
+        if job_id is not None:
+            stored = uow.update(_with(stored, job_id=job_id))
+        return AssemblyStartResult(
+            assembly_run_id=stored.id, status=stored.status, reused=False)
 
     def _solve(self, blueprint: BlueprintSnapshot, manifest: CandidateManifest,
                row: AssemblyRunRow) -> AssemblyRunRow:
@@ -229,6 +280,46 @@ class AssemblyService:
             optimality_gap_milli=result.optimality_gap_milli,
             completed_at=self._clock(),
         )
+
+    # -- worker 路径 ---------------------------------------------------------
+    def execute(self, *, run_id: UUID) -> AssemblyRunRow:
+        """执行一次**已经入队**的运行（worker 调用）。
+
+        幂等：运行已是终态就不再求解，直接返回当前行。worker 会因超时回收、部署重启
+        被重复领取同一个 job，重复求解既浪费又可能让结论漂移（换 seed 就是另一份方案）。
+
+        求解输入必须是**运行行里固定的那份候选清单**，不是重新取数：这次运行的语义
+        是"用那一刻的候选求解"，重取会让同一个 job 在重试后换一套输入。
+
+        重新取数只用于**再确认一次资格**（题目可能已被撤回），结论是"候选全失效"
+        时直接记 INFEASIBLE 并留下被拒原因，而不是拿失效的题硬解。
+        """
+        with self.repository.unit_of_work() as uow:
+            row = uow.get(run_id)
+            if row is None:
+                raise RunNotFound(f"求解运行不存在：{run_id}")
+            if row.status in TERMINAL_STATUSES:
+                return row
+            blueprint = self._load_blueprint(row.actor_id, row.blueprint_version_id)
+            manifest = candidate_manifest_from_json(
+                dict(row.candidate_manifest),
+                manifest_hash=row.candidate_manifest_hash,
+                candidate_snapshot_id=row.candidate_snapshot_id,
+            )
+            if not verify_candidate_manifest(blueprint, manifest):
+                # 库里的清单被改过：宁可失败，也不拿一份说不清来路的题去求解。
+                failed = _with(row, status=RunStatus.FAILED, diagnostics={
+                    "reason": "candidate_manifest_tampered",
+                    "detail": "运行行里的候选清单与记录的 manifest_hash 不一致",
+                }, completed_at=self._clock())
+                uow.update(failed)
+                return failed
+            finished = self._solve(blueprint, manifest, row)
+            try:
+                return uow.update(finished)
+            except ValueError:
+                # 另一个 worker 先写了终态：以它为准，历史只追加不覆盖。
+                return uow.get(run_id) or finished
 
     # -- 查询 ---------------------------------------------------------------
     def run(self, *, actor_id: UUID, run_id: UUID) -> AssemblyRunRow:

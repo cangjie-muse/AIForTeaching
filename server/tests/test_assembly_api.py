@@ -100,11 +100,13 @@ class StubService:
         self.selects: list[dict] = []
         self.solver_config = None
 
-    def start(self, *, actor_id, blueprint_version_id, idempotency_key):
+    def start(self, *, actor_id, blueprint_version_id, idempotency_key,
+              enqueue_only=False):
         if self.start_error:
             raise self.start_error
         self.starts.append({"actor": actor_id, "version": blueprint_version_id,
-                            "key": idempotency_key, "config": self.solver_config})
+                            "key": idempotency_key, "config": self.solver_config,
+                            "enqueue_only": enqueue_only})
         from app.assembly.contracts import AssemblyStartResult
 
         return AssemblyStartResult(assembly_run_id=self.row.id,
@@ -185,6 +187,22 @@ def test_failed_run_reports_solver_unavailable_not_a_hidden_success() -> None:
     assert body["status"] == "failed"
     assert body["solved"] is False
     assert "ortools" in body["diagnostics"]["detail"]
+
+
+def test_enqueue_only_returns_202_without_a_solution() -> None:
+    """排队路径不能返回带方案的响应：那时还没求解，返回方案就是骗人。"""
+    service = StubService(row=run_row(RunStatus.QUEUED, solutions=[]))
+    response = client(service).post(
+        f"/api/v1/paper-blueprint-versions/{VERSION}/assembly-runs",
+        json={"enqueue_only": True},
+        headers={**TEACHER, "Idempotency-Key": "run-queued"})
+    assert response.status_code == 202, response.text
+    body = response.json()
+    assert body["queued"] is True
+    assert body["status"] == "queued"
+    assert "solutions" not in body, "排队时不能给出方案字段"
+    assert "轮询" in body["note"]
+    assert service.starts[0]["enqueue_only"] is True
 
 
 def test_missing_idempotency_key_is_400() -> None:

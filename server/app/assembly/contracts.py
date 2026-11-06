@@ -454,6 +454,77 @@ def solution_hash_matches(manifest: SolutionManifest) -> bool:
     return canonical_hash(body) == manifest.manifest_hash
 
 
+def candidate_manifest_from_json(payload: dict[str, Any], *, manifest_hash: str,
+                                 candidate_snapshot_id: UUID | None = None
+                                 ) -> CandidateManifest:
+    """jsonb 载荷 → `CandidateManifest`（worker 重解时用）。
+
+    为什么必须还原而不是重新取数：一次运行的语义是"用**那一刻**固定的候选清单求解"。
+    重试时重新取数会让同一个 job 得到不同输入，回放与幂等就都没了。
+
+    还原后调用方**必须**用 `make_candidate_manifest` 复算一次哈希并比对：
+    这里不做（它需要蓝图对象），但 `verify_candidate_manifest` 提供了现成入口。
+    """
+    candidates = tuple(
+        Candidate(
+            exercise_version_id=UUID(item["exercise_version_id"]),
+            stable_exercise_id=UUID(item["stable_exercise_id"]),
+            exercise_family_id=UUID(item["exercise_family_id"]),
+            source_release_id=UUID(item["source_release_id"]),
+            decision_seq=int(item["decision_seq"]),
+            exercise_kind=item["exercise_kind"],
+            dependency_hash=item["dependency_hash"],
+            content_hash=item["content_hash"],
+            exercise_instance_id=(
+                None if item.get("exercise_instance_id") is None
+                else UUID(item["exercise_instance_id"])),
+            concept_weights=tuple(
+                ConceptWeight(concept_id=UUID(weight["concept_id"]),
+                              role=weight["role"], weight=int(weight["weight"]))
+                for weight in item.get("concept_weights", ())),
+            learning_outcome_ids=tuple(
+                UUID(value) for value in item.get("learning_outcome_ids", ())),
+            difficulty=item.get("difficulty"),
+            cognitive_level=item.get("cognitive_level"),
+            estimated_seconds=item.get("estimated_seconds"),
+            recent_use_count=int(item.get("recent_use_count") or 0),
+            exposure_count=int(item.get("exposure_count") or 0),
+            preferred=bool(item.get("preferred")),
+            conflict_group_ids=tuple(
+                UUID(value) for value in item.get("conflict_group_ids", ())),
+            answer_released=bool(item.get("answer_released")),
+            permitted_offering_ids=tuple(
+                UUID(value) for value in item.get("permitted_offering_ids", ())),
+            security_window_key=item.get("security_window_key"),
+        )
+        for item in payload.get("candidates", ())
+    )
+    exclusions = tuple(
+        ManifestExclusion(exercise_version_id=UUID(item["exercise_version_id"]),
+                          reason=item["reason"])
+        for item in payload.get("exclusions", ())
+    )
+    return CandidateManifest(
+        blueprint_version_id=UUID(payload["blueprint_version_id"]),
+        release_context_id=UUID(payload["release_context_id"]),
+        candidates=candidates,
+        exclusions=exclusions,
+        manifest_hash=manifest_hash,
+        candidate_snapshot_id=candidate_snapshot_id,
+    )
+
+
+def verify_candidate_manifest(blueprint: BlueprintSnapshot,
+                              manifest: CandidateManifest) -> bool:
+    """复算候选清单哈希，判断落库的清单有没有被改过。"""
+    return make_candidate_manifest(
+        blueprint,
+        manifest.candidates,
+        manifest.exclusions,
+        candidate_snapshot_id=manifest.candidate_snapshot_id,
+    ).manifest_hash == manifest.manifest_hash
+
+
 def solution_to_json(manifest: SolutionManifest) -> dict[str, Any]:
     """方案 manifest → jsonb 载荷（字段显式列出，不做 `asdict` 的隐式扩散）。
 
@@ -575,6 +646,7 @@ __all__ = [
     "SolveResult",
     "ValidationIssue",
     "ValidationReport",
+    "candidate_manifest_from_json",
     "make_candidate_manifest",
     "make_solution_manifest",
     "make_solution_set",
@@ -585,4 +657,5 @@ __all__ = [
     "solution_hash_matches",
     "solution_to_json",
     "to_json_value",
+    "verify_candidate_manifest",
 ]

@@ -535,7 +535,7 @@ def claim_next() -> dict | None:
             WHERE status = 'queued'
               AND kind IN ('generate', 'generate-book', 'grade-homework',
                            'courseware-generate', 'courseware-revise',
-                           'paper-render')
+                           'paper-render', 'paper-assembly')
             ORDER BY created_at
             LIMIT 1"""
     )
@@ -844,6 +844,13 @@ def run_job(job_id: int) -> dict:
     if not job:
         raise ValueError(f"任务不存在：{job_id}")
     payload = job["payload"] or {}
+
+    if job["kind"] == "paper-assembly":
+        # 约束组卷的求解运行：真的去解一次，结果写回 assessment.assembly_run。
+        # 失败由 assembly_worker 写进运行诊断，不向外抛（与渲染同口径）。
+        from . import assembly_worker
+
+        return {**assembly_worker.run_job(job), "kind": "paper-assembly"}
 
     if job["kind"] == "paper-render":
         # 打印卷渲染：学生卷 / 答案卷 / 量规卷各出一份文件，与生成任务共用队列、

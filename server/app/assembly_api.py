@@ -92,6 +92,8 @@ class SolverConfigIn(BaseModel):
     random_seed: int = 20261105
     time_limit_seconds: int = 30
     max_solutions: int = 3
+    # True 时只入队、不同步求解：1,000 候选/50 槽位的求解会超过任何合理的请求超时。
+    enqueue_only: bool = False
 
 
 class AssemblyRunOut(BaseModel):
@@ -194,9 +196,27 @@ def get_assembly_service(
         blueprints=blueprints,
         candidate_service=_assembly_candidate(blueprints, candidates),
         materializer=AssemblyMaterializer(papers=papers, validator=validator),
+        enqueuer=_enqueue_assembly_job,
         solver_name="cp-sat" if ortools_version() else "unavailable",
         solver_version=version,
     )
+
+
+def _enqueue_assembly_job(run_id: UUID, actor_ref: str) -> int | None:
+    """把一次运行写成 `pipeline_job` 行（kind=paper-assembly）。
+
+    与渲染任务同一套队列：状态机、心跳、重试上限都是现成的。`requested_by` 用发起人
+    的文本账号——队列里出现"是谁要的"这条信息，出问题时才追得下去。
+    """
+    import json
+
+    row = db.query_one(
+        """INSERT INTO pipeline_job (kind, payload, requested_by)
+           VALUES ('paper-assembly', %s::jsonb, %s)
+           RETURNING id""",
+        (json.dumps({"assembly_run_id": str(run_id)}, ensure_ascii=False), actor_ref),
+    )
+    return None if row is None else row["id"]
 
 
 def _assembly_candidate(blueprints: BlueprintService, candidates: CandidateService):
@@ -276,9 +296,27 @@ def start_assembly_run(
             actor_id=ref_uuid("account", actor.id),
             blueprint_version_id=version_id,
             idempotency_key=key,
+            enqueue_only=config.enqueue_only,
         )
     except Exception as exc:  # noqa: BLE001
         raise _map_build_error(exc) from exc
+    if config.enqueue_only:
+        # 排队路径：运行还没求解，不能返回一个带方案的响应（那会骗人）。
+        row = service.run(actor_id=ref_uuid("account", actor.id),
+                          run_id=started.assembly_run_id)
+        if started.reused:
+            response.status_code = 200
+            response.headers["Idempotent-Replay"] = "true"
+        else:
+            response.status_code = 202
+        return {
+            "assembly_run_id": str(started.assembly_run_id),
+            "status": str(started.status),
+            "queued": True,
+            "job_id": None if row.job_id is None else str(row.job_id),
+            "reused": started.reused,
+            "note": "求解已在队列中；用 GET /assembly-runs/{id} 或前端轮询查看结论。",
+        }
     row = service.run(actor_id=ref_uuid("account", actor.id),
                       run_id=started.assembly_run_id)
     if started.reused:
