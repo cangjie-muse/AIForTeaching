@@ -35,20 +35,27 @@
   `ck_paper_manual_only`，改为"组卷来源两列必须成对 + 序号 0..2"。
 - 前端：`js/paper-assembly.js`（页 `paper-assembly`，工作台有入口）。界面把
   「可行（未证明最优）」与「最优（已证明）」分开显示；无解不弹错误而是逐条列诊断，
-  且不给建卷按钮；缺求解器时给安装命令。
+  且不给建卷按钮；缺求解器时给安装命令；两个及以上方案时可以「对照方案」。
+- `server/app/assembly/comparator.py`：A/B 结构比较。除**显式声明的锚题**外，
+  共用同一道题或同一族题都判重叠；`statistical_equivalence` 恒为 False，
+  固定措辞「结构匹配的 A/B 卷；不代表统计等值」（本系统没有等值设计）。
+- `scripts/load_assembly.py`：1,000 候选/50 槽位受控负载。真实结果（2026-11-06）：
+  固定候选 manifest 67 ms、每槽供给 16 ms、预检 17 ms；**求解耗时未计入**，
+  脚本 JSON 的 `limits` 字段与测试都钉住了这一点。
 - 阶段 A 的两处必要改动：`blueprints.py` 允许 `constraint_assisted`；
   `papers.py` 的 INSERT 真的写 `assembly_run_id/selected_solution_index`，并按蓝图
   模式双向校验来源。
 
-验证（本机 2026-11-06）：`test_assembly_blueprint/candidate/diagnostics/pipeline/api`
-合计 93 项、`test-view-paper-assembly.cjs` 45 项全过；`npm run test:migrations`
-34/34 迁移、断言 11/11（含 0034 的 12 条 + 落卷来源 3 条真引擎行为）；
-阶段 A 的 blueprints/papers/validation/acceptance 无回归。
+验证（本机 2026-11-06）：`test_assembly_blueprint/candidate/diagnostics/comparator/
+pipeline/api` 合计 106 项、`test_load_assembly.py` 5 项、
+`test-view-paper-assembly.cjs` 66 项全过；`npm run test:migrations`
+34/34 迁移、断言 11/11；阶段 A 的 blueprints/papers/validation/acceptance 无回归。
 
 **阻塞项（不是通过）**：本机没有外网（pypi 与三个镜像均"基础连接已经关闭"，
 无代理环境变量），`pip install ortools==9.11.4210` 装不上。`default_solver()`
 返回 `UnavailableSolver`，运行会记 `failed` 并写明缺什么，**不会**产出假方案。
-因此 CP-SAT 硬约束、软目标、多方案与 A/B 卷都没有真实运行证据。
+`server/app/assembly/solver.py`（CP-SAT 实现）与 `test_assembly_solver.py`
+已写好但**一次都没跑过**，也刻意没进 `npm run check`——跳过看起来太像通过。
 
 ## 阶段 A 固定卷链路（2026-11-06）
 
