@@ -243,6 +243,30 @@ def test_unknown_soft_objective_is_rejected() -> None:
 # 用途、难度、A/B
 # ---------------------------------------------------------------------------
 
+def test_anchor_versions_are_read_from_hard_constraints() -> None:
+    """锚题写在蓝图 `hard_constraints.anchor_version_ids` 上，必须被翻译出来。
+
+    A/B 的可比性支点就是这几道题；读不出来等于"没有锚题"，两卷会完全不重叠，
+    教师也就没法解释两卷为什么可比较。
+    """
+    anchor_a = UUID(int=11)
+    anchor_b = UUID(int=12)
+    snapshot = blueprint_snapshot(version(content(hard={
+        "anchor_version_ids": [str(anchor_a), str(anchor_b)],
+    })))
+    assert snapshot.anchor_version_ids == (anchor_a, anchor_b)
+    assert "anchor_version_ids" not in snapshot.hard_constraints.unsupported_keys
+
+
+def test_anchor_versions_must_be_uuids() -> None:
+    try:
+        blueprint_snapshot(version(content(hard={"anchor_version_ids": ["not-a-uuid"]})))
+    except BlueprintTranslationError as error:
+        assert "UUID" in str(error), str(error)
+    else:
+        raise AssertionError("非法锚题 id 必须当场报错，而不是静默当成没有锚题")
+
+
 def test_ab_mode_is_refused_until_implemented() -> None:
     try:
         blueprint_snapshot(version(content(hard={"variant_mode": "ab"})))

@@ -274,9 +274,12 @@ def test_max_solutions_is_capped_at_three() -> None:
 # ---------------------------------------------------------------------------
 
 def _two_slot_blueprint(anchors=()) -> BlueprintSnapshot:
-    bp = blueprint([slot("A1", "50.00"), slot("A2", "50.00")],
-                   hard=HardConstraints(anchor_version_ids=tuple(anchors)))
-    return bp
+    """两个槽位的蓝图；锚题在 `BlueprintSnapshot.anchor_version_ids` 上，
+    不在 `HardConstraints` 里（写错位置会直接 TypeError，已踩过）。"""
+    from dataclasses import replace
+
+    bp = blueprint([slot("A1", "50.00"), slot("A2", "50.00")])
+    return replace(bp, anchor_version_ids=tuple(anchors))
 
 
 def test_peer_never_reuses_a_non_anchor_question() -> None:
