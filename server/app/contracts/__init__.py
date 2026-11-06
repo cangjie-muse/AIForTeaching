@@ -58,6 +58,14 @@ from .student import (
     assert_student_safe,
     normalize_field_name,
 )
+from .candidate import (
+    REASON_MEANINGS,
+    CandidateReason,
+    CandidateRecord,
+    CandidateScope,
+    CandidateSnapshot,
+    RejectedCandidate,
+)
 
 __all__ = [
     # common
@@ -102,4 +110,11 @@ __all__ = [
     "ArtifactAccessEvent",
     "ArtifactMetadata",
     "ArtifactVersion",
+    # candidate（任务 3）
+    "REASON_MEANINGS",
+    "CandidateReason",
+    "CandidateRecord",
+    "CandidateScope",
+    "CandidateSnapshot",
+    "RejectedCandidate",
 ]

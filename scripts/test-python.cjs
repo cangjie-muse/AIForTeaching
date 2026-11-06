@@ -25,7 +25,8 @@ const suites = ['server/tests/test_policy.py', 'server/tests/test_source_parse.p
   'scripts/test-courseware-render.py', 'server/tests/test_omml.py', 'server/tests/test_courseware.py', 'server/tests/test_homework.py', 'server/tests/test_directions.py', 'server/tests/test_course_meta.py', 'server/tests/test_import_bulk.py', 'server/tests/test_import_course.py',
   'server/tests/test_publish_flow.py', 'server/tests/test_keystore.py', 'server/tests/test_envfile.py', 'server/tests/test_queue_health.py',
   'server/tests/test_assessment_contracts.py', 'server/tests/test_artifacts.py', 'server/tests/test_assessment_migration.py',
-  'server/tests/test_blueprints.py', 'server/tests/test_blueprint_api.py'];
+  'server/tests/test_blueprints.py', 'server/tests/test_blueprint_api.py',
+  'server/tests/test_candidates.py', 'server/tests/test_candidate_eligibility.py'];
 let failed = 0;
 
 for (const suite of suites) {
