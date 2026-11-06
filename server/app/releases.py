@@ -558,6 +558,70 @@ class ReleaseService:
             )
             return uow.save(context, items)
 
+    def freeze_idempotent(
+        self,
+        *,
+        actor_id: UUID,
+        course_ref: str,
+        purpose: Purpose,
+        exercise_refs: Sequence[str],
+        offering_ref: str | None = None,
+        base_release_id: UUID | None = None,
+        status: ReleaseStatus = "frozen",
+        label: str | None = None,
+    ) -> tuple[ReleaseContext, bool]:
+        """内容寻址的冻结：同一请求（同一批内容）永远得到同一个 Release id。
+
+        重试安全不靠 Idempotency-Key，而是靠 id 由内容决定：
+
+            release_context_id = uuid5(ns, "release:{指纹}")
+
+        指纹包含课程/班级/用途/状态/base/label 与每条 (题号, 内容哈希)。内容变了
+        id 就跟着变——那本来就该是一条新 Release，不是重放。`save` 对同 id 用
+        `ON CONFLICT (id) DO NOTHING` 并返回已有行，所以并发重复请求只会有一条
+        落库，另一个请求拿到同一行（created=False）。
+
+        为什么这里不强求 Idempotency-Key：冻结是"把当前内容固定下来"，它的输入
+        完整决定了输出，本来就没有"同一请求产生两种结果"的可能。给一个纯函数式
+        操作套幂等键只会变成走过场。
+        """
+        if self.repository is None:
+            raise ReleaseError("缺少 Release 仓储：拒绝无持久化的冻结")
+        refs = tuple(dict.fromkeys(str(ref).strip() for ref in exercise_refs))
+        if not refs or any(not ref for ref in refs):
+            raise ReleaseScopeError("冻结必须给出至少一个非空题号")
+
+        with self.repository.unit_of_work() as uow:
+            exercises = uow.load_exercises(course_ref, refs)
+            missing = sorted(set(refs) - {item.exercise_ref for item in exercises})
+            if missing:
+                raise UnknownExerciseError(
+                    f"课程 {course_ref} 里没有这些题号：{'、'.join(missing)}"
+                )
+            fingerprint = canonical_hash({
+                "schema": "release-freeze/v1",
+                "course_ref": course_ref,
+                "offering_ref": offering_ref,
+                "purpose": purpose,
+                "status": status,
+                "base_release_id": base_release_id,
+                "label": label,
+                "items": [
+                    {"exercise_ref": item.exercise_ref, "digest": item.digest}
+                    for item in sorted(exercises, key=lambda entry: entry.exercise_ref)
+                ],
+            })
+            context_id = uuid5(ID_NAMESPACE, f"release:{fingerprint}")
+            existing = uow.get_context(context_id)
+
+        context = self.freeze(
+            actor_id=actor_id, course_ref=course_ref, purpose=purpose,
+            exercise_refs=refs, offering_ref=offering_ref,
+            base_release_id=base_release_id, status=status, label=label,
+            release_context_id=context_id,
+        )
+        return context, existing is None
+
     def get(self, release_context_id: UUID) -> ReleaseContext:
         if self.repository is None:
             raise ReleaseError("缺少 Release 仓储")

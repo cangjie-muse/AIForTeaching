@@ -965,6 +965,17 @@ class PaperScopeAuthorizer:
         return self._inner.is_human(actor_id)
 
 
+def load_paper_version(cur: Any, version_id: UUID) -> PaperVersionRow | None:
+    """在**调用方的事务**里读一份完整卷面（卷头 + 分节 + 槽位）。
+
+    为什么要有这个函数：任务 8 的发布终检必须在同一事务、同一 advisory lock 下
+    读卷面，不能另开一个 `db.transaction()` —— 那会拿到第二条连接，既读不到锁内
+    的写入，也躲不开 paper_* 的 FORCE RLS。这里复用同一套列常量与行映射，不复制
+    第二份"卷面长什么样"的 SQL；少一份就少一处会漂移的字段清单。
+    """
+    return _PostgresPaperUnitOfWork(cur).get(version_id)
+
+
 # ---------------------------------------------------------------------------
 # 纯编辑规则（无 IO，便于单测）
 # ---------------------------------------------------------------------------

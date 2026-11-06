@@ -36,7 +36,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
-const checkReviewEvidence = require('./verify-paper-review-behaviour.cjs');
+const checkReviewEvidence = require('./verify-paper-review-behaviour.cjs'), checkAssignmentPublishFields = require('./verify-assignment-publish-behaviour.cjs');  // 迁移行为断言拆成独立文件，本文件已到 max-lines 上限
 
 const root = path.resolve(__dirname, '..');
 const MIGRATIONS_DIR = path.join(root, 'db', 'migrations');
@@ -650,8 +650,8 @@ function buildChecks(ids) {
     { title: 'UNIQUE(section_id, slot_no) 在真引擎里生效（负数也不例外）', run: (db) => checkSlotUnique(db, ids) },
     { title: 'assignment_item 只允许追加（UPDATE 被触发器拒绝）', run: (db) => checkAppendOnly(db, ids) },
     { title: 'draft 卷仍可改（反向对照，证明触发器没挡过宽）', run: (db) => checkDraftEditable(db, ids) },
-    { title: '0032 复核证据：逐人唯一 + 贡献者不能自批 + append-only', run: (db) => checkReviewEvidence(db, ids, expectSqlError) }
-  ];
+    { title: '0032 复核证据：逐人唯一 + 贡献者不能自批 + append-only', run: (db) => checkReviewEvidence(db, ids, expectSqlError) },
+    { title: '0033 发布痕迹：已发布必须有 published_at，撤回必须有理由', run: (db) => checkAssignmentPublishFields(db, ids, expectSqlError) }  ];
 }
 
 async function runBehaviourChecks(db, report) {
