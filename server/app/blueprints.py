@@ -50,7 +50,7 @@ SCHEMA_VERSION = "paper-blueprint/v1"
 
 # 固定命名空间。改它等于让所有既有蓝图的 course_id 失效，绝不能在发布后调整。
 ID_NAMESPACE = UUID("8f14e45f-ceea-567f-a1b2-3c4d5e6f7a80")
-REF_KINDS = ("course", "offering", "account", "release_context")
+REF_KINDS = ("course", "offering", "account", "release_context", "paper-blueprint")
 
 WRITE_ACTION = "paper_blueprint.write"
 READ_ACTION = "paper_blueprint.read"
@@ -102,6 +102,20 @@ def ref_uuid(kind: str, ref: str) -> UUID:
     if len(cleaned) > 200:
         raise ValueError("ref 太长（上限 200 字符）")
     return uuid5(ID_NAMESPACE, f"{kind}:{cleaned}")
+
+
+def blueprint_id_for_course(course_ref: str, slug: str) -> UUID:
+    """一门课里"手工蓝图"的稳定身份：课程号 + 蓝图别名。
+
+    为什么由服务端算而不是让调用方给 uuid：前端拿不到 uuid5 的命名空间，算错一次
+    就是另一门课的蓝图；而"同一门课的同一个别名 = 同一份蓝图"正好是教师的心智模型
+    （期中卷、期末卷各一个别名），追加版本时也就不必先知道 uuid。
+    """
+    cleaned_course = (course_ref or "").strip()
+    cleaned_slug = (slug or "").strip()
+    if not cleaned_course or not cleaned_slug:
+        raise ValueError("course_ref 与 slug 都不能为空")
+    return ref_uuid("paper-blueprint", f"{cleaned_course}/{cleaned_slug}")
 
 
 # ---------------------------------------------------------------------------
@@ -169,6 +183,10 @@ class BlueprintUnitOfWork(Protocol):
 
     def latest(self, blueprint_id: UUID) -> BlueprintVersionRow | None: ...
 
+    def latest_for_course(self, course_id: UUID) -> list[BlueprintVersionRow]:
+        """本课程每份蓝图的最新版本（一个蓝图一行），按创建时间倒序。"""
+        ...
+
     def find_by_content_hash(self, blueprint_id: UUID,
                              content_hash: str) -> BlueprintVersionRow | None: ...
 
@@ -209,6 +227,22 @@ class InMemoryBlueprintRepository:
     def latest(self, blueprint_id: UUID) -> BlueprintVersionRow | None:
         rows = [row for row in self.versions.values() if row.blueprint_id == blueprint_id]
         return max(rows, key=lambda row: row.version_no) if rows else None
+
+    def latest_for_course(self, course_id: UUID) -> list[BlueprintVersionRow]:
+        """每份蓝图只留最新一版；排序与 SQL 实现一致（created_at 倒序）。
+
+        为什么是"每份蓝图最新一版"而不是全部版本：教师是在选"用哪份蓝图继续"，
+        历史版本对他的这步操作没有意义，却会把列表撑长。
+        """
+        newest: dict[UUID, BlueprintVersionRow] = {}
+        for row in self.versions.values():
+            if row.course_id != course_id:
+                continue
+            current = newest.get(row.blueprint_id)
+            if current is None or row.version_no > current.version_no:
+                newest[row.blueprint_id] = row
+        return sorted(newest.values(), key=lambda row: (row.created_at, str(row.id)),
+                      reverse=True)
 
     def find_by_content_hash(self, blueprint_id: UUID,
                              content_hash: str) -> BlueprintVersionRow | None:
@@ -352,6 +386,24 @@ class _PostgresUnitOfWork:
                  WHERE id = %s""",
             (version_id,),
         )
+
+    def latest_for_course(self, course_id: UUID) -> list[BlueprintVersionRow]:
+        # DISTINCT ON 是 PostgreSQL 的"每组取一行"：组内按 version_no 倒序，
+        # 取到的就是每份蓝图的最新版；外层再按创建时间倒序给教师最近的在最上面。
+        # 不用窗口函数是为了让计划能直接走 (course_id, blueprint_id, version_no)
+        # 上的索引，而不是先排序整张表再过滤。
+        self.cur.execute(
+            f"""SELECT {_VERSION_COLUMNS}
+                  FROM (
+                        SELECT DISTINCT ON (blueprint_id) {_VERSION_COLUMNS}
+                          FROM assessment.paper_blueprint_version
+                         WHERE course_id = %s
+                         ORDER BY blueprint_id, version_no DESC
+                       ) latest
+                 ORDER BY created_at DESC, id""",
+            (course_id,),
+        )
+        return [_row_from_db(record) for record in self.cur.fetchall()]
 
     def find_idempotent(self, scope: str, idempotency_key: str,
                         actor_id: UUID) -> IdempotencyRecord | None:
@@ -697,6 +749,42 @@ class BlueprintService:
             return row
 
     # -- 读取 ---------------------------------------------------------------
+
+    def list_for_course(self, *, actor_id: UUID, course_ref: str,
+                        actor_ref: str | None = None) -> list[BlueprintVersionRow]:
+        """本课程每份蓝图的最新版本（新→旧），供教师"接着上一份继续"。
+
+        授权用文本课程号而不是 uuid：课程范围的真源是 `teaching_class.course_id`
+        （text），只有它才能回答"这位教师教不教这门课"。授权在查询之前完成，
+        没权限的人拿不到"这门课有几份蓝图"这种信息。
+        """
+        if self.authorizer is None:
+            raise PermissionError("缺少授权端口：拒绝无授权的读取")
+        cleaned = (course_ref or "").strip()
+        if not cleaned:
+            raise BlueprintValidationError("course_ref 不能为空")
+        course_id = ref_uuid("course", cleaned)
+        self.authorizer.require(
+            actor_id, READ_ACTION,
+            course_id=course_id, course_ref=cleaned, actor_ref=actor_ref,
+        )
+        with self._unit_of_work() as uow:
+            if uow is None:
+                return []
+            rows = uow.latest_for_course(course_id)
+            refs: dict[UUID, str | None] = {}
+            for row in rows:
+                if row.offering_id is not None and row.offering_id not in refs:
+                    refs[row.offering_id] = (
+                        row.offering_ref or uow.lookup_ref("offering", row.offering_id)
+                    )
+        return [
+            row.model_copy(update={
+                "course_ref": cleaned,
+                "offering_ref": refs.get(row.offering_id) if row.offering_id else None,
+            })
+            for row in rows
+        ]
 
     def get_version(self, *, actor_id: UUID, version_id: UUID,
                     actor_ref: str | None = None) -> BlueprintVersionRow:

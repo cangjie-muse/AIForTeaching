@@ -606,6 +606,22 @@
     publishAssignment: (id, key) => request('POST',
       `/api/v1/assignments/${encodeURIComponent(id)}/publish`,
       { headers: { 'Idempotency-Key': key } }),
+    // 建卷：蓝图按"课程号 + 别名"建/追加（uuid 推导留在服务端），候选清单按蓝图
+    // 版本生成，最后用"蓝图版本 + 候选快照 + 选题"派生草稿卷。
+    courseBlueprints: courseRef => request('GET',
+      `/api/v1/courses/${encodeURIComponent(courseRef)}/paper-blueprints`),
+    createCourseBlueprint: (courseRef, body, key) => request('POST',
+      `/api/v1/courses/${encodeURIComponent(courseRef)}/paper-blueprints`,
+      { body, headers: { 'Idempotency-Key': key } }),
+    candidateSnapshot: versionId => request('GET',
+      `/api/v1/paper-blueprint-versions/${encodeURIComponent(versionId)}/candidates`),
+    createCandidateSnapshot: (versionId, key) => request('POST',
+      `/api/v1/paper-blueprint-versions/${encodeURIComponent(versionId)}/candidate-snapshots`,
+      { headers: { 'Idempotency-Key': key } }),
+    candidateLabels: versionId => request('GET',
+      `/api/v1/paper-blueprint-versions/${encodeURIComponent(versionId)}/candidate-labels`),
+    createPaperDraft: (body, key) => request('POST', '/api/v1/paper-versions',
+      { body, headers: { 'Idempotency-Key': key } }),
     coursewareChapters: (courseId) =>
       request('GET', `/api/v1/courseware/chapters${queryString({ course_id: courseId })}`),
     coursewareDeck: (deckId, version) =>

@@ -70,9 +70,54 @@
 .ops-withdraw label { display: block; font-size: 12px; color: #6b84a8; margin-bottom: 6px; }
 .ops-withdraw textarea { width: 100%; max-width: 560px; }
 
+/* --- 建卷页 --------------------------------------------------------------- */
+
+.build-blueprints,
+.build-form,
+.build-candidates,
+.build-result { margin-top: 18px; }
+.build-blueprints h4,
+.build-form h4,
+.build-candidates h4,
+.build-result h4 { margin: 0 0 10px; font-size: 14px; color: #2c4a76; }
+
+.build-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.build-table th,
+.build-table td { padding: 9px 10px; border-bottom: 1px solid #edf1f7; text-align: left; }
+.build-table thead th { color: #778ba7; font-weight: 600; background: #f6f9fd; white-space: nowrap; }
+.build-table tbody tr:hover { background: #f8fbff; }
+
+.build-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px 14px; }
+.build-grid label,
+.build-section label,
+.build-slot label { display: flex; flex-direction: column; gap: 4px;
+  font-size: 12px; color: #6b84a8; }
+.build-grid input,
+.build-grid select,
+.build-section input { width: 100%; max-width: 320px; }
+
+.build-section { margin: 14px 0 0; padding: 12px 14px; border: 1px solid #e7eef8; border-radius: 10px; }
+.build-section legend { padding: 0 6px; font-size: 12px; color: #3c5d8d; font-weight: 600; }
+.build-slots { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.build-slot { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; }
+.build-slot input { width: 110px; }
+
+.build-pick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 0; border-bottom: 1px dashed #e7eef8; }
+.build-pick-code { min-width: 46px; font-weight: 600; color: #2c4a76; }
+.build-pick select { flex: 1 1 260px; min-width: 0; }
+
+/* 被挡住的题目默认收起：教师先要看见"能选什么"，排查门禁是第二步 */
+.build-rejected { margin-top: 10px; }
+.build-rejected summary { cursor: pointer; font-size: 12px; color: #8a5a2b; }
+.build-rejected ul { margin: 8px 0 0; padding-left: 18px; font-size: 12px; line-height: 1.8; }
+.build-rejected code { font-size: 11px; color: #9a3d3d; }
+
+.build-result p { margin: 0 0 10px; }
+
 @media (max-width: 720px) {
   /* 窄屏：表格改成块级逐行，避免横向滚动条把内容推出去 */
-  .workbench-table, .editor-table, .ops-table { display: block; overflow-x: auto; }
+  .workbench-table, .editor-table, .ops-table, .build-table { display: block; overflow-x: auto; }
   .ops-form { grid-template-columns: 1fr; }
   .ops-form .button-row { grid-column: 1; }
 }

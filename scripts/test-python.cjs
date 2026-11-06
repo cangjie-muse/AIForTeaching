@@ -26,6 +26,7 @@ const suites = ['server/tests/test_policy.py', 'server/tests/test_source_parse.p
   'server/tests/test_publish_flow.py', 'server/tests/test_keystore.py', 'server/tests/test_envfile.py', 'server/tests/test_queue_health.py',
   'server/tests/test_assessment_contracts.py', 'server/tests/test_artifacts.py', 'server/tests/test_assessment_migration.py',
   'server/tests/test_blueprints.py', 'server/tests/test_blueprint_api.py',
+  'server/tests/test_blueprint_course_api.py',
   'server/tests/test_candidates.py', 'server/tests/test_candidate_eligibility.py',
   'server/tests/test_papers.py', 'server/tests/test_paper_api.py',
   'server/tests/test_paper_validation.py',

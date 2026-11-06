@@ -116,7 +116,10 @@
       'PAPER WORKBENCH',
       '组卷工作台',
       '冻结 Release → 建卷 → 整卷校验 → 双人复核 → 导出三类卷 → 发布打印作业。每一步都要留证据。',
-      `<div class="button-row">${A.button('刷新', 'workbench-refresh', 'refresh')}</div>`
+      `<div class="button-row">
+        <a class="btn primary" href="${A.url('paper-build', course.id)}">建一份新卷</a>
+        ${A.button('刷新', 'workbench-refresh', 'refresh')}
+      </div>`
     );
     if (!course) {
       return heading + `<div class="panel"><p class="muted">先选择一门课程。</p></div>`;

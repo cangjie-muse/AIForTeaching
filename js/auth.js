@@ -20,6 +20,7 @@
     content: ['teacher', 'admin'],
     review: ['teacher', 'admin'],
     workbench: ['teacher', 'admin'],
+    'paper-build': ['teacher', 'admin'],
     'paper-editor': ['teacher', 'admin'],
     'paper-ops': ['teacher', 'admin'],
     classes: ['teacher', 'admin'],
