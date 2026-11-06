@@ -295,6 +295,43 @@ check('对照块列出重叠问题', comparedHtml.includes('data-code="shared_ve
 check('对照块明确不是难度等值结论',
   comparedHtml.includes('不是') && comparedHtml.includes('等值'));
 
+// --- A/B 配对入口 ----------------------------------------------------------------
+
+const historyHtml = App.paperAssemblyHtml(stateOf({
+  run: twoSolutions, runs: [twoSolutions, { ...twoSolutions, assembly_run_id: 'run-2' }]
+}));
+check('历史里可把另一次运行配成 A/B', historyHtml.includes('assembly-pair'));
+check('当前运行自己不出现配对按钮',
+  !historyHtml.match(/data-run="run-1"[\s\S]{0,400}?assembly-pair/),
+  '当前查看的那次运行不该和自己配对');
+
+const noPairHtml = App.paperAssemblyHtml(stateOf({
+  run: { ...OPTIMAL_RUN, solutions: [], status: 'infeasible', solved: false },
+  runs: [INFEASIBLE_RUN, INFEASIBLE_RUN]
+}));
+check('没有方案的运行不给配对入口', !noPairHtml.includes('assembly-pair'));
+
+const pairedHtml = App.paperAssemblyHtml(stateOf({
+  run: twoSolutions, runs: [twoSolutions],
+  pair: { labels: ['A', 'B'], note: '结构匹配的 A/B 卷；不代表统计等值',
+    next_step: 'A/B 两卷仍需分别提交审核、分别导出与发布' }
+}));
+check('配对成功显示标签与固定措辞',
+  pairedHtml.includes('已配成 A/B') && pairedHtml.includes('不代表统计等值'));
+check('配对成功说明还要分别送审', pairedHtml.includes('分别提交审核'));
+
+const rejectedPairHtml = App.paperAssemblyHtml(stateOf({
+  run: twoSolutions, runs: [twoSolutions],
+  pair: { error: '两个方案不能配成 A/B：shared_version_not_anchored',
+    issues: [{ code: 'shared_version_not_anchored',
+      message: '槽位 A1 两卷用了同一道题，但它不是锚题' }] }
+}));
+check('配对失败用 alert 而不是绿色成功',
+  rejectedPairHtml.includes('role="alert"') && rejectedPairHtml.includes('不能配成 A/B'));
+check('配对失败列出具体槽位',
+  rejectedPairHtml.includes('data-code="shared_version_not_anchored"'));
+check('配对失败仍然声明不代表等值', rejectedPairHtml.includes('不代表统计等值'));
+
 // --- 视图注册 -------------------------------------------------------------------
 
 check('注册了视图 paper-assembly', typeof App.views['paper-assembly'] === 'function');

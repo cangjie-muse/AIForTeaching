@@ -89,7 +89,7 @@
   function S() {
     return A.state.paperAssembly = A.state.paperAssembly || {
       courseId: null, blueprints: [], selectedId: null, selected: null,
-      runs: [], run: null, supply: null, comparison: null, queued: null,
+      runs: [], run: null, supply: null, comparison: null, pair: null, queued: null,
       loading: false, loaded: false,
       busy: null, error: null, message: null, created: null,
       config: { random_seed: '20261105', time_limit_seconds: '30', max_solutions: '3' }
@@ -434,18 +434,55 @@
     if (!runs.length) {
       return `<p class="muted">这份蓝图还没有跑过求解。</p>`;
     }
-    const rows = runs.map(run => `<tr data-run="${escape(run.assembly_run_id)}">
-      <td>${statusBadge(run)}</td>
-      <td>${escape(String(run.created_at || '').slice(0, 16).replace('T', ' '))}</td>
-      <td>${escape((run.solutions || []).length)}</td>
-      <td>${escape(run.candidate_manifest_hash || '').slice(0, 12)}…</td>
-      <td>${run.assembly_run_id === (state.run && state.run.assembly_run_id)
-        ? '<span class="muted">当前查看</span>'
-        : A.button('查看', 'assembly-open', 'search',
-          `data-run="${escape(run.assembly_run_id)}" data-input="assembly-open"`, 'small')}</td>
-    </tr>`).join('');
+    const currentId = state.run && state.run.assembly_run_id;
+    const rows = runs.map(run => {
+      const isCurrent = run.assembly_run_id === currentId;
+      // 只有"当前查看的这次运行"和"另一个已解出的运行"才能配对：拿两次无解去比
+      // 结构毫无意义，而让教师自己判断哪两个能配，比界面上瞎猜安全。
+      const canPair = !isCurrent && currentId
+        && (run.solutions || []).length > 0
+        && state.run && (state.run.solutions || []).length > 0;
+      const actions = [
+        isCurrent
+          ? '<span class="muted">当前查看</span>'
+          : A.button('查看', 'assembly-open', 'search',
+            `data-run="${escape(run.assembly_run_id)}" data-input="assembly-open"`, 'small'),
+        canPair
+          ? A.button('与本页运行配 A/B', 'assembly-pair', 'check',
+            `data-peer="${escape(run.assembly_run_id)}"`, 'small')
+          : ''
+      ].join(' ');
+      return `<tr data-run="${escape(run.assembly_run_id)}">
+        <td>${statusBadge(run)}</td>
+        <td>${escape(String(run.created_at || '').slice(0, 16).replace('T', ' '))}</td>
+        <td>${escape((run.solutions || []).length)}</td>
+        <td>${escape(run.candidate_manifest_hash || '').slice(0, 12)}…</td>
+        <td>${actions}</td>
+      </tr>`;
+    }).join('');
     return `<table class="ops-table assembly-runs"><thead><tr><th>状态</th><th>时间</th>
-      <th>方案数</th><th>候选哈希</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+      <th>方案数</th><th>候选哈希</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+      ${pairBlock(state)}`;
+  }
+
+  /** A/B 配对结果：成功与失败都要显示，且都必须带上"不代表统计等值"。 */
+  function pairBlock(state) {
+    const pair = state.pair;
+    if (!pair) return '';
+    if (pair.error) {
+      const issues = (pair.issues || []).map(issue => `<li data-code="${escape(issue.code)}">
+        ${escape(issue.message)}</li>`).join('');
+      return `<div class="assembly-pair is-rejected" role="alert">
+        <h5>这两次运行不能配成 A/B</h5>
+        <p>${escape(pair.error)}</p>
+        ${issues ? `<ul class="assembly-issues">${issues}</ul>` : ''}
+        <p class="muted small">配对要求：两卷结构一致，且除锚题外不共用题目、不共用同族题。
+          这里只说结构，不代表统计等值。</p></div>`;
+    }
+    return `<div class="assembly-pair" role="status">
+      <h5>已配成 A/B：${escape((pair.labels || []).join(' / '))}</h5>
+      <p>${escape(pair.note || '结构匹配的 A/B 卷；不代表统计等值')}</p>
+      <p class="muted small">${escape(pair.next_step || '')}</p></div>`;
   }
 
   function createdBlock(state) {
@@ -633,6 +670,35 @@
       state.created = draft;
       return '草稿卷已建好：还要过整卷校验与双人复核，才能提交审核。';
     }));
+  };
+
+  /* 与另一次运行配 A/B：判定在服务端（compare_structure 同一套规则），
+   * 这里只负责把"配不上"的原因显示清楚——绝不把拒绝画成一个绿色的成功。 */
+  A.actions['assembly-pair'] = function (button) {
+    const state = S();
+    const peer = button.dataset.peer;
+    if (!state.run || !peer) {
+      state.error = '先打开一次有方案的运行，再选另一条历史运行来配对';
+      A.render();
+      return Promise.resolve();
+    }
+    return run('pair', () => A.api.assemblyPair(state.run.assembly_run_id, peer, 0, 0, '')
+      .then(pair => {
+        state.pair = pair;
+        return `已配成 A/B：${(pair.labels || []).join(' / ')}（仍要分别送审与渲染）。`;
+      })
+      .catch(error => {
+        const detail = (error && error.detail) || {};
+        // 409 ab_pair_rejected 是"配不上"，不是系统故障：把它当成一种结果来展示。
+        if (detail.code && String(detail.code).startsWith('ab_')) {
+          state.pair = {
+            error: detail.message || '这两次运行不能配成 A/B',
+            issues: detail.issues || []
+          };
+          return null;
+        }
+        throw error;
+      }));
   };
 
   /* 对照两个方案：只取结构事实（分值分布、共用题）。界面上必须同时出现

@@ -641,6 +641,9 @@
     assemblyComparison: (runId, left, right, anchors) => request('GET',
       `/api/v1/assembly-runs/${encodeURIComponent(runId)}/comparison`
       + queryString({ left, right, anchors })),
+    assemblyPair: (runId, peerRunId, left, right, anchors) => request('GET',
+      `/api/v1/assembly-runs/${encodeURIComponent(runId)}/ab-pair`
+      + queryString({ peer_run_id: peerRunId, index: left, peer_index: right, anchors })),
     assemblySolutionPaper: (runId, index, key) => request('POST',
       `/api/v1/assembly-runs/${encodeURIComponent(runId)}/solutions/${index}/paper`,
       { headers: { 'Idempotency-Key': key } }),
