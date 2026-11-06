@@ -5,6 +5,14 @@
 #   server/app/assembly/solver.py 用它。放进主依赖会让"只想跑阶段 A 手工卷"的
 #   部署也背上它，并在没有对应轮子的平台上把整个服务卡在安装阶段。
 #
+# 为什么是 9.15 而不是 9.11：
+#   服务器是 Ubuntu 26.04，发行版自带 Python 3.14，而 **9.11.4210 只提供到
+#   cp312 的 wheel（没有 cp313/cp314）**——在 3.14 上装它只能从源码编译 CP-SAT
+#   （要 C++ 工具链与几十分钟）。9.15.6755 提供 cp314 的 manylinux 轮子，
+#   而本仓库只用 CP-SAT 的稳定 API（AddExactlyOne / AddAtMostOne / AddAbsEquality /
+#   AddForbiddenAssignments / NewIntVar / Minimize），两个版本行为一致。
+#   要在 3.12 上跑 9.11 也可以，但那样本文件与服务器环境会长期不一致，不如统一。
+#
 # 版本必须与 server/tests/test_assembly_candidate.py 的锁定断言一致：
 # 求解结论要能回放，跨版本重解只允许产生**新运行**，不能覆盖历史结果。
-ortools==9.11.4210
+ortools==9.15.6755

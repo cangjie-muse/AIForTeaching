@@ -178,7 +178,7 @@ def test_lock_file_pins_exact_solver_version() -> None:
     text = LOCK_FILE.read_text(encoding="utf-8")
     pins = [line.strip() for line in text.splitlines()
             if line.strip() and not line.strip().startswith("#")]
-    assert pins == ["ortools==9.11.4210"], pins
+    assert pins == ["ortools==9.15.6755"], pins
 
 
 def test_candidate_manifest_does_not_import_the_solver() -> None:
