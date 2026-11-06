@@ -213,13 +213,23 @@ def test_formal_blueprint_requires_offering_and_dual_review() -> None:
         blueprint_id=None, base_version_id=None))
 
 
-def test_constraint_assisted_assembly_is_rejected() -> None:
-    """阶段 A 明确不建 assembly_run；接受 constraint_assisted 会造出无法组卷的蓝图。"""
+def test_constraint_assisted_assembly_is_accepted_but_closed_set() -> None:
+    """阶段 B 落地后 constraint_assisted 必须能建；第三个取值仍然要拒。
+
+    这条原本断言"阶段 A 拒绝 constraint_assisted"（当时建了也没有 assembly_run
+    可用）。阶段 B 的 0034 与 AssemblyService 已经能落卷，所以闸门从"只许 manual"
+    变成"只许这两个取值"——不放宽成任意字符串。
+    """
     actor = uuid4()
     service, _ = service_for(actor)
-    expect(BlueprintValidationError, lambda: service.create_version(
+    created = service.create_version(
         actor_id=actor, content=content(assembly_mode="constraint_assisted"),
-        blueprint_id=None, base_version_id=None))
+        blueprint_id=None, base_version_id=None)
+    assert created.assembly_mode == "constraint_assisted", created.assembly_mode
+
+    # 闭集由契约类型（Literal）先挡住：第三个取值根本构造不出来，服务层那句判断
+    # 是第二道门（防有人将来把契约放宽了却没补服务层）。
+    expect(ValueError, lambda: content(assembly_mode="auto"))
 
 
 def test_total_score_must_equal_slot_sum() -> None:

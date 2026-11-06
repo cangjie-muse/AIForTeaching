@@ -192,6 +192,10 @@ class PaperVersionRow(PaperView):
     version_no: int = Field(ge=1)
     candidate_snapshot_id: UUID
     base_paper_version_id: UUID | None = None
+    # 组卷来源：手工卷两列都为空；约束组卷必须成对（0034 的 ck_paper_assembly_source）。
+    # 只靠数据库 CHECK 不够：服务层也要能回答"这份卷是不是求解器给的"。
+    assembly_run_id: UUID | None = None
+    selected_solution_index: int | None = None
     submitted_manifest_hash: str | None = None
     created_by: UUID
     created_at: datetime
@@ -478,7 +482,7 @@ _VERSION_COLUMNS = """id, paper_id, version_no, blueprint_version_id, candidate_
                       base_paper_version_id, course_id, offering_id, release_context_id,
                       paper_kind, total_score, duration_seconds, status, edit_seq,
                       manifest_hash, submitted_manifest_hash, review_manifest_hash,
-                      created_by, created_at"""
+                      created_by, created_at, assembly_run_id, selected_solution_index"""
 
 _SECTION_COLUMNS = """id, paper_version_id, code, title, instruction, sort_order,
                       section_score, display_config, content_hash"""
@@ -639,6 +643,8 @@ class _PostgresPaperUnitOfWork:
             sections=sections,
             created_by=record["created_by"],
             created_at=record["created_at"],
+            assembly_run_id=record.get("assembly_run_id"),
+            selected_solution_index=record.get("selected_solution_index"),
         )
 
     # -- 写 ---------------------------------------------------------------
@@ -655,11 +661,12 @@ class _PostgresPaperUnitOfWork:
                   course_id, offering_id, release_context_id, paper_kind,
                   total_score, duration_seconds, status, edit_seq, manifest_hash,
                   submitted_manifest_hash, review_manifest_hash, created_by)
-               VALUES (%s, %s, %s, %s, %s, %s, NULL, NULL,
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s,
                        %s, %s, %s, %s, %s, %s, %s, %s, %s, NULL, NULL, %s)""",
             (
                 row.id, row.paper_id, row.version_no, row.blueprint_version_id,
                 row.candidate_snapshot_id, row.base_paper_version_id,
+                row.assembly_run_id, row.selected_solution_index,
                 row.course_id, row.offering_id, row.release_context_id,
                 row.paper_kind or row.purpose, row.total_score, row.duration_seconds,
                 row.status, row.edit_seq, row.manifest_hash, row.created_by,
@@ -1242,10 +1249,27 @@ class PaperService:
         paper_id: UUID | None = None,
         base_paper_version_id: UUID | None = None,
         idempotency_key: str | None = None,
+        assembly_run_id: UUID | None = None,
+        selected_solution_index: int | None = None,
     ) -> PaperVersionRow:
-        """从蓝图 + 固定候选快照建立 draft；或把已批准卷克隆成新 paper 身份的 draft。"""
+        """从蓝图 + 固定候选快照建立 draft；或把已批准卷克隆成新 paper 身份的 draft。
+
+        `assembly_run_id / selected_solution_index` 是阶段 B 的组卷来源：两者要么
+        同时给（约束组卷），要么同时为空（手工卷）。只给一个是错的——那会让卷子
+        声称"来自某次运行"却说不出是第几个方案，回放就断了（0034 也这么约束）。
+        """
         self._require_ports()
         key = _clean_key(idempotency_key)
+        if (assembly_run_id is None) != (selected_solution_index is None):
+            raise PaperRuleError(
+                "invalid_assembly_source",
+                "组卷来源必须成对给出：assembly_run_id 与 selected_solution_index 要么都有、要么都空",
+            )
+        if assembly_run_id is not None and (blueprint_version_id is None or not selections):
+            raise PaperRuleError(
+                "invalid_assembly_source",
+                "约束组卷必须同时给出蓝图版本与选题（求解方案不能事后补）",
+            )
         if base_paper_version_id is not None:
             if blueprint_version_id is not None or candidate_snapshot_id is not None or selections:
                 raise PaperRuleError(
@@ -1265,12 +1289,15 @@ class PaperService:
             )
         version = self._load_blueprint(actor_id, actor_ref, blueprint_version_id)
         self._authorize_write(actor_id, actor_ref, version)
+        self._check_assembly_source(version, assembly_run_id, selected_solution_index)
         fingerprint = canonical_hash({
             "mode": "draft",
             "blueprint_version_id": blueprint_version_id,
             "candidate_snapshot_id": candidate_snapshot_id,
             "selections": tuple(selections),
             "paper_id": paper_id,
+            "assembly_run_id": assembly_run_id,
+            "selected_solution_index": selected_solution_index,
         })
         with self._unit_of_work() as uow:
             replay = self._replay(uow, CREATE_SCOPE, key, actor_id, fingerprint)
@@ -1281,6 +1308,8 @@ class PaperService:
                 actor_id=actor_id, version=version, snapshot=snapshot,
                 selections=tuple(selections), paper_id=paper_id,
                 actor_ref=actor_ref,
+                assembly_run_id=assembly_run_id,
+                selected_solution_index=selected_solution_index,
             )
             uow.lock_paper(row.paper_id)
             stored = uow.add(row)
@@ -1290,7 +1319,9 @@ class PaperService:
 
     def _build_draft(self, *, actor_id: UUID, version: BlueprintVersionRow,
                      snapshot: CandidateSnapshot, selections: tuple[SlotSelection, ...],
-                     paper_id: UUID | None, actor_ref: str | None) -> PaperVersionRow:
+                     paper_id: UUID | None, actor_ref: str | None,
+                     assembly_run_id: UUID | None = None,
+                     selected_solution_index: int | None = None) -> PaperVersionRow:
         blueprint = version.content
         accepted = {
             record.evidence.exercise_version_id: record
@@ -1409,6 +1440,8 @@ class PaperService:
             blueprint_version_id=view.blueprint_version_id,
             candidate_snapshot_id=snapshot.id,
             base_paper_version_id=None,
+            assembly_run_id=assembly_run_id,
+            selected_solution_index=selected_solution_index,
             course_id=view.course_id,
             offering_id=view.offering_id,
             release_context_id=view.release_context_id,
@@ -1649,6 +1682,34 @@ class PaperService:
         self._authorize(actor_id, actor_ref, version, PAPER_WRITE_ACTION)
         if not self.authorizer.is_human(actor_id):  # type: ignore[union-attr]
             raise PermissionError("纸卷只能由人类用户创建/编辑")
+
+    @staticmethod
+    def _check_assembly_source(version: BlueprintVersionRow, assembly_run_id: UUID | None,
+                               selected_solution_index: int | None) -> None:
+        """蓝图模式与建卷来源必须匹配，两个方向都拦。
+
+        为什么不能只靠"取值为空就当手工卷"：教师拿一份约束组卷蓝图手工挑题，
+        得到的卷子看起来完全正常，但它没有求解记录，而蓝图上写着"这份卷应当由
+        求解器组装"。反过来，手工蓝图配上 assembly_run_id 则是伪造来源。
+        """
+        mode = getattr(version, "assembly_mode", "manual")
+        if assembly_run_id is None and mode != "manual":
+            raise PaperRuleError(
+                "assembly_only_blueprint",
+                "这份蓝图是约束组卷（assembly_mode=constraint_assisted）："
+                "必须从一次求解运行选方案建卷，不能手工挑题",
+            )
+        if assembly_run_id is not None and mode == "manual":
+            raise PaperRuleError(
+                "manual_blueprint_with_assembly_source",
+                "手工蓝图不能声称来自求解运行：组卷来源只能由约束组卷蓝图产生",
+            )
+        if assembly_run_id is not None and selected_solution_index is not None:
+            if not 0 <= selected_solution_index <= 2:
+                raise PaperRuleError(
+                    "solution_index_out_of_range",
+                    f"方案序号必须在 0..2 之间，收到 {selected_solution_index}",
+                )
 
     def _snapshot_for(self, actor_id: UUID, version: BlueprintVersionRow,
                       snapshot_id: UUID) -> CandidateSnapshot:

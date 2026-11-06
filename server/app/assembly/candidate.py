@@ -137,7 +137,10 @@ class AssemblyCandidateService:
                 record, events, result.as_of, blueprint, requires_seconds, exclusions)
             if candidate is not None:
                 accepted.append(candidate)
-        return make_candidate_manifest(blueprint, accepted, exclusions)
+        return make_candidate_manifest(
+            blueprint, accepted, exclusions,
+            candidate_snapshot_id=result.candidate_snapshot_id,
+        )
 
     # -- 内部 ---------------------------------------------------------------
 

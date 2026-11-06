@@ -34,6 +34,7 @@ from .generation import router as generation_router
 from .courseware import router as courseware_router
 from .homework import router as homework_router
 from .imports import router as imports_router
+from .assembly_api import router as assembly_router
 from .paper_blueprints import router as paper_blueprints_router
 from .paper_renders import router as paper_renders_router
 from .paper_reviews import router as paper_reviews_router
@@ -120,6 +121,7 @@ app.include_router(paper_renders_router)
 app.include_router(release_contexts_router)
 app.include_router(assignment_router)
 app.include_router(workbench_router)
+app.include_router(assembly_router)
 
 
 _ROOT = Path(__file__).resolve().parents[2]

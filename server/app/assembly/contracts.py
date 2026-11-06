@@ -235,13 +235,20 @@ class ManifestExclusion:
 
 @dataclass(frozen=True)
 class CandidateManifest:
-    """一次运行的固定候选清单；`manifest_hash` 覆盖候选与排除，不含操作者。"""
+    """一次运行的固定候选清单；`manifest_hash` 覆盖候选与排除，不含操作者。
+
+    `candidate_snapshot_id` 是**来源**，不是清单内容：它指向阶段 A 的
+    `assessment.candidate_snapshot` 行（建卷时 `paper_version.candidate_snapshot_id`
+    是 NOT NULL，没有它就落不了卷）。它刻意**不参与** `manifest_hash`——同一批题
+    无论是哪一次阶段 A 快照固化的，候选清单都是同一份。
+    """
 
     blueprint_version_id: UUID
     release_context_id: UUID
     candidates: tuple[Candidate, ...]
     exclusions: tuple[ManifestExclusion, ...]
     manifest_hash: str
+    candidate_snapshot_id: UUID | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -385,6 +392,8 @@ def make_candidate_manifest(
     blueprint: BlueprintSnapshot,
     candidates: list[Candidate] | tuple[Candidate, ...],
     exclusions: list[ManifestExclusion] | tuple[ManifestExclusion, ...],
+    *,
+    candidate_snapshot_id: UUID | None = None,
 ) -> CandidateManifest:
     """按题目版本 id 排序后求哈希：输入顺序不同不该改变"同一份清单"的判断。"""
     ordered = tuple(sorted(candidates, key=lambda item: str(item.exercise_version_id)))
@@ -403,6 +412,7 @@ def make_candidate_manifest(
         candidates=ordered,
         exclusions=ordered_exclusions,
         manifest_hash=canonical_hash(body),
+        candidate_snapshot_id=candidate_snapshot_id,
     )
 
 
@@ -431,6 +441,110 @@ def optimality_gap_milli(objective: int, best_bound: int | None) -> int | None:
 def to_json_value(value: Any) -> Any:
     """落库前的 JSON 化（UUID/Decimal/Enum → 字符串），与哈希用的归一化同源。"""
     return normalize(value)
+
+
+def solution_hash_matches(manifest: SolutionManifest) -> bool:
+    """重算方案哈希并与记录值比较：这是"方案有没有被改过"的唯一判据。
+
+    只比"载荷里的 manifest_hash 字段"没有意义——篡改者当然会一起改它。真正要
+    证明的是：**从内容重新算出来的哈希**等于记录的哈希。改任何一道题、任何一个
+    分值，重算结果都会变。
+    """
+    body = {key: value for key, value in asdict(manifest).items() if key != "manifest_hash"}
+    return canonical_hash(body) == manifest.manifest_hash
+
+
+def solution_to_json(manifest: SolutionManifest) -> dict[str, Any]:
+    """方案 manifest → jsonb 载荷（字段显式列出，不做 `asdict` 的隐式扩散）。
+
+    显式列字段的代价是多写十几行，收益是：将来给 `SolutionManifest` 加字段时，
+    这里会"少一个键"而报错，而不是悄悄把新字段塞进历史运行的回放载荷里。
+    """
+    return {
+        "variant_label": manifest.variant_label,
+        "selections": [
+            {
+                "slot_id": str(item.slot_id),
+                "slot_code": item.slot_code,
+                "exercise_version_id": str(item.exercise_version_id),
+                "exercise_instance_id": (
+                    None if item.exercise_instance_id is None else str(item.exercise_instance_id)
+                ),
+                "stable_exercise_id": str(item.stable_exercise_id),
+                "exercise_family_id": str(item.exercise_family_id),
+                "source_release_id": str(item.source_release_id),
+                "decision_seq": item.decision_seq,
+                "score_hundredths": item.score_hundredths,
+                "estimated_seconds": item.estimated_seconds,
+                "difficulty": item.difficulty,
+                "dependency_hash": item.dependency_hash,
+                "content_hash": item.content_hash,
+            }
+            for item in manifest.selections
+        ],
+        "objective_terms": [
+            {"name": item.name, "raw_value": dict(item.raw_value),
+             "deviation": item.deviation, "penalty": item.penalty}
+            for item in manifest.objective_terms
+        ],
+        "objective_value": manifest.objective_value,
+        "best_bound": manifest.best_bound,
+        "optimality_gap_milli": manifest.optimality_gap_milli,
+        "solver_status": str(manifest.solver_status),
+        "optimal_proven": manifest.optimal_proven,
+        "structure_report": dict(manifest.structure_report),
+        "manifest_hash": manifest.manifest_hash,
+    }
+
+
+def solution_from_json(payload: dict[str, Any]) -> SolutionManifest:
+    """jsonb 载荷 → 方案 manifest；缺键直接 KeyError，不做"尽量还原"。
+
+    回放的可信度取决于"读回来的就是写进去的"。任何字段缺失都说明载荷不是本版本
+    写的（或被人改过），此时抛错比补默认值安全。
+    """
+    selections = tuple(
+        AssemblySelection(
+            slot_id=UUID(item["slot_id"]),
+            slot_code=item["slot_code"],
+            exercise_version_id=UUID(item["exercise_version_id"]),
+            exercise_instance_id=(
+                None if item["exercise_instance_id"] is None
+                else UUID(item["exercise_instance_id"])
+            ),
+            stable_exercise_id=UUID(item["stable_exercise_id"]),
+            exercise_family_id=UUID(item["exercise_family_id"]),
+            source_release_id=UUID(item["source_release_id"]),
+            decision_seq=int(item["decision_seq"]),
+            score_hundredths=int(item["score_hundredths"]),
+            estimated_seconds=item["estimated_seconds"],
+            difficulty=item["difficulty"],
+            dependency_hash=item["dependency_hash"],
+            content_hash=item["content_hash"],
+        )
+        for item in payload["selections"]
+    )
+    terms = tuple(
+        ObjectiveTerm(
+            name=item["name"],
+            raw_value=dict(item["raw_value"]),
+            deviation=int(item["deviation"]),
+            penalty=int(item["penalty"]),
+        )
+        for item in payload["objective_terms"]
+    )
+    return SolutionManifest(
+        variant_label=payload["variant_label"],
+        selections=selections,
+        objective_terms=terms,
+        objective_value=int(payload["objective_value"]),
+        best_bound=payload["best_bound"],
+        optimality_gap_milli=payload["optimality_gap_milli"],
+        solver_status=RunStatus(payload["solver_status"]),
+        optimal_proven=bool(payload["optimal_proven"]),
+        structure_report=dict(payload["structure_report"]),
+        manifest_hash=payload["manifest_hash"],
+    )
 
 
 __all__ = [
@@ -467,5 +581,8 @@ __all__ = [
     "optimality_gap_milli",
     "score_to_hundredths",
     "slot_identity",
+    "solution_from_json",
+    "solution_hash_matches",
+    "solution_to_json",
     "to_json_value",
 ]

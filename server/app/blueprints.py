@@ -585,9 +585,12 @@ class BlueprintService:
             Decimal("0"),
         )
         cls.validate_content(total, content.total_score)
-        if content.assembly_mode != "manual":
+        if content.assembly_mode not in ("manual", "constraint_assisted"):
+            # 阶段 A 曾经在这里只放行 manual（"约束组卷不在本阶段"）。阶段 B 落地后
+            # 约束组卷的蓝图必须能建，但仍然只允许这两个取值：第三个取值意味着
+            # 有人以为存在第三种组卷方式。
             raise BlueprintValidationError(
-                "阶段 A 只支持手工组卷（assembly_mode=manual）；约束组卷的 assembly_run 不在本阶段"
+                f"assembly_mode 只能是 manual 或 constraint_assisted，收到 {content.assembly_mode!r}"
             )
         if content.purpose == "formal" and (
             content.offering_id is None or content.review_policy != "formal_dual_review"
