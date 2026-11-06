@@ -54,6 +54,20 @@ class Heartbeat(threading.Thread):
 def describe(job: dict) -> str:
     if job["status"] == "succeeded":
         result = job.get("result") or {}
+        if job.get("kind") == "paper-assembly":
+            # 求解任务没有"知识点/道题"，按它的真实产物说人话：运行状态与方案数。
+            # 有方案但没证明最优时必须写出来——日志里少这句话，读的人就会以为
+            # "有 2 个方案"等于"2 个都验证过了"。
+            solutions = int(result.get("solutions") or 0)
+            if not solutions:
+                verdict = ""
+            elif result.get("optimal_proven"):
+                verdict = "（已证明最优）"
+            else:
+                verdict = "（未证明最优）"
+            return (f"成功：运行 {result.get('assembly_run_id')} "
+                    f"状态 {result.get('status')}，{solutions} 个方案{verdict}"
+                    f"；求解器 {result.get('solver')}")
         if job.get("kind") == "paper-render":
             # 渲染任务的产物是文件，不是知识点：报类型、大小与哈希前缀，
             # 让运维从日志就能看出「哪一类卷、出没出、是不是同一份」。

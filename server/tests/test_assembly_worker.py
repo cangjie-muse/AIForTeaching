@@ -282,16 +282,114 @@ def test_unknown_run_raises_run_not_found() -> None:
 
 
 def test_worker_payload_without_run_id_is_rejected() -> None:
-    from app.assembly_worker import AssemblyJobError
+    """缺 run_id 是载荷错误：job 记 failed，不抛异常，也不猜一个运行。"""
+    import app.assembly_worker as worker
 
+    fake = FakeDb()
+    original_db = worker.db
+    worker.db = fake
     try:
-        from app.assembly_worker import run_job
+        outcome = worker.run_job({"id": 80, "payload": {}})
+    finally:
+        worker.db = original_db
+    assert outcome["status"] == "failed"
+    assert "assembly_run_id" in outcome["error"]
+    assert fake.finished[0][1][0] == "failed", "载荷错误也要写回 job 状态"
 
-        run_job({"payload": {}})
-    except AssemblyJobError as error:
-        assert "assembly_run_id" in str(error)
-    else:
-        raise AssertionError("缺 assembly_run_id 必须报载荷错误，而不是猜一个运行")
+
+# ---------------------------------------------------------------------------
+# job 状态写回：不写回会让任务永远 running，被 stale 回收反复重排
+# ---------------------------------------------------------------------------
+
+class FakeDb:
+    """记录 worker 对 pipeline_job 的写入（真库由迁移断言覆盖）。"""
+
+    def __init__(self) -> None:
+        self.executed: list[tuple[str, tuple]] = []
+
+    def execute(self, sql, params=()):
+        self.executed.append((sql, params))
+        return None
+
+    @property
+    def finished(self):
+        return [item for item in self.executed if "finished_at" in item[0]]
+
+    @property
+    def progress(self):
+        return [item for item in self.executed if "progress" in item[0]
+                and "finished_at" not in item[0]]
+
+
+def test_job_is_finished_successfully_and_progress_written() -> None:
+    """worker 必须写回 pipeline_job：否则任务永远 running、被反复重排。"""
+    import app.assembly_worker as worker
+
+    fake = FakeDb()
+    original_db = worker.db
+    original_build = worker.build_service
+
+    service, _, run_id = build()
+    worker.db = fake
+    worker.build_service = lambda: service
+    try:
+        outcome = worker.run_job({"id": 77, "payload": {"assembly_run_id": str(run_id)}})
+    finally:
+        worker.db = original_db
+        worker.build_service = original_build
+
+    assert outcome["status"] == "succeeded", outcome
+    assert outcome["result"]["status"] == "optimal"
+    assert fake.finished, "必须写回 finished_at/status，否则任务永远 running"
+    sql, params = fake.finished[0]
+    assert params[0] == "succeeded"
+    assert params[1] == 100
+    assert fake.progress, "至少要有一次进度写入，前端才看得出在跑"
+
+
+def test_infeasible_run_still_marks_the_job_succeeded() -> None:
+    """求解器给出"无解"是正常结论：job 记成功，否则会被反复重试。"""
+    import app.assembly_worker as worker
+
+    class InfeasibleSolver(CountingSolver):
+        def solve(self, blueprint, manifest, config, peer=None):
+            from app.assembly.contracts import SolveResult
+
+            self.calls += 1
+            return SolveResult(status=RunStatus.INFEASIBLE, solution_sets=(),
+                               diagnostics={"reason": "hard_constraints"},
+                               best_bound=None, optimality_gap_milli=None)
+
+    fake = FakeDb()
+    original_db = worker.db
+    original_build = worker.build_service
+    service, _, run_id = build(solver=InfeasibleSolver())
+    worker.db = fake
+    worker.build_service = lambda: service
+    try:
+        outcome = worker.run_job({"id": 78, "payload": {"assembly_run_id": str(run_id)}})
+    finally:
+        worker.db = original_db
+        worker.build_service = original_build
+
+    assert outcome["status"] == "succeeded"
+    assert outcome["result"]["status"] == "infeasible"
+    assert outcome["result"]["solutions"] == 0
+
+
+def test_bad_payload_marks_the_job_failed() -> None:
+    import app.assembly_worker as worker
+
+    fake = FakeDb()
+    original_db = worker.db
+    worker.db = fake
+    try:
+        outcome = worker.run_job({"id": 79, "payload": {}})
+    finally:
+        worker.db = original_db
+    assert outcome["status"] == "failed"
+    assert "assembly_run_id" in outcome["error"]
+    assert fake.finished and fake.finished[0][1][0] == "failed"
 
 
 def run_tests() -> int:
