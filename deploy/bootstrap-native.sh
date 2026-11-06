@@ -86,10 +86,16 @@ sudo -u postgres psql -d "${DB_NAME}" -c "GRANT ALL ON SCHEMA public TO ${DB_USE
 ok "库 ${DB_NAME} 与扩展 vector 就绪"
 
 say "4. Python 虚拟环境与依赖"
+# 镜像：默认用清华源（国内直连快）。想用官方源就 PIP_MIRROR=https://pypi.org/simple 再跑。
+# 为什么不用 -q：ortools 轮子约 100 MB，`-q` 会把进度条全吃掉，看起来像卡死——
+# 第一次部署时我曾因此被 Ctrl+C 过。
+MIRROR="${PIP_MIRROR:-https://pypi.tuna.tsinghua.edu.cn/simple}"
 [ -x "$VENV_PY" ] || "$PYBIN" -m venv "$VENV"
-"$VENV_PY" -m pip install -q -U pip
-"$VENV_PY" -m pip install -q -r server/requirements.txt
-"$VENV_PY" -m pip install -q -r server/requirements-assembly.txt
+echo "  镜像：$MIRROR"
+"$VENV_PY" -m pip install -U pip -i "$MIRROR"
+"$VENV_PY" -m pip install -r server/requirements.txt -i "$MIRROR"
+echo "  ↓ 下面这步要下载 OR-Tools（约 100 MB），进度条会走，不要按 Ctrl+C"
+"$VENV_PY" -m pip install -r server/requirements-assembly.txt -i "$MIRROR"
 ok "依赖装好：$("$VENV_PY" -c "from importlib.metadata import version as v; print('ortools', v('ortools'))")"
 
 say "5. 迁移"
