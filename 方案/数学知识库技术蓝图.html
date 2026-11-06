@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>武大数学知识库 · 技术蓝图 v1.4.0</title>
+<style>
+:root{--bg:#f5f6f8;--panel:#fff;--ink:#17202a;--muted:#5d6875;--line:#dce1e7;--blue:#205493;--blue-bg:#edf4fb;--green:#1d6845;--green-bg:#eaf5ee;--amber:#805b0b;--amber-bg:#fff5d9;--red:#a1332b;--red-bg:#fff0ed;--code:#f0f2f5;--radius:10px}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.65 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}a{color:var(--blue)}button,select,input{font:inherit}button{cursor:pointer}.skip{position:absolute;left:-9999px}.skip:focus{left:12px;top:12px;background:#fff;padding:8px;z-index:20}.top{background:#111c2b;color:#fff;padding:22px 28px;display:flex;align-items:center;justify-content:space-between;gap:20px}.top h1{font-size:21px;margin:0 0 3px}.top p{margin:0;color:#c8d2df}.top-actions{display:flex;gap:8px;align-items:center}.version{font-size:12px;border:1px solid #536174;border-radius:20px;padding:4px 10px}.print{border:1px solid #536174;background:transparent;color:#fff;border-radius:6px;padding:6px 12px}.layout{display:grid;grid-template-columns:230px minmax(0,1fr);max-width:1640px;margin:auto}.side{background:#fff;border-right:1px solid var(--line);min-height:calc(100vh - 80px);padding:22px 14px;position:sticky;top:0;align-self:start}.side-label{font-size:11px;letter-spacing:.12em;color:var(--muted);padding:0 10px 10px}.side a{display:block;color:#364152;text-decoration:none;padding:9px 11px;border-radius:7px;margin:2px 0}.side a:hover{background:#f0f3f6}.side a[aria-current="page"]{background:var(--blue-bg);color:var(--blue);font-weight:650}.side-note{margin:22px 8px 0;padding-top:16px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}main{padding:28px;min-width:0}.page{display:none;max-width:1320px;margin:auto}.page.active{display:block}.page h2{font-size:27px;line-height:1.25;margin:0 0 8px;letter-spacing:-.02em}.lead{font-size:15px;color:var(--muted);margin:0 0 24px;max-width:900px}.grid{display:grid;gap:16px}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.g4{grid-template-columns:repeat(4,minmax(0,1fr))}.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:16px}.card h3{margin:0 0 10px;font-size:17px}.card h4{margin:18px 0 8px}.card p{margin:7px 0}.muted{color:var(--muted)}.small{font-size:12px}.badge{display:inline-block;border-radius:13px;padding:2px 8px;font-size:11px;font-weight:650;white-space:nowrap}.b-blue{background:var(--blue-bg);color:var(--blue)}.b-green{background:var(--green-bg);color:var(--green)}.b-amber{background:var(--amber-bg);color:var(--amber)}.b-red{background:var(--red-bg);color:var(--red)}.b-gray{background:#eef0f2;color:#4d5965}.notice{border-left:4px solid var(--blue);background:var(--blue-bg);padding:13px 15px;border-radius:6px;margin:0 0 16px}.notice.warn{border-color:#b17a13;background:var(--amber-bg)}.notice.stop{border-color:var(--red);background:var(--red-bg)}.decision{border-left:4px solid var(--green);background:var(--green-bg);padding:13px 15px;border-radius:6px;margin:14px 0}.flow{display:flex;align-items:stretch;gap:8px;overflow-x:auto;padding:8px 0}.flow .node{min-width:145px;flex:1;background:#fff;border:1px solid #bfc9d5;border-radius:8px;padding:12px;text-align:center}.flow .node strong{display:block;margin-bottom:4px}.arrow{align-self:center;color:#778391;font-size:20px}.layers{display:grid;grid-template-columns:1fr 34px 1fr 34px 1fr;gap:8px;align-items:center}.layer{border:1px solid var(--line);border-radius:8px;padding:15px;background:#fff}.layer h4{margin:0 0 8px}.layer ul{padding-left:18px;margin:6px 0}.example{background:#fbfcfd;border:1px solid var(--line);border-radius:8px;padding:16px}.math{font-family:"Cambria Math","Times New Roman",serif;font-size:16px}.code,pre{font:12px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace}pre{background:#101a28;color:#e5edf6;padding:16px;border-radius:8px;overflow:auto;white-space:pre-wrap;word-break:break-word}.inline-code{background:var(--code);border-radius:4px;padding:2px 5px;font:12px ui-monospace,Consolas,monospace}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:8px;background:#fff}table{width:100%;border-collapse:collapse;min-width:650px}caption{text-align:left;padding:12px 14px;font-weight:650;background:#f7f9fb;border-bottom:1px solid var(--line)}th,td{text-align:left;vertical-align:top;padding:10px 12px;border-bottom:1px solid #e8ebef}th{background:#f4f6f8;font-size:12px;color:#4d5965;position:sticky;top:0}tr:last-child td{border-bottom:0}td code{font:12px ui-monospace,Consolas,monospace;color:#1d4d80}.check{color:var(--green);font-weight:700}.cross{color:var(--red);font-weight:700}.schema-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.schema{border:1px solid var(--line);border-radius:8px;background:#fff;padding:13px}.schema strong{display:block;color:var(--blue);margin-bottom:4px}.schema span{font-size:12px;color:var(--muted)}.schema p{font-size:12px;margin:7px 0 0}.toolbar{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:14px}.field{display:grid;gap:5px}.field label{font-size:12px;font-weight:650;color:var(--muted)}select{min-width:340px;max-width:100%;padding:9px 10px;border:1px solid #b9c2cc;border-radius:6px;background:#fff;color:var(--ink)}.table-meta{margin:0 0 14px;color:var(--muted)}details{border:1px solid var(--line);border-radius:7px;background:#fff;padding:10px 13px;margin:8px 0}summary{cursor:pointer;font-weight:650}.reason{display:grid;grid-template-columns:150px 1fr;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}.reason:last-child{border:0}.reason strong{color:var(--blue)}.foot{color:var(--muted);font-size:12px;margin:28px 0 10px}.kpi{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.kpi span{border:1px solid var(--line);background:#fff;border-radius:6px;padding:6px 9px;font-size:12px}.source-list li{margin:6px 0}.nowrap{white-space:nowrap}.divider{height:1px;background:var(--line);margin:18px 0}.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:1100px){.g4{grid-template-columns:repeat(2,minmax(0,1fr))}.g3,.schema-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.layers{grid-template-columns:1fr}.layers .arrow{transform:rotate(90deg);justify-self:center}.layout{grid-template-columns:190px minmax(0,1fr)}main{padding:22px}}
+@media(max-width:760px){.top{padding:17px 18px;align-items:flex-start}.top-actions{flex-direction:column;align-items:flex-end}.layout{display:block}.side{position:static;min-height:0;border-right:0;border-bottom:1px solid var(--line);padding:10px;display:flex;overflow:auto;gap:4px}.side-label,.side-note{display:none}.side a{white-space:nowrap}.g2,.g3,.g4,.schema-grid{grid-template-columns:1fr}main{padding:18px 13px}.page h2{font-size:23px}.reason{grid-template-columns:1fr;gap:2px}select{min-width:min(100%,340px);width:100%}.field{width:100%}.flow .node{min-width:155px}.top h1{font-size:18px}}
+@media print{body{background:#fff}.top{background:#fff;color:#000;border-bottom:2px solid #000;padding:10px 0}.top p{color:#444}.side,.print,.toolbar{display:none!important}.layout{display:block}main{padding:12px 0}.page{display:block!important;max-width:none;page-break-before:always}.page:first-child{page-break-before:auto}.card{break-inside:avoid}.version{color:#000;border-color:#777}th{position:static}.page h2{margin-top:15px}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a>
+<header class="top">
+<div><h1>武汉大学数学学院 · 数学知识库技术蓝图</h1><p>切片、向量化、数据库、表结构与准确率决策 · 设计基线 v1.4.0 · 联网检索 2026-11-04</p></div>
+<div class="top-actions"><span class="version">多语言 / 可审核 / 可回放</span><button class="print" type="button" onclick="window.print()">打印全部</button></div>
+</header>
+<div class="layout">
+<nav class="side" aria-label="技术蓝图页面">
+<div class="side-label">ENGINEERING BLUEPRINT</div>
+<a href="#overview" aria-current="page">01 总览与决策</a>
+<a href="#chunking">02 知识切片方式</a>
+<a href="#vector">03 向量化选择</a>
+<a href="#database">04 数据库结构</a>
+<a href="#tables">05 核心表结构</a>
+<a href="#benchmarks">06 平台借鉴</a>
+<a href="#accuracy">07 准确率门禁</a>
+<a href="#models">08 模型与密钥</a>
+<a href="#math">09 数学语义与评测</a>
+<a href="#security">10 安全、合规与落地</a>
+<div class="side-note">原则：先证据，后生成。<br>所有指标均为上线目标，<br>不是当前系统成绩。</div>
+</nav>
+<main id="main">
+<section id="overview" class="page active" aria-labelledby="overview-title">
+<h2 id="overview-title">总览：准确率来自一条证据链</h2>
+<p class="lead">不是选择一个大模型就能得到可靠数学教学。准确率由原文解析、语义切片、人工审核、混合检索、确定性计算、教师评测和版本治理共同决定。</p>
+<div class="notice"><strong>设计边界：</strong>带「官方」或「论文」链接的内容是外部资料支持的事实；未带链接的尺寸、阈值和门禁均为本项目初始设计值，不是行业结论。厂商未公开的切片参数和模型不作为事实引用，厂商榜单也不代替校内教材实测。本页面是技术设计基线，不代表这些指标已经在现有系统实测通过。</div>
+<div class="card"><h3>端到端处理链</h3><div class="flow">
+<div class="node"><strong>PDF / 扫描件</strong><span class="small muted">原文、版次、语言、许可</span></div><span class="arrow">→</span>
+<div class="node"><strong>原文块</strong><span class="small muted">页码、坐标、OCR、阅读顺序</span></div><span class="arrow">→</span>
+<div class="node"><strong>语义切片</strong><span class="small muted">定义、定理、证明、习题</span></div><span class="arrow">→</span>
+<div class="node"><strong>人工审核</strong><span class="small muted">内容、翻译、关系、答案</span></div><span class="arrow">→</span>
+<div class="node"><strong>向量与混合检索</strong><span class="small muted">多语言、重排、引用</span></div><span class="arrow">→</span>
+<div class="node"><strong>答案与产物</strong><span class="small muted">证据、计算、Lean、评测</span></div>
+</div></div>
+<div class="grid g2">
+<div class="card"><h3>为什么不用固定字数切片</h3><p>固定 500 字可能把定理前提和结论分开，也可能把两个不同定义混在一块。对数学文本，<strong>语义完整性优先于块大小</strong>。</p><div class="decision"><strong>决策：</strong>按定义、定理、证明、例题和习题的结构切片，token 尺寸只作检索优化。</div></div>
+<div class="card"><h3>为什么不只依赖大模型</h3><p>语言流畅不能证明数学正确，引用真实教材也可能漏掉关键条件。向量相似度只负责找候选，不负责宣布答案正确。</p><div class="decision"><strong>决策：</strong>精确匹配 + 稀疏 + dense + 图谱 + 重排，最终由证据检查、CAS 和教师盲评把关。</div></div>
+</div>
+<div class="card"><h3>6 项不可破坏的技术不变量</h3><div class="table-wrap"><table><thead><tr><th>不变量</th><th>具体要求</th><th>防止的问题</th></tr></thead><tbody>
+<tr><td>原文不可变</td><td>保留 PDF、页码、坐标、OCR 和来源哈希</td><td>无法核查模型是否改错教材</td></tr>
+<tr><td>内容与索引分离</td><td>可审核 content_slice 与可重建 retrieval chunk 分离</td><td>换模型导致全量重新审核</td></tr>
+<tr><td>公开前人工审核</td><td>每个知识点、边、题、答案、切片都有有效人工决策</td><td>AI 草稿进入师生知识库</td></tr>
+<tr><td>Release 固定上下文</td><td>历史作业固定学院、课程、班级 release 和 index_version</td><td>新发布或换模型改变历史作业</td></tr>
+<tr><td>人工与 Lean 独立</td><td>Lean 验证形式命题，人工审核题意、教学和发布</td><td>把机器编译通过误当原题正确</td></tr>
+<tr><td>按语言独立验收</td><td>不以中英文高分掩盖小语种 OCR 或检索失败</td><td>多语言教材未经评估批量入库</td></tr>
+</tbody></table></div></div>
+</section>
+
+<section id="chunking" class="page" aria-labelledby="chunk-title">
+<h2 id="chunk-title">知识切片：结构优先，语义完整</h2>
+<p class="lead">三层结构把「教材证据」「可审核知识」和「可重建检索投影」分开。任何一层变化都不会误伤另外两层。</p>
+<div class="card"><h3>三层数据形态</h3><div class="layers">
+<div class="layer"><span class="badge b-blue">第 1 层 · 原始证据</span><h4>source_block</h4><ul><li>原页、PDF 页与书页</li><li>坐标、阅读顺序、块类型</li><li>原始文字、LaTeX、图像</li><li>OCR 引擎、语言、置信度</li></ul><p class="small muted">不可变，不直接做向量。</p></div><span class="arrow">→</span>
+<div class="layer"><span class="badge b-green">第 2 层 · 正式内容</span><h4>content_slice_version</h4><ul><li>定义、定理、证明、例题</li><li>display_text 与规范正文</li><li>原文/翻译及父子关系</li><li>内容哈希与人工审核</li></ul><p class="small muted">由 release 固定，公开前必审。</p></div><span class="arrow">→</span>
+<div class="layer"><span class="badge b-amber">第 3 层 · 检索投影</span><h4>retrieval.chunk</h4><ul><li>检索模板与父级路径</li><li>retrieval_text 与 token 数</li><li>Embedding、HNSW 与索引版本</li><li>输入切片哈希与构建血缘</li></ul><p class="small muted">可重建，不进入内容审核哈希。</p></div>
+</div></div>
+<div class="grid g2">
+<div class="card"><h3>实例：一个定理如何切</h3><div class="example"><span class="badge b-blue">父切片 · 定理</span><p class="math"><strong>定理 2.4.3</strong>　设 f 在闭区间 [a,b] 上连续，则 f 在 [a,b] 上一致连续。</p><p><strong>必须一起保存：</strong>闭区间条件、连续性假设、一致连续结论、定理编号、所属章节、书页/PDF 页。</p><div class="divider"></div><span class="badge b-green">子切片 · 证明步骤</span><p>证明按逻辑步骤拆分，但每一步都带「定理 2.4.3」和必要上下文。检索命中证明步骤后，可以扩展回完整定理。</p></div></div>
+<div class="card"><h3>错误做法与修正</h3><div class="reason"><strong>按页切</strong><span>定理跨页时条件丢失 → 按原文块跨页重组。</span></div><div class="reason"><strong>按 500 字切</strong><span>定义和例题混杂 → 先识别数学块类型。</span></div><div class="reason"><strong>让 LLM 改写原文</strong><span>可能改变量词与条件 → 原文和检索投影分离。</span></div><div class="reason"><strong>公式只存图片</strong><span>无法检索和校验 → LaTeX + AST + 原图 + 相邻说明。</span></div><div class="reason"><strong>整本翻译后覆盖</strong><span>无法追溯误译 → 原文与审核翻译独立版本关联。</span></div></div>
+</div>
+<div class="card"><h3>不同内容的初始切片参数</h3><div class="table-wrap"><table><thead><tr><th>内容类型</th><th>切片规则</th><th>初始检索尺寸</th><th>不能破坏的条件</th></tr></thead><tbody>
+<tr><td>定义</td><td>编号、名称、条件、符号、脚注组成原子单元</td><td>100—800 tokens</td><td>不能切断定义条件</td></tr>
+<tr><td>定理/引理</td><td>前提、结论、编号和引用完整保留</td><td>200—1,200 tokens</td><td>超长可保留，不能强切</td></tr>
+<tr><td>长证明</td><td>按逻辑步骤切，关联父定理</td><td>400—900 tokens</td><td>每步保留定理上下文</td></tr>
+<tr><td>普通叙述</td><td>按段落与句子边界</td><td>300—800 tokens</td><td>重叠 10%—15%，不重叠定义</td></tr>
+<tr><td>习题</td><td>题干、子问、答案、解析、rubric 分对象</td><td>按题与子问结构</td><td>公共条件不得丢失</td></tr>
+<tr><td>图/表</td><td>图题、表头、注释和正文引用一起保存</td><td>长表按行组重复表头</td><td>不能只存无上下文图片</td></tr>
+</tbody></table></div><p class="small muted">Token 按当前 Embedding tokenizer 计算，不用中文字符数估算。尺寸是初始调参值，不是数学完整性的上限。</p></div>
+<div class="card"><h3>多语言教材的额外规则</h3><div class="grid g3"><div><span class="badge b-blue">按块识别语言</span><p>保存 BCP 47、文字系统、方向和 OCR 版本，支持混排、RTL、竖排与公式块。</p></div><div><span class="badge b-green">原文与翻译独立</span><p>翻译绑定原文版本；新原文不能搭配旧翻译发布，历史 release 保留固定配对。</p></div><div><span class="badge b-amber">按语言分别验收</span><p>新语种先做 30—50 页和 50—100 问测试，不能由模型宣传推导平台效果。</p></div></div></div>
+</section>
+
+<section id="vector" class="page" aria-labelledby="vector-title">
+<h2 id="vector-title">向量化：多语言基线 + 可替换索引</h2>
+<p class="lead">向量只负责语义候选召回。选择模型时同时看数学证据、跨语言能力、隐私、硬件、成本和可回放性，而不是只看通用榜单。</p>
+<div class="card"><h3>模型选择</h3><div class="table-wrap"><table><thead><tr><th>角色</th><th>选择</th><th>公开能力</th><th>为什么这样决定</th></tr></thead><tbody>
+<tr><td><span class="badge b-green">Embedding 基线</span></td><td><code>BAAI/BGE-M3</code><br><a class="small" href="https://huggingface.co/BAAI/bge-m3">官方模型卡</a> · <a class="small" href="https://arxiv.org/abs/2402.03216">论文</a></td><td>厂商模型卡列出 100+ 种语言、1,024 维 dense、最长 8,192 tokens，并支持 sparse 与 multi-vector</td><td>覆盖多语言教材，能校内处理受限语料；首期只启用 dense，稀疏与多向量能力不因「模型支持」就自动上线</td></tr>
+<tr><td><span class="badge b-blue">Embedding 对照</span></td><td><code>Qwen3-Embedding-0.6B</code><br><a class="small" href="https://huggingface.co/Qwen/Qwen3-Embedding-0.6B">官方模型卡</a> · <a class="small" href="https://arxiv.org/abs/2506.05176">论文</a></td><td>1,024 维、32K 上下文、指令感知，支持 MRL 降维；对照实验仍固定 1,024 维</td><td>query 使用经审核的任务指令，document 不加指令；与基线同维度做真实对照，显著更好才切换</td></tr>
+<tr><td><span class="badge b-green">Rerank 基线</span></td><td><code>BAAI/bge-reranker-v2-m3</code><br><a class="small" href="https://huggingface.co/BAAI/bge-reranker-v2-m3">官方模型卡</a></td><td>多语言 cross-encoder 重排；模型 revision、输入模板和精度均须固定</td><td>用于对候选重新排序，不把向量分数或重排分数当作数学正确性证明</td></tr>
+<tr><td><span class="badge b-blue">OCR 基线候选</span></td><td><code>Docling + PaddleOCR-VL-1.6</code><br><a class="small" href="https://docling-project.github.io/docling/">Docling 官方</a> · <a class="small" href="https://www.paddleocr.ai/latest/en/version3.x/algorithm/PaddleOCR-VL/PaddleOCR-VL-1.6.html">PaddleOCR 官方</a></td><td>Docling 提供文档转换与公式等处理能力；PaddleOCR-VL-1.6 于 2026-05-28 发布，官方报告 OmniDocBench v1.6 总分 96.33%</td><td>1.6 只是待测候选，96.33% 不是本校公式或 OCR 准确率；锁定布局模型、VLM、后处理和容器 digest 后，才能与 MinerU / Mathpix 等同集对照</td></tr>
+</tbody></table></div></div>
+<div class="card"><h3>单次向量计算</h3><div class="flow">
+<div class="node"><strong>已审核切片</strong><span class="small muted">display_text / normalized_content</span></div><span class="arrow">→</span>
+<div class="node"><strong>检索投影</strong><span class="small muted">模板版本 + 父级路径</span></div><span class="arrow">→</span>
+<div class="node"><strong>动态批处理</strong><span class="small muted">模型 revision + tokenizer</span></div><span class="arrow">→</span>
+<div class="node"><strong>L2 归一化</strong><span class="small muted">数据库保存 FP32</span></div><span class="arrow">→</span>
+<div class="node"><strong>独立索引</strong><span class="small muted">HNSW cosine + 构建清单</span></div>
+</div><pre>document_embedding = embed(model_revision, retrieval_text,
+                           role="document", normalize=True)
+query_embedding = embed(model_revision, query, role="query",
+                        instruction=query_instruction_version, normalize=True)
+
+index build: HNSW(vector_cosine_ops), m = 16, ef_construction = 128
+query transaction: hnsw.ef_search = 100, iterative_scan = strict_order</pre><p class="small muted">模型 revision、tokenizer、query/document 指令、运行精度和归一化全部写入不可变配置。同名模型不同 revision 不混用。<code>ef_search</code> 是查询期参数，不是 HNSW 构建参数；<code>strict_order</code> 也不等于精确最近邻。pgvector 对近似索引的普通过滤发生在索引扫描之后，权限/Release 过滤可能造成候选不足；0.8.0+ 可用 iterative scan，但仍须实测召回、扫描上限与延迟（<a href="https://github.com/pgvector/pgvector#iterative-index-scans">pgvector 官方说明</a>）。</p></div>
+<div class="grid g2">
+<div class="card"><h3>混合检索，而非向量单路</h3><div class="reason"><strong>① 权限固定</strong><span>先固定 release_context、数据许可和可见范围；数据库强制过滤，LLM 不参与授权决定。</span></div><div class="reason"><strong>② 多路召回</strong><span>初始值：概念/别名 20 + 稀疏 60 + dense 60 + 图谱扩展 ≤20。</span></div><div class="reason"><strong>③ 合并重排</strong><span>初始值：RRF k=60，前 30 进入 multilingual reranker；k 值来自常用起点而非普遍最优（<a href="https://doi.org/10.1145/1571941.1572114">Cormack 等，2009</a>）。</span></div><div class="reason"><strong>④ 完整证据</strong><span>从前 20 候选选 5—8 个证据，初始上下文 ≤8,000 tokens；子块命中后扩展已审核父块。</span></div><div class="reason"><strong>⑤ 答案检查</strong><span>检查关键条件、引用支持、数学正确性和过度拒答。</span></div></div>
+<div class="card"><h3>模型替换的硬门槛</h3><ul><li>问题级 Hit@5 绝对提升 ≥3 个百分点，多证据题另报 evidence Recall@5；</li><li>同一隐藏问题集 paired bootstrap 95% CI 下界 &gt;0；</li><li>每个关键语种召回下降 ≤2 个百分点且仍过门禁；</li><li>检索 P95 ≤ 基线 1.2 倍且满足 SLO；</li><li>月度 Embedding + rerank 成本 ≤ 基线 1.2 倍且未超预算；</li><li>创建新 index_version 与 retrieval_config_version，历史 release_context 不漂移。</li></ul><div class="decision"><strong>为什么：</strong>避免因为一次演示、单一榜单或新模型热度，重建全部向量并改变历史检索结果。</div></div>
+</div>
+<div class="notice warn"><strong>回放缺口已补齐：</strong>索引相同不代表检索相同。<code>release_context</code> 必须同时固定 <code>retrieval_config_version</code>，内容包括 query/document 指令、稀疏分词器、reranker revision、RRF k、各路候选数、图谱扩展规则、HNSW 查询参数、父块扩展和上下文预算。修改任一项都创建新配置，不在原配置上 UPDATE。</div>
+<div class="card"><h3>服务器配置如何影响选择</h3><div class="table-wrap"><table><thead><tr><th>向量数量（1,024 维 FP32）</th><th>仅向量原始大小</th><th>初期检索工作集估算</th><th>注意</th></tr></thead><tbody>
+<tr><td>100,000</td><td>约 0.41 GB</td><td>约 0.8—1.6 GB</td><td>仍需加数据库与业务余量</td></tr>
+<tr><td>1,000,000</td><td>约 4.10 GB</td><td>约 8—16 GB</td><td>HNSW 构建与 WAL 需单独测</td></tr>
+<tr><td>10,000,000</td><td>约 41.0 GB</td><td>约 82—164 GB</td><td>应评估独立检索节点</td></tr>
+</tbody></table></div><p class="small muted">工作集按原始向量的 2—4 倍作初期容量估算，不是性能承诺；实际包括 HNSW 图、堆、分区、WAL 和缓存，以目标服务器实测为准。</p></div>
+<div class="card"><h3>R720 仅作开发测试机（非生产）</h3><div class="table-wrap"><table><thead><tr><th>实测条件</th><th>部署决定</th><th>原因</th></tr></thead><tbody>
+<tr><td>8 核 8 线程，E5-2609 2.40 GHz，双 NUMA</td><td>重任务总并发 1；Embedding 从单节点 4 线程起步，与 2/8 线程对照</td><td>避免跨 NUMA 与多任务争抢导致吞吐反而下降</td></tr>
+<tr><td>支持 AVX，不支持 AVX2</td><td>使用通用 x86_64/AVX 容器构建，不安装未验证的 AVX2/AVX512 二进制</td><td>避免模型运行库不兼容或被迫使用不受支持优化</td></tr>
+<tr><td>约 32 GB 内存</td><td>核心服务常驻，OCR/Embedding/HNSW/Lean 同时只跑一类重任务，保留内存预警</td><td>防止长期 swap 和数据库被重任务挤占</td></tr>
+<tr><td>无可用 GPU 信息</td><td>云端对话/视觉 + 本地 BGE-M3；OCR 后台排队，PaddleOCR-VL 只做小样本可行性验证，不承诺 R720 吞吐</td><td>保证数学生成能力，同时让向量与知识库留在校内；生产 OCR worker 另行按实测配置推理资源</td></tr>
+<tr><td>1.8 TB 逻辑盘，约 1.7 TB 可用</td><td>容量足够，HNSW 构建避开高峰；异机/异地备份，进一步测磁盘类型和 IO</td><td>容量不等于性能或冗余，单盘备份不是容灾</td></tr>
+<tr><td>Ubuntu 26.04</td><td>宿主只负责基础服务，Python/OCR/Lean/ML 依赖全部容器锁定</td><td>避免新宿主系统与旧 CPU、原生库产生兼容差异</td></tr>
+</tbody></table></div><div class="decision"><strong>定位：</strong>R720 只做开发、CI 和小规模算法验证，不为它升级 GPU/内存，也不把其性能用于生产并发承诺。</div></div>
+<div class="card"><h3>校内生产：按职责隔离资源</h3><div class="flow">
+<div class="node"><strong>接入层</strong><span class="small muted">校内负载均衡/HTTPS + 无状态 API 副本</span></div><span class="arrow">→</span>
+<div class="node"><strong>数据层</strong><span class="small muted">PostgreSQL/pgvector + S3 存储 + 独立 Redis</span></div><span class="arrow">→</span>
+<div class="node"><strong>计算层</strong><span class="small muted">OCR、Embedding、Rerank、渲染分队列 worker</span></div><span class="arrow">→</span>
+<div class="node"><strong>隔离执行</strong><span class="small muted">Lean/代码使用校内 VM/沙箱资源池</span></div>
+</div><div class="grid g2"><div><ul><li>开发、staging、生产使用不同数据库与密钥；</li><li>相同容器镜像与 expand/contract 迁移；</li><li>数据库优先 SSD/NVMe，跨设备备份与恢复演练；</li><li>集中监控、模型预算和任务队列告警。</li></ul></div><div><ul><li>对话/视觉默认使用批准的云端模型；</li><li>本地模型只在校内模型节点运行；</li><li>首期使用 VM + Compose 或学院容器平台，不强制 Kubernetes；</li><li>生产并发由校内 staging 压测决定。</li></ul></div></div></div>
+</section>
+
+<section id="database" class="page" aria-labelledby="db-title">
+<h2 id="db-title">数据库：14 个领域，一个业务真源</h2>
+<p class="lead">PostgreSQL 负责业务、图谱、审核、版本和向量。不同 schema 是清晰的领域边界，不是允许跨模块任意 SQL。对象存储保存文件，Redis 不保存业务真相。</p>
+<div class="card"><h3>领域划分</h3><div class="schema-grid">
+<div class="schema"><strong>iam</strong><span>身份、角色、范围授权</span><p>user_account、role_assignment、reviewer_qualification</p></div>
+<div class="schema"><strong>course</strong><span>学院目录、课程、教学班</span><p>course、course_offering、chapter、knowledge_node</p></div>
+<div class="schema"><strong>source</strong><span>文件、教材、原文块、语义切片</span><p>asset、document_version、source_block、content_slice</p></div>
+<div class="schema"><strong>knowledge</strong><span>概念、别名、语义图谱</span><p>concept、concept_version、relation、relation_evidence</p></div>
+<div class="schema"><strong>math</strong><span>数学约定、语义、符号与证明</span><p>convention、statement、symbol_binding、proof_step</p></div>
+<div class="schema"><strong>exercise</strong><span>题干、答案、解析、量规、数学判题、Lean</span><p>exercise、answer、answer_test、template、formal_verification</p></div>
+<div class="schema"><strong>retrieval</strong><span>检索投影、向量、索引与运行配置</span><p>chunk、chunk_embedding、index_version、retrieval_config_version、query_log</p></div>
+<div class="schema"><strong>assessment</strong><span>作业、提交、正式成绩</span><p>assignment、submission、grade</p></div>
+<div class="schema"><strong>learning</strong><span>作答、掌握度、复习</span><p>exercise_attempt、mastery_snapshot、review_item</p></div>
+<div class="schema"><strong>agent</strong><span>对话、策略、工具运行、产物</span><p>conversation、agent_run、tool_call、artifact_version</p></div>
+<div class="schema"><strong>governance</strong><span>建设、审核、发布、依赖、撤回、审计</span><p>review_decision、release、release_context、revocation_event、quality_finding</p></div>
+<div class="schema"><strong>evaluation</strong><span>金标准、标注、仲裁与指标</span><p>dataset、eval_case、eval_run、metric_result</p></div>
+<div class="schema"><strong>integration</strong><span>模型、外部系统、迁移映射</span><p>model_endpoint、embedding_model_version、legacy_ref</p></div>
+<div class="schema"><strong>ops</strong><span>可靠异步执行</span><p>job、job_attempt、outbox_event、idempotency_key</p></div>
+</div></div>
+<div class="card"><h3>核心关系</h3><div class="flow">
+<div class="node"><strong>教材与切片</strong><span class="small muted">document → block → content_slice</span></div><span class="arrow">→</span>
+<div class="node"><strong>知识与习题</strong><span class="small muted">concept ↔ node ↔ exercise</span></div><span class="arrow">→</span>
+<div class="node"><strong>人工治理</strong><span class="small muted">review → release → release_item</span></div><span class="arrow">→</span>
+<div class="node"><strong>检索与运行</strong><span class="small muted">release_context → index → agent_run</span></div>
+</div></div>
+<div class="grid g2">
+<div class="card"><h3>稳定身份 + 不可变版本</h3><pre>concept            # 永远不变的 UUID
+  └─ concept_version
+       ├─ version_no
+       ├─ content_hash
+       ├─ change_set_id
+       └─ base_version_id</pre><p>修改产生新版本；已发布版本禁止 UPDATE/DELETE。JSON 重排、公式规范化和依赖对象都有明确哈希规则。</p></div>
+<div class="card"><h3>三类 Release，不共享可见性</h3><div class="reason"><strong>学院目录</strong><span>独立 knowledge_approval，服务学院公共概念。</span></div><div class="reason"><strong>课程公共知识</strong><span>固定 base_college_release，不随学院最新版漂移。</span></div><div class="reason"><strong>班级教学材料</strong><span>固定 base_course_release，任课教师 teaching_confirmation。</span></div><p class="small muted">历史作业与 agent_run 保存完整 release_context，包括三 release 和三 index_version。</p></div>
+</div>
+<div class="card"><h3>发布与索引的数据库一致性约束</h3><div class="grid g2"><div><ul><li><code>index_version</code> 对 <code>(id, release_id)</code> 建唯一约束；Release 的 active index 用复合外键保证属于本 Release，循环外键采用可延迟约束。</li><li><code>release_context</code> 的每个 release/index 对同样用复合外键校验，禁止把课程 Release 配上学院索引。</li><li>context 另固定 <code>retrieval_config_version_id</code>；索引维度、模型 revision 与配置必须兼容。</li></ul></div><div><ul><li>历史 context 只负责可回放，不代表永久可用；内容纠错、许可撤回或安全事件可紧急禁用。</li><li>新问答、打开、下载和签名 URL 续期必须检查当前撤回集合；特权审计回放只读并明确标记「历史版本」。</li><li>撤回事件单独持久化，不能改写历史 Release 或审核记录来「消除痕迹」。</li></ul></div></div></div>
+<div class="card"><h3>为什么现在不引入 Neo4j 和独立向量数据库</h3><div class="grid g2"><div><span class="badge b-green">当前收益</span><ul><li>发布、权限、审核和向量能在同一事务/快照协作；</li><li>递归 CTE 可处理先修链和图关系；</li><li>减少两套数据同步和一致性问题；</li><li>便于备份、回放和迁移。</li></ul></div><div><span class="badge b-blue">未来拆分条件</span><ul><li>真实图查询经基准证明 PostgreSQL 不足；</li><li>向量召回、P95 或构建时间持续不达标；</li><li>独立扩缩容收益高于运维成本；</li><li>新引擎仍是投影，不成为第二业务真源。</li></ul></div></div></div>
+</section>
+
+<section id="tables" class="page" aria-labelledby="tables-title">
+<h2 id="tables-title">核心表结构：字段、约束与职责</h2>
+<p class="lead">选择一张表查看逻辑字段。这里展示设计契约，正式实施以 Alembic migration 为准；所有时间使用 TIMESTAMPTZ，内部 ID 使用 UUIDv7。</p>
+<div class="toolbar"><div class="field"><label for="tableSelect">选择数据表</label><select id="tableSelect"></select></div></div>
+<div class="card"><h3 id="tableName">表</h3><p id="tableDescription" class="table-meta"></p><div class="table-wrap"><table><thead><tr><th>字段</th><th>类型</th><th>约束</th><th>含义</th></tr></thead><tbody id="fieldRows"></tbody></table></div></div>
+<div class="card"><h3>表设计的关键规则</h3><div class="grid g2"><div><ul><li><code>*_version</code> 保存内容版本，稳定实体只保存身份；</li><li>已发布版本禁止更新和硬删除；</li><li>核心关系使用严格外键和唯一约束；</li><li>跨类型 release/审核引用用受控注册表与触发器校验；</li><li>JSONB 只用于有 JSON Schema 的 AST、量规和快照。</li></ul></div><div><ul><li>检索模板不进入内容审核哈希；</li><li>答案与解析不再存于 exercise_version；</li><li>审核资格、依赖决策和 release_context 均可追溯；</li><li>向量按 index_version 和模型 revision 隔离；</li><li>公开读取只走已发布视图与受控函数。</li></ul></div></div></div>
+</section>
+
+<section id="benchmarks" class="page" aria-labelledby="benchmark-title">
+<h2 id="benchmark-title">国内外平台：借鉴什么，不照搬什么</h2>
+<p class="lead">产品公开资料能证明产品能力，不能证明其内部切片参数或模型选择。我们吸收方法，再用数学教材金标准独立验证。</p>
+<div class="card"><h3>文档解析与 RAG 工程</h3><div class="table-wrap"><table><thead><tr><th>平台/项目</th><th>可验证做法</th><th>本平台吸收</th><th>不照搬</th></tr></thead><tbody>
+<tr><td>RAGFlow</td><td>DeepDoc OCR、版面分析、表格结构、层级切片</td><td>复杂 PDF 先理解版面，保留标题路径</td><td>不以通用解析结果替代数学人工审核</td></tr>
+<tr><td>Dify</td><td>父子检索：搜索子块、返回父块</td><td>小子块负责命中，父定理负责完整上下文</td><td>不因平台支持某切法就不做数学评测</td></tr>
+<tr><td>LlamaIndex</td><td>Sentence Window、层级节点、Auto Merging</td><td>精确命中后扩展相邻证明和父级内容</td><td>不照搬固定窗口尺寸</td></tr>
+<tr><td>Unstructured</td><td>by_title 保持节边界，表格独立</td><td>标题边界、表格独立和长表行组</td><td>数学定理不能只按标题切</td></tr>
+<tr><td>Docling / MinerU / PaddleOCR</td><td>版面、公式、表格、多语言 OCR</td><td>本地可复现的解析与 OCR 基线</td><td>不把支持语种数量当识别准确率</td></tr>
+<tr><td>Mathpix</td><td>STEM PDF/图片 OCR，LaTeX/MathML 输出</td><td>作为数学 OCR 对照和结构化输出参考</td><td>云端版权、成本与受限教材不能直接默认可用</td></tr>
+</tbody></table></div></div>
+<div class="card"><h3>教学与学习平台</h3><div class="table-wrap"><table><thead><tr><th>平台</th><th>可借鉴能力</th><th>本平台落地</th><th>边界</th></tr></thead><tbody>
+<tr><td>NotebookLM</td><td>限定来源、引用、学习指南、闪卡和测验</td><td>只根据选定教材回答，引用回原页</td><td>AI 生成内容不自动成为正式知识</td></tr>
+<tr><td>Khanmigo / Study Mode</td><td>分步提示、苏格拉底引导、教师工具</td><td>定义直答，解题引导，教师策略控制</td><td>不一律追问，不在自由学习中故意不给答案</td></tr>
+<tr><td>ALEKS / MATHia</td><td>知识空间、技能诊断、周期再测、教师干预</td><td>先修图、学习准备度、保持情况再测</td><td>不虚构精确掌握度，不照搬厂商算法与效果</td></tr>
+<tr><td>Gemini Guided Learning</td><td>分步解释、小测、交互图</td><td>可点击数学图和诊断后短讲解</td><td>不把功能展示当数学正确性证据</td></tr>
+<tr><td>SchoolAI / MagicSchool</td><td>教师配置学生空间、工具与边界</td><td>班级 policy_version 和工具白名单</td><td>私人对话默认不向教师开放</td></tr>
+<tr><td>雨课堂 / 超星 / 学堂在线</td><td>课程建设、作业、PPT、课堂与学情闭环</td><td>保留教学闭环，以智能体串起任务</td><td>不恢复复杂功能菜单</td></tr>
+<tr><td>ClawsGO Science</td><td>工作区、代码、图形、运行和产物追溯</td><td>Artifact、沙箱、可复现绘图与文件</td><td>围绕数学教学，而非照搬科研项目管理</td></tr>
+</tbody></table></div></div>
+<div class="notice"><strong>最终取舍：</strong>通用 RAG 平台提供「怎么切、怎么找」的方法；教育平台提供「怎么教、怎么管」的方法；数学平台必须额外解决公式、量词、证明、符号计算、Lean 和教师责任，不能直接拼装现成平台后上线。</div>
+</section>
+
+<section id="accuracy" class="page" aria-labelledby="accuracy-title">
+<h2 id="accuracy-title">准确率：每道门禁单独验收</h2>
+<p class="lead">以下是 go/no-go 目标，不是当前成绩。不能用平均准确率掩盖定理条件错误、小语种失败、证明误判或越权发布。</p>
+<div class="notice"><strong>统计判定：</strong>主课程至少 400 问（开发 ≥200、隐藏 ≥200），关键分层/语言隐藏样本 ≥100。正向指标以 95% CI 下界过线，错误率以 CI 上界过线；点估计达标但区间不达标不能上线。零观察到错误仍需报告置信上界。样本量必须按目标、预期点估计和 CI 方法反推；隐藏样本不足时结论是「未判定」，不是「通过」。</div>
+<div class="notice"><strong>先冻结指标协议：</strong>每个指标先写清分子、分母、问题级/证据级单位、分层规则、缺失与超时处理、置信区间方法和代码版本。比例指标用适合二项数据的方法，模型对照在同一案例上配对；不得看结果后更换口径或删除失败案例。</div>
+<div class="notice stop"><strong>正式发布底线：</strong>知识点、图谱节点与边、习题、答案、解析、量规和公开切片的人工审核有效率为 100%。抽样评测用于估算质量，不替代全项人工审核。</div>
+<div class="card"><h3>OCR 与多语言入库</h3><div class="table-wrap"><table><thead><tr><th>指标</th><th>上线门槛</th><th>测量方式</th></tr></thead><tbody>
+<tr><td>文字 OCR 字符准确率</td><td>≥98%（CER ≤2%）</td><td>真实教材、按语言/文字系统分层，使用人工前原始 OCR；分别报告替换、删除、插入</td></tr>
+<tr><td>公式完全匹配率</td><td>≥95%</td><td>以人工转写为 gold，按冻结规则规范化空白后比较完整 LaTeX/AST；数学等价但转写不同不算 OCR 完全匹配</td></tr>
+<tr><td>原文块阅读顺序准确率</td><td>≥98%</td><td>多栏、跨页、脚注、RTL 和竖排专项集；冻结算法与分母，页面平均分不能掩盖整页失败</td></tr>
+<tr><td>页码与坐标覆盖</td><td>100%</td><td>公开内容必须能回到原页和原文块；无坐标对象须有明确例外类型并转人工</td></tr>
+</tbody></table></div></div>
+<div class="card"><h3>检索与数学回答</h3><div class="table-wrap"><table><thead><tr><th>指标</th><th>目标</th><th>为什么需要</th></tr></thead><tbody>
+<tr><td>单语问题级 Hit@5</td><td>≥90%</td><td>前 5 个去重证据是否至少包含一条必需证据；多证据题另报 evidence Recall@5</td></tr>
+<tr><td>跨语言问题级 Hit@5</td><td>≥85%</td><td>验证中文问题能否找到其他语言教材证据；按语言对分别报告</td></tr>
+<tr><td>引用支持精确率 / 引用完整率</td><td>≥95% / ≥95%</td><td>逐论断检查引用是否支持，以及需要引用的论断是否都有证据，避免只测「引文是真的」</td></tr>
+<tr><td>定义/定理/事实最终正确率</td><td>≥95%</td><td>由教师盲评最终数学答案</td></tr>
+<tr><td>关键条件完整率</td><td>≥95%</td><td>防止漏掉定义域、闭区间、量词和假设</td></tr>
+<tr><td>证明逻辑有效率</td><td>≥90%</td><td>单独评估循环论证、偷用结论等问题</td></tr>
+<tr><td>无依据正确拒答 / 可答题过度拒答</td><td>≥95% / ≤5%</td><td>防止编造，也防止用一律拒答刷指标</td></tr>
+<tr><td>虚构页码、定理号、来源</td><td>0</td><td>属于不可接受的证据造假</td></tr>
+</tbody></table></div></div>
+<div class="grid g2">
+<div class="card"><h3>作业与 CAS</h3><div class="reason"><strong>转写</strong><span>可接受图像质量内，题目级完全正确率 ≥95%；无法辨认必须转人工。</span></div><div class="reason"><strong>客观评分</strong><span>可解析客观/表达式题，与教师最终分完全一致率 ≥98%。</span></div><div class="reason"><strong>证明反馈</strong><span>严重错误漏判 ≤5%；有效替代解法被错误否定 ≤10%。</span></div><div class="reason"><strong>SymPy</strong><span>必须带变量域、假设和分支；不能确定时转人工。</span></div></div>
+<div class="card"><h3>Lean 与人工审核</h3><div class="reason"><strong>人工责任</strong><span>Lean 通过不能替代人工审核，也不能自动证明自然语言题意一致。</span></div><div class="reason"><strong>验证对象</strong><span>绑定 exercise、answer、solution、rubric、形式命题和依赖决策。</span></div><div class="reason"><strong>公理审计</strong><span>对目标声明执行 <code>#print axioms</code>，因为该命令会列出直接及传递依赖的公理；拒绝 <code>sorryAx</code>、未批准自定义公理和策略外 native-eval 信任（<a href="https://lean-lang.org/doc/reference/latest/ValidatingProofs/">Lean 官方证明审计</a>）。</span></div><div class="reason"><strong>可信证据</strong><span>干净离线重建；Lean 无 DB 凭据，沙箱外 wrapper 固定 stdout/stderr、退出码、公理清单、工具链和依赖哈希，再生成签名 attestation。</span></div></div>
+</div>
+<div class="card"><h3>为什么这样组合才能提高可靠性</h3><div class="flow">
+<div class="node"><strong>人工审核</strong><span class="small muted">保证正式知识责任与题意</span></div><span class="arrow">＋</span>
+<div class="node"><strong>混合检索</strong><span class="small muted">提高正确证据进入候选的概率</span></div><span class="arrow">＋</span>
+<div class="node"><strong>CAS / Lean</strong><span class="small muted">验证适合机器检查的数学对象</span></div><span class="arrow">＋</span>
+<div class="node"><strong>教师盲评</strong><span class="small muted">测量最终数学答案而非模型自评</span></div>
+</div><p class="muted">任一环节都不能宣称解决全部准确率问题。系统必须保留拒答、转人工、复核、撤回和回滚路径。</p></div>
+<div class="card"><h3>主要一手资料与论文（检索日期：2026-11-04）</h3><ul class="source-list">
+<li><strong>模型：</strong><a href="https://huggingface.co/BAAI/bge-m3">BAAI/BGE-M3 模型卡</a> · <a href="https://qwenlm.github.io/zh/blog/qwen3-embedding/">Qwen3 Embedding</a> · <a href="https://bge-model.com/bge/bge_reranker_v2.html">BGE Reranker</a></li>
+<li><strong>文档解析：</strong><a href="https://docling-project.github.io/docling/">Docling</a> · <a href="https://www.paddleocr.ai/latest/en/version3.x/algorithm/PaddleOCR-VL/PaddleOCR-VL-1.6.html">PaddleOCR-VL-1.6</a> · <a href="https://mathpix.com/ocr">Mathpix OCR</a> · <a href="https://arxiv.org/abs/2412.07626">OmniDocBench 论文</a></li>
+<li><strong>切片与检索：</strong><a href="https://ragflow.io/docs/dataset_configuration">RAGFlow</a> · <a href="https://dify.ai/blog/introducing-parent-child-retrieval-for-enhanced-knowledge">Dify 父子检索</a> · <a href="https://docs.unstructured.io/open-source/core-functionality/chunking">Unstructured Chunking</a> · <a href="https://github.com/pgvector/pgvector#iterative-index-scans">pgvector 过滤与迭代扫描</a> · <a href="https://doi.org/10.1145/1571941.1572114">RRF 原论文</a></li>
+<li><strong>数学判题与形式化：</strong><a href="https://docs.stack-assessment.org/en/Authoring/Answer_Tests/">STACK Answer Tests</a> · <a href="https://docs.stack-assessment.org/en/Authoring/Deploying/">STACK Deployed Variants</a> · <a href="https://lean-lang.org/doc/reference/latest/ValidatingProofs/">Lean 证明审计</a> · <a href="https://www.w3.org/TR/mathml4/">W3C MathML 4</a></li>
+<li><strong>教学平台：</strong><a href="https://blog.google/technology/google-labs/notebooklm-student-features/">NotebookLM</a> · <a href="https://www.aleks.com/k12">ALEKS</a> · <a href="https://www.carnegielearning.com/solutions/math/mathia">MATHia</a> · <a href="https://guides.gradescope.com/hc/en-us/articles/24838908062093-AI-assisted-grading-and-answer-groups">Gradescope 答案分组</a></li>
+</ul><p class="small muted">说明：本次通过联网搜索核验官方页面与论文索引；直连全文抓取受环境限制，未逐页下载全文。外部资料只支持其明确披露的能力，不支持本校准确率、性能或合规结论。</p></div>
+</section>
+<section id="models" class="page" aria-labelledby="models-title">
+<h2 id="models-title">模型与密钥：管理员配置，用户自由选用</h2>
+<p class="lead">管理员决定哪些模型可用、能处理什么数据、花多少钱；学生和教师只需选择任务想要的生成模型，永远不接触 API Key。</p>
+<div class="grid g2">
+<div class="card"><span class="badge b-red">仅管理员</span><h3 style="margin-top:10px">模型供应商与密钥配置</h3><div class="example">
+<div class="field"><label>供应商 / 协议</label><div class="inline-code">OpenAI Compatible / 校内推理服务</div></div><br>
+<div class="field"><label>Base URL</label><div class="inline-code">由管理员填写，经 allowlist 与 SSRF 校验</div></div><br>
+<div class="field"><label>API Key</label><div class="inline-code">••••••••••••••••　保存后不可回读</div></div><br>
+<div class="field"><label>模型能力</label><div class="inline-code">Chat / Vision / Embedding / Rerank / OCR</div></div><br>
+<div class="field"><label>可见范围与额度</label><div class="inline-code">角色、课程、数据级别、token、并发、费用</div></div>
+</div><p class="small muted">连接测试由后端执行。密钥只保存到服务端密钥存储，数据库仅存 secret_ref。</p></div>
+<div class="card"><span class="badge b-green">学生 / 教师</span><h3 style="margin-top:10px">输入框旁的模型选择器</h3><div class="example">
+<p><strong>当前模型</strong></p><div class="inline-code">自动（推荐）　⌄</div><div class="divider"></div>
+<p>自动（推荐）<br><span class="muted small">按任务、数据政策和预算选择</span></p>
+<p>推理模型 A　<span class="badge b-blue">云端</span><br><span class="muted small">适合证明与复杂分析</span></p>
+<p>快速模型 B　<span class="badge b-blue">云端</span><br><span class="muted small">适合定义、摘要与日常问答</span></p>
+<p>校内模型 C　<span class="badge b-green">校内</span><br><span class="muted small">适合受限资料与本地任务</span></p>
+</div><p class="small muted">名称仅为界面示意，实际目录由管理员上架。切换只影响后续 agent_run，不改变历史回答。</p></div>
+</div>
+<div class="notice"><strong>「随意切换」的安全边界：</strong>用户可以自由选择管理员已上架且与任务兼容的生成模型，但不能自定义 Base URL、填写自己的 Key、调用下架模型或绕过受限数据策略。后端每次运行都重新校验，不能只靠前端禁用选项。</div>
+<div class="card"><h3>权限分工</h3><div class="table-wrap"><table><thead><tr><th>动作</th><th>管理员</th><th>学生 / 教师</th><th>服务端强制约束</th></tr></thead><tbody>
+<tr><td>配置供应商、Base URL、API Key</td><td class="check">允许</td><td class="cross">禁止</td><td>管理员权限 + 地址安全校验 + 密钥写后不可读</td></tr>
+<tr><td>模型上下架、数据级别、额度与默认路由</td><td class="check">允许</td><td class="cross">禁止</td><td>审计、预算与角色/课程范围</td></tr>
+<tr><td>选择 Chat / Vision 生成模型</td><td class="check">允许</td><td class="check">自由选用已授权目录</td><td>能力、教学策略、数据分类与额度重新判定</td></tr>
+<tr><td>选择 Embedding / Rerank / OCR 模型</td><td class="check">经评测后配置</td><td class="cross">不开放</td><td>必须保持索引与证据一致性</td></tr>
+<tr><td>读取密钥或供应商凭据</td><td class="cross">保存后也不可回读</td><td class="cross">禁止</td><td>密钥不出服务端密钥存储，日志与 API 脱敏</td></tr>
+<tr><td>修改历史回答所用模型</td><td class="cross">禁止</td><td class="cross">禁止</td><td>agent_run 固定模型 revision 与 release_context</td></tr>
+</tbody></table></div></div>
+<div class="card"><h3>一次调用的信任链</h3><div class="flow">
+<div class="node"><strong>用户选择模型</strong><span class="small muted">endpoint_id / 自动路由</span></div><span class="arrow">→</span>
+<div class="node"><strong>后端重新鉴权</strong><span class="small muted">任务、课程、数据、预算</span></div><span class="arrow">→</span>
+<div class="node"><strong>构造 Context Envelope</strong><span class="small muted">最小消息与出校分类</span></div><span class="arrow">→</span>
+<div class="node"><strong>服务端读取密钥</strong><span class="small muted">secret_ref，不下发浏览器</span></div><span class="arrow">→</span>
+<div class="node"><strong>模型调用与审计</strong><span class="small muted">revision、token、费用、延迟</span></div>
+</div></div>
+<div class="grid g2">
+<div class="card"><h3>核心表</h3><ul><li><code>model_provider</code>：供应商与协议；</li><li><code>model_endpoint</code>：模型修订、能力、价格与状态；</li><li><code>model_secret_ref</code>密钥引用，不含原文；</li><li><code>model_access_policy</code>可见范围、数据与额度；</li><li><code>user_model_preference</code>用户选择，不含凭据；</li><li><code>model_call</code>脱敏调用与成本记录。</li></ul></div>
+<div class="card"><h3>必须通过的负向测试</h3><ul><li>普通用户读取 API、日志、SSE 和导出，均无密钥；</li><li>篡改 endpoint_id 不能调用未授权模型；</li><li>受限教材即使用户手选云端模型也被硬阻断；</li><li>下架模型后新任务与排队任务重新校验；</li><li>用户切换生成模型不会改变 Embedding 索引；</li><li>超额、超并发和不兼容能力均被服务端拒绝。</li></ul></div>
+</div>
+</section>
+<section id="math" class="page" aria-labelledby="math-title">
+<h2 id="math-title">数学语义与评测：比文本知识库再多一层</h2>
+<p class="lead">数学准确率不能只靠文本相似度。平台需要知道教材约定、命题条件、量词、变量定义域、证明依赖和答案测试，并把评测集本身作为受治理的数据资产。</p>
+<div class="notice"><strong>渐进式原则：</strong>不要求把整本教材形式化。首期只对试点章节建立 structured 语义；原文仍是教材证据，AST 是可审核的派生语义，Lean 是更高级但独立的验证层。</div>
+<div class="card"><h3>数学语义五层结构</h3><div class="flow">
+<div class="node"><strong>教材约定</strong><span class="small muted">ℕ 是否含 0、log 底数、术语定义</span></div><span class="arrow">→</span>
+<div class="node"><strong>数学命题</strong><span class="small muted">假设、结论、量词、定义域</span></div><span class="arrow">→</span>
+<div class="node"><strong>符号绑定</strong><span class="small muted">自由/约束变量、作用域、类型</span></div><span class="arrow">→</span>
+<div class="node"><strong>证明步骤</strong><span class="small muted">论断、理由、步骤依赖</span></div><span class="arrow">→</span>
+<div class="node"><strong>CAS / Lean</strong><span class="small muted">适合机器检查的验证</span></div>
+</div></div>
+<div class="grid g2">
+<div class="card"><h3>实例：不能只存 LaTeX</h3><div class="example"><p class="math">「对任意 ε &gt; 0，存在 δ &gt; 0……」</p><pre>{
+  statement_kind: "definition",
+  formula_ast: ["forall", "ε>0", ["exists", "δ>0",
+    ["implies", ["and", "x,y∈I", "|x-y|<δ"],
+                "|f(x)-f(y)|<ε"]]],
+  convention: "course-real-analysis-v3",
+  semantic_level: "structured"
+}</pre><p>同样的符号在不同教材或章节可能有不同含义。symbol_binding 保存变量类型、自由/约束关系和来源位置，防止只做字符串拼接。</p><p class="small muted">显示层保存 LaTeX 与 Presentation MathML，必要时增加 <code>intent</code> 以改善语音/盲文消歧；语义层可选 Content MathML 或 OpenMath。MathML 4 明确区分 Presentation 与 Content，并定义 <code>intent</code> / <code>arg</code>（<a href="https://www.w3.org/TR/mathml4/">W3C MathML 4</a>）。显示标记不能替代受审核 AST。</p></div></div>
+<div class="card"><h3>教材约定不是错误</h3><div class="reason"><strong>自然数</strong><span>有的教材包含 0，有的从 1 开始。</span></div><div class="reason"><strong>递增</strong><span>有的表示严格递增，有的表示非递减。</span></div><div class="reason"><strong>对数</strong><span>log 的默认底数需要课程或教材上下文。</span></div><div class="reason"><strong>处理方式</strong><span>课程 release 固定 convention_version；真正冲突才进入审核，不由模型自动统一。</span></div></div>
+</div>
+<div class="card"><h3>借鉴 STACK：数学判题分两步 <a class="small" href="https://docs.stack-assessment.org/en/Authoring/Answer_Tests/">官方 Answer Tests</a></h3><div class="flow">
+<div class="node"><strong>输入校验</strong><span class="small muted">语法、类型、缺失括号、非法输入</span></div><span class="arrow">→</span>
+<div class="node"><strong>数学性质测试</strong><span class="small muted">代数等价、定义域、矩阵、容差</span></div><span class="arrow">→</span>
+<div class="node"><strong>确定性反馈</strong><span class="small muted">answer_test + 变量假设 + CAS 版本</span></div><span class="arrow">→</span>
+<div class="node"><strong>教师责任</strong><span class="small muted">正式成绩、复核、申诉和改分审计</span></div>
+</div><p class="small muted">STACK 的答案测试可返回 true / false / fail，并携带错误、反馈与备注；本平台必须把 <code>fail</code> 当作「无法判定」转人工，不能折算为学生答错。STACK 还建议预生成、测试并部署随机变体，且在每个部署变体上运行全部题目测试（<a href="https://docs.stack-assessment.org/en/Authoring/Deploying/">官方部署说明</a>）。</p><div class="notice warn"><strong>参数化题目：</strong>模板审核与确定性测试不替代实例治理。每个具体 seed/参数实例仍需通过全部测试、渲染检查及匹配的人工决策，才能进入班级或公共 Release；失败实例不得靠重抽 seed 静默消失，须记录原因。</div></div>
+<div class="grid g2">
+<div class="card"><h3>多解法、反例与交互数学</h3><ul><li><strong>多解法：</strong>solution_version 保存不同方法，不只给一条模型答案。</li><li><strong>反例实验室：</strong>必须验证满足全部前提且否定结论，不能只生成看似合理的例子。</li><li><strong>交互数学：</strong>公式、参数、代码、图形和数据联动，借鉴 GeoGebra 的探索方式。</li><li><strong>证明复核：</strong>优先定位第一处可疑步骤，不以整段相似度给证明判分。</li></ul></div>
+<div class="card"><h3>答案分组复核</h3><p>借鉴 Gradescope：AI 可建议答案分组，教师查看建议组后用 rubric 和评论评分；其公开说明中的 AI 建议组面向固定模板作业的选择、数学填空和文本填空等题型，并非开放证明自动判分（<a href="https://guides.gradescope.com/hc/en-us/articles/24838908062093-AI-assisted-grading-and-answer-groups">官方指南</a>）。本平台让学生可申诉，所有改分保留审计。</p><div class="decision"><strong>不做：</strong>让 AI 一次性阅读整份作业后直接批量发布成绩。</div><p class="small muted">分组是减少重复工作，不是取消教师判断；开放证明仍需要逐步复核。</p></div>
+</div>
+<div class="card"><h3>评测数据层：持续准确性的数据库</h3><div class="flow">
+<div class="node"><strong>dataset_version</strong><span class="small muted">开发/隐藏集、语言、冻结哈希</span></div><span class="arrow">→</span>
+<div class="node"><strong>eval_case</strong><span class="small muted">问题、金答案、证据、约定、对抗类型</span></div><span class="arrow">→</span>
+<div class="node"><strong>教师标注与仲裁</strong><span class="small muted">资格、分歧、最终标签</span></div><span class="arrow">→</span>
+<div class="node"><strong>eval_run</strong><span class="small muted">模型、索引、Release、Prompt</span></div><span class="arrow">→</span>
+<div class="node"><strong>metric_result</strong><span class="small muted">分子、分母、指标、置信区间</span></div>
+</div><p>隐藏集不能进入训练、Prompt 示例或检索语料。模型可以辅助归因，但数学正确性、证明逻辑和引用支持仍以教师盲评与确定性检查为准。</p></div>
+<div class="card"><h3>MathAnswer：每个论断都有强制来源</h3><div class="table-wrap"><table><thead><tr><th>论断类型</th><th>必须绑定的证据</th><th>不能冒充</th></tr></thead><tbody>
+<tr><td>source_quote</td><td>content_slice_version + source_span + evidence_bundle_version，且 role=source_original</td><td>AI 解释或教师讲解</td></tr>
+<tr><td>reviewed_translation</td><td>翻译切片 + translation_of + source_span + evidence_bundle；原文与翻译均有效</td><td>未审核 AI 翻译或教材原文</td></tr>
+<tr><td>teacher_guideline</td><td>policy_version 或审核后的教师指导版本</td><td>教材原话</td></tr>
+<tr><td>model_inference</td><td>agent_run + parent_claim_ids</td><td>已审核事实或 Lean 证明</td></tr>
+<tr><td>computation</td><td>tool_call + input_hash + engine_version</td><td>无条件数学真值</td></tr>
+<tr><td>formal_verification</td><td>formal_verification + attestation_hash</td><td>自然语言题意或人工审核</td></tr>
+</tbody></table></div><p class="small muted">打开和回放 Artifact 时重新校验证据、审核、许可与 Release Context。</p></div>
+<div class="notice warn"><strong>评价期不能绕过：</strong>Artifact 的打开、渲染、下载和签名 URL 续期同样经过教学策略判定。考前创建求解器、考中打开，或打开包含 answer_test/解答的产物，都必须被识别并限制。</div>
+<div class="card"><h3>智能体工作流与 GraphRAG 边界</h3><div class="grid g2"><div><span class="badge b-green">持久化工作流</span><p>借鉴 LangGraph 的 checkpoint、interrupt 和恢复：长任务可暂停、审批和继续。教材解析、发布、批改以确定性工作流为主，模型只在必要节点工作。</p></div><div><span class="badge b-amber">GraphRAG 只做探索</span><p>自动实体关系和社区摘要仅用于建设/审核候选发现或私人 AI 草稿，不进入公共检索证据；定义、证明、评分和正式引用必须回到已审核原文和图边。</p></div></div></div>
+<div class="card"><h3>本轮新增的平台借鉴</h3><div class="table-wrap"><table><thead><tr><th>平台/标准</th><th>吸收能力</th><th>本平台的数据/架构落点</th></tr></thead><tbody>
+<tr><td>STACK / WeBWorK</td><td>CAS 答案测试、输入校验、可复现题目</td><td>answer_test_version、template、instance、变量假设</td></tr>
+<tr><td>OpenMath / Content MathML</td><td>数学对象语义而非只有显示</td><td>statement AST、符号绑定、可选语义交换</td></tr>
+<tr><td>Gradescope</td><td>答案分组、量规与申诉</td><td>人工确认分组、复核与改分审计</td></tr>
+<tr><td>Wolfram|Alpha / GeoGebra</td><td>多方法步骤与交互探索</td><td>多 solution、反例实验室、InteractiveMath</td></tr>
+<tr><td>MathGPT / 讯飞数学</td><td>识图、步骤批改、错因标签与针对性练习</td><td>步骤证据、可审核错因、掌握度与学习路径</td></tr>
+<tr><td>LangGraph</td><td>持久化、暂停、审批与恢复</td><td>agent_run checkpoint、工具确认、可恢复工作流</td></tr>
+<tr><td>Microsoft GraphRAG</td><td>实体关系与社区级探索</td><td>仅作候选导航，不替代已审核数学证据</td></tr>
+</tbody></table></div></div>
+</section>
+<section id="security" class="page" aria-labelledby="security-title">
+<h2 id="security-title">安全、合规与落地：质量门禁之外还有上线门禁</h2>
+<p class="lead">教材、扫描件、检索片段和模型输出都按不可信输入处理。权限由数据库与服务端执行，模型只能提出候选内容或工具请求，不能扩大自己的数据、工具和发布权限。</p>
+<div class="notice stop"><strong>最高优先级：</strong>检索文本中的「忽略之前指令」「上传教材」「调用工具」等语句都只是资料内容，不得改变 system policy、数据范围、工具白名单或审核状态。即使答案数学正确，越权检索、密钥泄露或未经许可出校也必须判为整次运行失败。</div>
+<div class="card"><h3>威胁到控制的映射</h3><div class="table-wrap"><table><thead><tr><th>威胁</th><th>强制控制</th><th>必须通过的负向测试</th></tr></thead><tbody>
+<tr><td>直接 / 间接 Prompt Injection</td><td>原文与指令分通道；检索内容包裹为 data；工具调用由确定性策略再次鉴权</td><td>在教材脚注、公式、图片 OCR 和网页中植入指令，不能触发外传、改分、发布或忽略引用</td></tr>
+<tr><td>向量库越权与跨 Release 泄漏</td><td>每个 chunk 带范围与许可元数据；RLS / 安全视图 + 查询过滤 + 返回前复核；模型不得执行授权</td><td>学生篡改 release_id、endpoint_id、过滤参数或 embedding，均不能读到其他班级、隐藏评测或撤回教材</td></tr>
+<tr><td>工具与 Artifact 滥用</td><td>最小权限、短时凭据、沙箱默认禁网；打开、渲染、下载和续期都重新判定</td><td>考前创建、考中打开，过期链接续期，以及模型自发调用评分/邮件/存储工具均被阻断</td></tr>
+<tr><td>模型与依赖供应链漂移</td><td>模型 revision、tokenizer、OCR 布局/后处理、容器 digest、许可证和 SBOM 全部锁定</td><td>同名模型或 latest 镜像发生变化时不能静默替换；未批准依赖不得进入正式 runner</td></tr>
+<tr><td>日志与评测集泄漏</td><td>query/model_call 默认脱敏和限期保存；隐藏集独立授权、独立日志通道和导出审计</td><td>普通日志、错误追踪、SSE、分析平台与云端 Prompt 中均无隐藏题、密钥或非必要学生信息</td></tr>
+<tr><td>错误内容或许可撤回后继续使用</td><td>独立 revocation_event 形成紧急拒绝集合；新运行与 Artifact 访问实时检查</td><td>撤回后即使历史 release_context 完整，也不能继续新问答或下载；特权审计回放只读并标注历史版本</td></tr>
+</tbody></table></div><p class="small muted">外部依据：OWASP RAG Security 建议将访问控制元数据与向量块共同保存、在检索时执行权限、隔离租户并独立授权模型发起的工具调用（<a href="https://cheatsheetseries.owasp.org/cheatsheets/RAG_Security_Cheat_Sheet.html">OWASP 官方 Cheat Sheet</a>）。</p></div>
+<div class="grid g2">
+<div class="card"><h3>学生数据与教材出校链路</h3><div class="flow"><div class="node"><strong>分类与许可</strong><span class="small muted">个人信息、试题、版权、出校范围</span></div><span class="arrow">→</span><div class="node"><strong>校内优先</strong><span class="small muted">默认最小数据与本地处理</span></div><span class="arrow">→</span><div class="node"><strong>脱敏 / 评估</strong><span class="small muted">必要性、影响评估、供应商条款</span></div><span class="arrow">→</span><div class="node"><strong>批准端点</strong><span class="small muted">区域、保留、训练、额度、审计</span></div></div><ul><li>不只检查 API Key：还检查 Prompt、附件、OCR 图片、检索证据、工具参数、日志与遥测是否出校。</li><li>教材资产保存许可依据、允许用途、云端处理标志、到期/下架时间和撤回证明；「能下载」不等于「能入库、向量化或传给云模型」。</li><li>学生私人对话、作业原图、成绩、掌握度和身份信息分别定级；默认不进入供应商训练，不用「已脱敏」标签替代实际检查。</li></ul></div>
+<div class="card"><h3>适用规则由学校正式确认</h3><p>《个人信息保护法》第六条要求目的明确、直接相关和最小范围；第五十五条要求对敏感个人信息、自动化决策、对外提供及向境外提供等情形事前开展个人信息保护影响评估（<a href="https://www.cac.gov.cn/2021-08/20/c_1631050028355286.htm">中央网信办官方全文</a>）。</p><p>教育行业另参考 <a href="http://www.moe.gov.cn/srcsite/A16/s3342/202507/W020250902563098499971.pdf">JY/T 0643—2025《智慧教育平台 个人信息保护通用要求》</a>；涉及未成年人时执行相应专门规则。</p><p>《生成式人工智能服务管理暂行办法》以是否「向境内公众提供服务」为重要适用边界，教育科研机构并非仅因机构性质就当然豁免（<a href="https://www.gov.cn/zhengce/202311/content_6917778.htm">中国政府网</a>）。具体适用、备案、跨境与合同义务须由学校法务和网信部门按实际上线范围确认。</p></div>
+</div>
+<div class="card"><h3>紧急撤回不破坏历史证据</h3><div class="flow"><div class="node"><strong>发现</strong><span class="small muted">错定理、越权、许可撤回、供应链事件</span></div><span class="arrow">→</span><div class="node"><strong>阻断</strong><span class="small muted">Release / 模型 / 工具 / Artifact 拒绝集合</span></div><span class="arrow">→</span><div class="node"><strong>影响分析</strong><span class="small muted">反向依赖、作业、答案、已导出产物</span></div><span class="arrow">→</span><div class="node"><strong>修复与通知</strong><span class="small muted">新版本、重审、重发、按需告知</span></div><span class="arrow">→</span><div class="node"><strong>审计回放</strong><span class="small muted">保留旧记录，只读、限权、明确标记</span></div></div><p class="small muted">NIST AI 600-1 以 GOVERN、MAP、MEASURE、MANAGE 组织生成式 AI 风险行动，覆盖部署前测试、持续测量和事件处置；本平台将其作为治理参考，不宣称因此获得合规认证（<a href="https://doi.org/10.6028/NIST.AI.600-1">NIST 官方出版物</a>）。</p></div>
+<div class="card"><h3>建议落地顺序：每一步都有退出证据</h3><div class="table-wrap"><table><thead><tr><th>阶段</th><th>范围</th><th>退出条件</th><th>暂不扩展</th></tr></thead><tbody>
+<tr><td><span class="badge b-blue">P0 · 数据与安全基线</span></td><td>教材许可、威胁模型、数据分级、日志保留、指标协议和评测集授权</td><td>许可链可追溯；越权/注入/撤回负向测试通过；金标准与标注指南冻结</td><td>不批量扫描全学院教材</td></tr>
+<tr><td><span class="badge b-blue">P1 · 单课程最小闭环</span></td><td>一门课、一个语种、原文切片、混合检索、引用回答和人工发布</td><td>隐藏集质量门禁通过；引用可回原页；无依据可拒答；可回滚</td><td>不开放自动判分与自由工具</td></tr>
+<tr><td><span class="badge b-blue">P2 · 数学与多语言</span></td><td>逐语种 OCR、跨语检索、CAS、参数化题、选择性 Lean 和教师复核</td><td>每个语种与题型独立过线；CAS fail 可转人工；Lean 公理审计通过</td><td>不以总平均替代分层验收</td></tr>
+<tr><td><span class="badge b-green">P3 · 受控上线</span></td><td>shadow → 小范围教师 → 单班 canary → 分批扩容</td><td>线上抽检、延迟、成本、越权、投诉与撤回演练全部达标</td><td>不一次性全学院开放</td></tr>
+</tbody></table></div></div>
+</section>
+<p class="foot">技术蓝图 v1.4.0 · 联网检索日期 2026-11-04 · 所有验收数字均为目标，未实测前不得写成平台当前能力。</p>
+</main>
+</div>
+<script>
+const pages=[...document.querySelectorAll('.page')];
+const navLinks=[...document.querySelectorAll('.side a')];
+function activate(id){if(!document.getElementById(id))id='overview';pages.forEach(p=>p.classList.toggle('active',p.id===id));navLinks.forEach(a=>{if(a.getAttribute('href')==='#'+id)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});const title=document.querySelector('#'+id+' h2');document.title=(title?title.textContent:'技术蓝图')+' · 武大数学知识库'}
+window.addEventListener('hashchange',()=>activate(location.hash.slice(1)));
+activate(location.hash.slice(1)||'overview');
+const tableSchemas={
+'source.content_slice_version':{description:'可审核语义切片版本。原文、翻译和解释分角色/来源存储，不能将 AI 解释冒充教材；不保存检索模板或向量。',fields:[['id','UUID','PK','切片版本 ID'],['slice_id','UUID','FK → content_slice','稳定切片身份'],['version_no','INTEGER','NOT NULL；与 slice_id 唯一','版本号'],['base_version_id','UUID','FK → 本表；同实体验证','编辑基线'],['content_role','TEXT','CHECK','source_original / reviewed_translation / editorial_explanation'],['origin_kind / origin_run_id','TEXT / UUID','NOT NULL / 可空','human / OCR / AI 及生成运行'],['display_text','TEXT','NOT NULL','与 content_role 一致的展示内容'],['normalized_content','TEXT','NOT NULL','受控规范化正文，属于内容版本'],['latex_content','TEXT','NULL','公式 LaTeX 表示'],['language_code','TEXT','BCP 47','内容语言；公式可用 zxx'],['translation_of_slice_version_id','UUID','FK → 本表；可空','若为翻译，绑定具体原文版本'],['parent_slice_version_id','UUID','FK → 本表；可空','固定父切片版本并进入依赖清单'],['content_hash','TEXT','SHA-256','只覆盖正式内容与依赖，不含检索模板'],['change_set_id','UUID','FK → change_set','建设/修改批次'],['created_by / created_at','UUID / TIMESTAMPTZ','NOT NULL','创建者与时间']]},
+'retrieval.chunk':{description:'某个索引版本的检索投影。可重建，不直接承担人工内容审核；与语义切片的多对多关系由 chunk_source 表达。',fields:[['id','UUID','PK','检索块 ID'],['index_version_id','UUID','FK → index_version','所属索引构建'],['retrieval_template_version','TEXT','NOT NULL','确定性检索模板版本'],['retrieval_text','TEXT','NOT NULL','带章节/类型/别名的检索文本'],['token_count','INTEGER','CHECK ≥ 0','按索引 tokenizer 计算'],['chunker_version','TEXT','NOT NULL','投影生成器版本'],['input_hash','TEXT','SHA-256','输入切片集合与模板哈希'],['created_at','TIMESTAMPTZ','NOT NULL','构建时间']]},
+'retrieval.chunk_source':{description:'连接检索块与一个或多个已审核语义切片和原文块，保证返回结果能够回到完整来源。',fields:[['chunk_id','UUID','PK/FK → chunk','检索块'],['slice_version_id','UUID','PK/FK → content_slice_version','输入语义切片版本'],['source_block_id','UUID','PK/FK → source_block','对应原文块'],['start_offset','INTEGER','CHECK ≥ 0；可空','块内起始位置'],['end_offset','INTEGER','CHECK ≥ start_offset；可空','块内结束位置'],['page_locator','JSONB','受控 schema','PDF 页、书页、坐标和裁剪区域'],['input_hash','TEXT','SHA-256','来源映射哈希']]},
+'retrieval.chunk_embedding':{description:'某一检索块在具体索引和模型修订下的向量。不同模型、维度或运行配置不得混用。',fields:[['id','UUID','PK','向量记录 ID'],['index_version_id','UUID','FK → index_version','所属索引'],['chunk_id','UUID','FK → chunk','对应检索块'],['embedding_model_version_id','UUID','FK → embedding_model_version','不可变模型修订'],['embedding','VECTOR','维度由索引分区约束','L2 归一化后的 FP32 向量'],['content_hash','TEXT','SHA-256','向量输入哈希'],['created_at','TIMESTAMPTZ','NOT NULL','计算时间']]},
+'retrieval.retrieval_config_version':{description:'不可变检索运行配置。release_context 固定此版本，避免只换 reranker、指令或候选数就改变历史结果。',fields:[['id','UUID','PK','检索配置版本 ID'],['config_id','UUID','FK → retrieval_config','稳定配置身份'],['version_no','INTEGER','与 config_id 唯一','版本号'],['query_instruction_version','TEXT','NOT NULL','查询指令与 query/document 角色模板'],['sparse_tokenizer_revision','TEXT','NOT NULL','稀疏分词器与文本规范化版本'],['reranker_endpoint_id','UUID','FK → model_endpoint；可空','内部重排端点，固定模型 revision 与输入模板'],['rrf_k / candidate_limits','INTEGER / JSONB','CHECK > 0 / 受控 schema','融合常数与各路候选上限'],['graph_expansion_version','TEXT','NOT NULL','已审核图边扩展规则版本'],['hnsw_query_params','JSONB','受控 schema','ef_search、iterative_scan、扫描上限；不属于索引构建参数'],['parent_expansion_version','TEXT','NOT NULL','子块命中后的父块与邻块扩展规则'],['context_budget','JSONB','受控 schema','证据条数与 token 预算'],['content_hash','TEXT','SHA-256','完整配置哈希']]},
+'retrieval.index_version':{description:'一次可回放的索引构建。一个 release 可有多个索引版本，历史 release_context 固定具体版本。',fields:[['id','UUID','PK','索引版本 ID'],['release_id','UUID','FK → release','索引覆盖的 release'],['embedding_model_version_id','UUID','FK → embedding_model_version','Embedding 模型修订'],['dimensions','INTEGER','CHECK > 0','向量维度，如 1,024'],['distance_ops','TEXT','CHECK = cosine','vector_cosine_ops'],['normalization','TEXT','NOT NULL','L2 等归一化方式'],['retrieval_template_version','TEXT','NOT NULL','检索模板版本'],['hnsw_params','JSONB','受控 schema','仅构建参数 m、ef_construction；查询参数存入 retrieval_config_version'],['input_manifest_hash','TEXT','SHA-256','输入切片与构建清单哈希'],['status','TEXT','索引状态机','building / ready / failed'],['built_at','TIMESTAMPTZ','NULL','构建完成时间']]},
+'knowledge.concept_version':{description:'跨课程概念的可审核版本。课程节点固定采用具体概念版本，不跟随全局最新版本。',fields:[['id','UUID','PK','概念版本 ID'],['concept_id','UUID','FK → concept','稳定概念身份'],['version_no','INTEGER','与 concept_id 唯一','版本号'],['preferred_name','TEXT','NOT NULL','规范名称'],['definition_text','TEXT','NOT NULL','正式定义'],['notation_latex','TEXT','NULL','数学符号表示'],['language_code','TEXT','BCP 47','定义语言'],['owner_scope','TEXT','CHECK','学院或课程所有权'],['content_hash','TEXT','SHA-256','正式内容与依赖哈希'],['change_set_id','UUID','FK → change_set','建设批次']]},
+'knowledge.relation_version':{description:'知识图谱边版本。节点审核通过不代表边通过；端点或类型变化创建新 relation 身份。',fields:[['id','UUID','PK','关系版本 ID'],['relation_id','UUID','FK → relation','稳定关系身份'],['version_no','INTEGER','与 relation_id 唯一','版本号'],['from_concept_id','UUID','FK → concept','起点概念'],['to_concept_id','UUID','FK → concept','终点概念'],['relation_type','TEXT','受控字典','prerequisite / implies / contrasts 等'],['owner_scope','TEXT','CHECK','学院或课程范围'],['content_hash','TEXT','SHA-256','关系及证据依赖哈希'],['change_set_id','UUID','FK → change_set','建设批次']]},
+'course.knowledge_node_version':{description:'概念在某课程中的教学位置与课程化讲解，固定引用概念版本。',fields:[['id','UUID','PK','课程节点版本'],['knowledge_node_id','UUID','FK → knowledge_node','稳定课程节点身份'],['concept_version_id','UUID','FK → concept_version','采用的学院/公共概念版本'],['chapter_version_id','UUID','FK → chapter_version','所属章节版本'],['teaching_content','TEXT','NULL','课程化讲解'],['sort_order','INTEGER','NOT NULL','教学顺序'],['language_code','TEXT','BCP 47','教学语言'],['content_hash','TEXT','SHA-256','节点及依赖哈希'],['change_set_id','UUID','FK → change_set','建设批次']]},
+'math.convention_version':{description:'教材或课程的数学约定版本。用于区分真正错误与不同教材约定。',fields:[['id','UUID','PK','约定版本 ID'],['profile_id','UUID','FK → convention_profile','稳定约定身份'],['version_no','INTEGER','与 profile_id 唯一','版本号'],['scope_course_id','UUID','FK → course；可空','课程范围，学院级可为空'],['conventions_ast','JSONB','版本化 schema','自然数、log 底数、术语和符号约定'],['content_hash','TEXT','SHA-256','约定内容哈希'],['change_set_id','UUID','FK → change_set','建设批次']]},
+'math.statement_version':{description:'定义、公理、定理等结构化语义版本。教材原文仍以 content_slice 为准，AST 是独立审核的派生语义。',fields:[['id','UUID','PK','命题版本 ID'],['statement_id','UUID','FK → statement','稳定命题身份'],['version_no','INTEGER','与 statement_id 唯一','版本号'],['statement_kind','TEXT','受控字典','definition / axiom / theorem / lemma'],['source_slice_version_id','UUID','FK → content_slice_version','原文证据'],['primary_concept_id','UUID','FK → concept','主概念'],['convention_version_id','UUID','FK → convention_version；structured/formal 必填','数学约定上下文'],['formula_ast','JSONB','scoped AST schema','单一自包含公式；binder 节点包含作用公式，定义使用 definition 节点'],['canonical_latex','TEXT','NULL','规范显示形式'],['presentation_mathml / mathml_intent','TEXT','可空','可访问显示及必要的语音/盲文消歧标注'],['content_mathml','TEXT','可空','Content MathML 语义，不替代受审核 AST'],['openmath_ast','JSONB','可空','可选 OpenMath 语义树'],['semantic_level','TEXT','CHECK','raw / structured / formal'],['content_hash','TEXT','SHA-256','语义及来源依赖哈希'],['change_set_id','UUID','FK → change_set','建设批次']]},
+'math.symbol_binding':{description:'statement_version 的不可变子对象，通过 AST 节点绑定作用域；子哈希计入父版本，批准后不能直接修改。',fields:[['id','UUID','PK','符号绑定 ID'],['statement_version_id','UUID','FK → statement_version','所属命题版本'],['symbol','TEXT','NOT NULL','符号原文'],['role','TEXT','CHECK','free / bound / constant / operator'],['binder_node_id','TEXT','NOT NULL','指向 formula_ast 中的作用域节点'],['domain_node_id','TEXT','NULL','指向类型或定义域节点'],['meaning_concept_id','UUID','FK → concept；可空','对应概念'],['source_span','JSONB','NOT NULL','原文位置与坐标'],['content_hash','TEXT','SHA-256','计入 statement_version 父哈希']]},
+'math.proof_version':{description:'固定命题版本与证明原文。证明步骤和依赖作为不可变子对象计入父哈希，依赖图必须无环。',fields:[['id','UUID','PK','证明版本 ID'],['proof_id','UUID','FK → proof','稳定证明身份'],['version_no','INTEGER','与 proof_id 唯一','版本号'],['statement_version_id','UUID','FK → statement_version','被证明的固定命题版本'],['content_slice_version_id','UUID','FK → content_slice_version','证明原文证据'],['proof_kind','TEXT','受控字典','直接、反证、归纳等'],['content_hash','TEXT','SHA-256','命题、原文、步骤与依赖闭包哈希'],['change_set_id','UUID','FK → change_set','建设批次']]},
+'math.proof_step':{description:'proof_version 的不可变子对象。依赖必须为 DAG，引用命题须在同 release 且审核有效；步骤和依赖哈希进入父版本。',fields:[['id','UUID','PK','证明步骤 ID'],['proof_version_id','UUID','FK → proof_version','所属证明版本'],['step_no','INTEGER','与 proof_version_id 唯一','步骤顺序'],['claim_text','TEXT','NOT NULL','步骤论断'],['claim_ast','JSONB','可空','可选结构化论断'],['justification_kind','TEXT','受控字典','定义、定理、代数、假设、CAS 等'],['source_span','JSONB','NOT NULL','原文位置'],['content_hash','TEXT','SHA-256','步骤内容哈希']]},
+'exercise.exercise_version':{description:'只保存题干与子问结构，不保存答案或解析副本。',fields:[['id','UUID','PK','题目版本 ID'],['exercise_id','UUID','FK → exercise','稳定题目身份'],['version_no','INTEGER','与 exercise_id 唯一','版本号'],['exercise_kind','TEXT','受控字典','选择、表达式、证明、代码等'],['stem_ast','JSONB','分题型 JSON Schema','结构化题干'],['normalized_stem','TEXT','NOT NULL','规范题干文本'],['difficulty_label','TEXT','NULL','标称难度，非学生统计难度'],['content_hash','TEXT','SHA-256','题干内容与依赖哈希'],['change_set_id','UUID','FK → change_set','建设批次']]},
+'exercise.answer_version':{description:'平台唯一的结构化答案权威版本；教材印刷答案仅作为来源证据。',fields:[['id','UUID','PK','答案版本 ID'],['answer_id','UUID','FK → answer','稳定答案身份'],['exercise_id','UUID','FK → exercise','所属题目'],['version_no','INTEGER','与 answer_id 唯一','版本号'],['answer_kind','TEXT','受控字典','客观、数值、表达式、证明等'],['answer_spec','JSONB','分题型 JSON Schema','标准答案结构'],['source_slice_version_id','UUID','FK → content_slice_version；可空','教材答案证据'],['content_hash','TEXT','SHA-256','答案与来源依赖哈希'],['change_set_id','UUID','FK → change_set','建设批次']]},
+'exercise.solution_version':{description:'平台唯一的结构化解析/证明版本，可独立 diff、审核和发布。',fields:[['id','UUID','PK','解析版本 ID'],['solution_id','UUID','FK → solution','稳定解析身份'],['exercise_id','UUID','FK → exercise','所属题目'],['version_no','INTEGER','与 solution_id 唯一','版本号'],['solution_ast','JSONB','受控 schema','步骤、证明或讲解结构'],['method_label / solution_role','TEXT','NULL / 受控字典','多解法名称、示例或分级提示'],['source_slice_version_id','UUID','FK → content_slice_version；可空','教材解析证据'],['content_hash','TEXT','SHA-256','解析及依赖哈希'],['change_set_id','UUID','FK → change_set','建设批次']]},
+'exercise.answer_test_version':{description:'借鉴 STACK 的可审核数学答案测试。发布时必须验证权威答案通过自身测试，rubric 只能引用同 release 的答案/解析。',fields:[['id','UUID','PK','答案测试版本'],['answer_test_id','UUID','FK → answer_test','稳定测试身份'],['answer_version_id','UUID','FK → answer_version；互斥','静态题绑定的权威答案版本'],['template_version_id','UUID','FK → template_version；互斥','参数化模板绑定目标'],['parameter_schema','JSONB','模板时必填','模板参数与约束'],['version_no','INTEGER','与 answer_test_id 唯一','版本号'],['test_kind','TEXT','受控字典','代数等价、矩阵、定义域、容差等'],['test_expression_ast','JSONB','受控 schema','引用权威答案的测试谓词，不另建答案真源'],['assumptions_ast','JSONB','NOT NULL','变量域、假设和分支'],['convention_version_id','UUID','FK → convention_version','数学约定上下文'],['tolerance','JSONB','可空','数值容差及单位'],['cas_engine / engine_version','TEXT','NOT NULL','确定性计算引擎及版本'],['pass_feedback / fail_feedback','TEXT','NULL','通过/失败反馈'],['content_hash','TEXT','SHA-256','测试与依赖哈希']]},
+'exercise.exercise_instance':{description:'不可变具体实例，其 id 作为发布/审核的不可变版本标识。assignment、submission 和 attempt 固定实例、模板版本与 seed。',fields:[['id','UUID','PK','题目实例 ID'],['template_version_id','UUID','FK → template_version','来源模板版本'],['exercise_id','UUID','FK → exercise','生成的稳定题目身份'],['seed','TEXT','NOT NULL','可复现随机种子'],['parameter_values','JSONB','受控 schema','具体参数值'],['exercise_version_id','UUID','FK → exercise_version','具体题干版本'],['validation_manifest','JSONB','NOT NULL','约束、答案测试与渲染检查'],['content_hash','TEXT','SHA-256','模板、种子和实例哈希'],['change_set_id','UUID','FK → change_set','生成/审核批次']]},
+'exercise.formal_verification':{description:'Lean 验证证据。不是人工审核，也不等于自然语言原题正确。',fields:[['id','UUID','PK','验证记录 ID'],['exercise_version_id','UUID','FK → exercise_version','对应题目版本'],['exercise_instance_id','UUID','FK → exercise_instance；参数化题必填','绑定具体实例与实例化形式命题'],['target_declaration','TEXT','NOT NULL','被验证的 Lean 声明名'],['release_dependency_hash','TEXT','SHA-256','题、答案、解析、rubric、形式命题和资产哈希'],['dependency_decision_manifest_hash','TEXT','SHA-256','依赖审核 decision_seq 清单哈希'],['status','TEXT','受控状态机','running / check_failed / passed 等'],['lean_toolchain / mathlib_revision','TEXT','NOT NULL','锁定工具链和依赖'],['source_hash','TEXT','SHA-256','完整形式化源文件哈希'],['proof_artifact_id','UUID','FK → artifact','证明产物'],['runner_image_digest','TEXT','NOT NULL','不可变 runner 镜像'],['attestation','JSONB','签名证据','受信 wrapper 生成，非 Lean 自报成功'],['verified_at','TIMESTAMPTZ','NULL','验证完成时间']]},
+'governance.review_decision_item':{description:'逐项人工审核或教师确认事实。最新终态决策生效，模型和服务账号不能签署。',fields:[['id','UUID','PK','审核项 ID'],['decision_id','UUID','FK → review_decision','审核批次'],['decision_seq','BIGINT','单调递增','决定最新终态，消除时间歧义'],['entity_type / entity_version_id','TEXT / UUID','受控类型注册','被审核对象及版本'],['decision_kind','TEXT','CHECK','knowledge_approval / teaching_confirmation'],['content_hash','TEXT','SHA-256','被审核内容哈希'],['dependency_manifest_hash','TEXT','SHA-256','依赖决策清单哈希'],['reviewer_user_id','UUID','FK → user_account','人类审核人/任课教师'],['qualification_snapshot','JSONB','NOT NULL','语言、数学与范围资格快照'],['decision','TEXT','CHECK','approved / rejected / revoked'],['decided_at','TIMESTAMPTZ','NOT NULL','签署时间']]},
+'governance.release':{description:'不可变发布清单及可变发布状态。学院、课程公共和班级材料使用不同类型。',fields:[['id','UUID','PK','Release ID'],['release_kind','TEXT','CHECK','college_catalog / course_knowledge / class_teaching'],['college_catalog_id / course_id / offering_id','UUID','互斥范围 CHECK','只能绑定匹配范围'],['base_college_release_id','UUID','FK → release；可空','课程固定学院基线'],['base_course_release_id','UUID','FK → release；可空','班级固定课程基线'],['manifest_hash','TEXT','SHA-256','完整不可变内容清单'],['active_index_version_id','UUID','FK → index_version','新浏览使用，历史 context 不变'],['status','TEXT','发布状态机','building / ready / published / withdrawn'],['published_by / published_at','UUID / TIMESTAMPTZ','NULL','发布人与时间']]},
+'governance.release_item':{description:'Release 中每个公开对象及其依赖和人工决策引用，禁止遗漏关联子对象。',fields:[['release_id','UUID','PK/FK → release','所属 Release'],['entity_type','TEXT','PK；注册类型','对象类型'],['entity_version_id','UUID','PK；受控触发器','具体内容版本'],['content_hash','TEXT','SHA-256','发布时内容哈希'],['dependency_manifest_hash','TEXT','SHA-256','依赖决策清单'],['required_decision_kind','TEXT','CHECK','必须匹配的审核类型'],['review_decision_item_id','UUID','FK → review_decision_item','人工决策证据']]},
+'governance.release_context':{description:'不可变运行上下文。历史作业、对话和产物固定三 Release、三索引和检索配置；当前可用性另受撤回集合约束。',fields:[['id','UUID','PK','Release Context ID'],['college_release_id','UUID','FK → release','固定学院 Release'],['course_release_id','UUID','FK → release；可空','固定课程 Release'],['class_release_id','UUID','FK → release；可空','固定班级 Release'],['college_index_version_id','UUID','复合 FK → index_version','必须与 college_release_id 配对'],['course_index_version_id','UUID','复合 FK → index_version；可空','必须与 course_release_id 配对'],['class_index_version_id','UUID','复合 FK → index_version；可空','必须与 class_release_id 配对'],['retrieval_config_version_id','UUID','FK → retrieval_config_version','固定指令、重排、融合、候选数、查询参数与上下文预算'],['context_hash','TEXT','UNIQUE / SHA-256','覆盖 Release、索引与检索配置；相同上下文 get-or-create'],['created_at','TIMESTAMPTZ','NOT NULL','首次解析时间']]},
+'governance.revocation_event':{description:'独立紧急撤回事件，不修改历史 Release、审核或作答记录。所有新运行与 Artifact 访问必须检查当前有效拒绝集合。',fields:[['id','UUID','PK','撤回事件 ID'],['scope_type / scope_id','TEXT / UUID','受控类型注册','Release、模型、工具、Artifact 或许可范围'],['reason_kind','TEXT','受控字典','内容错误、越权、许可撤回、供应链或安全事件'],['severity','TEXT','受控等级','blocking / warning'],['evidence_artifact_id','UUID','FK → artifact','错误、许可或事件证据'],['affected_manifest_hash','TEXT','SHA-256','受影响对象与反向依赖清单'],['revoked_by / revoked_at','UUID / TIMESTAMPTZ','NOT NULL','有权撤回的人与时间'],['status','TEXT','受控状态','active / superseded；解除必须创建新决定'],['audit_replay_policy','TEXT','受控字典','禁止 / 特权只读并标注历史版本']]},
+'governance.dependency_decision_manifest':{description:'记录对象依赖的内容版本和审核序号。依赖撤销会使父对象失效，而不只检查内容哈希。',fields:[['id','UUID','PK','依赖清单项'],['owner_entity_type','TEXT','受控类型','父对象类型'],['owner_entity_version_id','UUID','受控触发器','父对象版本'],['dependency_type','TEXT','受控类型','依赖对象类型'],['dependency_version_id','UUID','受控触发器；反向索引','依赖版本，支持查找受影响父对象'],['content_hash','TEXT','SHA-256','依赖内容哈希'],['decision_kind','TEXT','CHECK','要求的决策类型'],['decision_seq','BIGINT','NOT NULL','要求的依赖审核序号']]},
+'governance.quality_finding':{description:'持久化内容健康检查结果，高严重级别问题阻止发布，模型不能自动合并矛盾知识。',fields:[['id','UUID','PK','质量发现 ID'],['check_id','UUID','FK → quality_check','产生发现的检查'],['entity_type / entity_version_id','TEXT / UUID','受控类型','问题对象'],['severity','TEXT','受控等级','info / warning / blocking'],['evidence','JSONB','NOT NULL','重复、冲突、孤儿或失效证据'],['status','TEXT','受控状态','open / resolved；仅非阻断项可 accepted'],['assigned_to','UUID','FK → user_account；可空','负责人'],['resolved_change_set_id','UUID','FK → change_set；可空','解决批次']]},
+'evaluation.dataset_version':{description:'每个版本只包含一个 split，冻结后 append-only；案例继承 split，隐藏集由独立 grant + RLS 保护。',fields:[['id','UUID','PK','数据集版本 ID'],['dataset_id','UUID','FK → dataset','稳定数据集身份'],['version_no','INTEGER','与 dataset_id 唯一','版本号'],['purpose','TEXT','NOT NULL','OCR、检索、问答、批改等'],['split_kind','TEXT','CHECK','development / hidden_test'],['language_code','TEXT','BCP 47 或 mixed','语言范围'],['case_manifest_hash','TEXT','SHA-256','冻结案例清单哈希'],['visibility','TEXT','受控权限','公开、内部或隐藏'],['frozen_at','TIMESTAMPTZ','NOT NULL','冻结时间']]},
+'evaluation.dataset_access_grant':{description:'评测数据集的分版本授权。隐藏案例、标注、仲裁、eval_run、case_result 和 metric_result 均继承 RLS；隐藏请求不得进入普通 query_log。',fields:[['id','UUID','PK','授权 ID'],['dataset_version_id','UUID','FK → dataset_version','数据集与 split 版本'],['user_id / role_id','UUID','互斥 CHECK','授权用户或角色'],['access_level','TEXT','受控字典','read / annotate / evaluate / admin'],['granted_by','UUID','FK → user_account','批准人'],['valid_from / valid_until','TIMESTAMPTZ','有效期 CHECK','授权有效期']]},
+'evaluation.eval_case':{description:'单个评测问题及教师确认的答案、证据和数学上下文。',fields:[['id','UUID','PK','评测案例 ID'],['dataset_version_id','UUID','FK → dataset_version','所属数据集版本'],['case_kind','TEXT','受控字典','定义、证明、反例、批改等'],['question_payload','JSONB','受控 schema','问题与输入材料'],['gold_answer','JSONB','NOT NULL','教师确认答案'],['gold_evidence_manifest','JSONB','NOT NULL','金标准证据集合'],['language_code','TEXT','BCP 47','问题语言'],['convention_version_id','UUID','FK → convention_version；可空','数学约定'],['adversarial_kind','TEXT','NULL','相似定理、符号冲突、错误 OCR 等']]},
+'evaluation.annotation':{description:'教师独立标注和资格快照，分歧通过 adjudication 解决。',fields:[['id','UUID','PK','标注 ID'],['case_id','UUID','FK → eval_case','评测案例'],['annotator_user_id','UUID','FK → user_account','教师标注人'],['qualification_snapshot','JSONB','NOT NULL','语言与数学资格快照'],['label_payload','JSONB','NOT NULL','证据、答案、错误类型等标签'],['created_at','TIMESTAMPTZ','NOT NULL','标注时间']]},
+'evaluation.eval_run':{description:'一次可复现的评测运行；其结果表通过 dataset_version_id 继承同一隐藏集 grant 与 RLS。',fields:[['id','UUID','PK','评测运行 ID'],['dataset_version_id','UUID','FK → dataset_version','冻结数据集版本'],['release_context_id','UUID','FK → release_context','固定知识上下文及全部索引'],['evaluation_config','JSONB','受控 schema','检索、prompt、工具和评测参数'],['model_revision','TEXT','NOT NULL','模型修订'],['policy_version','UUID','FK → policy_version','智能体策略版本'],['status','TEXT','受控状态','running / completed / failed'],['started_at / completed_at','TIMESTAMPTZ','NULL','起止时间']]},
+'evaluation.metric_result':{description:'按题型、语言和错误类别汇总的指标，保留分子、分母和置信区间。',fields:[['id','UUID','PK','指标结果 ID'],['eval_run_id','UUID','FK → eval_run','所属评测运行'],['metric_name','TEXT','NOT NULL','召回、引用、数学正确性等'],['subset','TEXT','NOT NULL','语言、题型或对抗子集'],['numerator / denominator','INTEGER','CHECK ≥ 0','指标分子与分母'],['value','NUMERIC','按指标定义 CHECK','指标值'],['unit','TEXT','NOT NULL','比例、ms、token、费用单位等'],['ci_low / ci_high','NUMERIC','NULL','置信区间'],['method_version','TEXT','NOT NULL','指标算法与 bootstrap 版本']]},
+'agent.evidence_bundle_version':{description:'供 MathAnswer 使用的不可变证据包，固定 Release、切片、许可和图路径。',fields:[['id','UUID','PK','证据包版本 ID'],['bundle_id','UUID','FK → evidence_bundle','稳定证据包身份'],['version_no','INTEGER','与 bundle_id 唯一','版本号'],['release_context_id','UUID','FK → release_context','固定知识与索引上下文'],['slice_manifest','JSONB','NOT NULL','切片版本、哈希与原文跨度'],['license_manifest','JSONB','NOT NULL','许可与出校范围'],['graph_path_manifest','JSONB','可空','已审核图路径'],['content_hash','TEXT','SHA-256','证据集合哈希'],['created_at','TIMESTAMPTZ','NOT NULL','创建时间']]},
+'agent.answer_claim':{description:'MathAnswer 的论断级来源。source_ref 按 claim_kind 强制要求对应 ID，禁止无来源断言。',fields:[['id','UUID','PK','论断 ID'],['artifact_version_id','UUID','FK → artifact_version','所属 MathAnswer 产物'],['evidence_bundle_version_id','UUID','FK → evidence_bundle_version','固定证据包'],['claim_kind','TEXT','CHECK','source_quote / reviewed_translation / teacher_guideline / model_inference / computation / formal_verification'],['claim_text','TEXT','NOT NULL','论断文本'],['source_ref','JSONB','按 claim_kind 校验','切片+跨度 / 翻译+原文配对 / policy_version / run+parent_claims / tool_call+hash / formal_verification+attestation'],['parent_claim_ids','JSONB','推断时必填','推断所依赖的其他论断'],['assumptions_ast','JSONB','可空','论断假设与约定'],['created_at','TIMESTAMPTZ','NOT NULL','生成时间']]},
+'integration.model_provider':{description:'仅管理员维护的模型供应商与协议配置，不保存 API Key 原文。',fields:[['id','UUID','PK','供应商 ID'],['name','TEXT','UNIQUE','供应商显示名'],['protocol','TEXT','受控字典','OpenAI Compatible / 校内协议等'],['base_url','TEXT','NOT NULL','经 allowlist、重定向和 SSRF 校验'],['region','TEXT','NULL','服务区域与数据处理区域'],['status','TEXT','受控状态','enabled / disabled'],['created_by / created_at','UUID / TIMESTAMPTZ','NOT NULL','配置管理员与时间']]},
+'integration.model_endpoint':{description:'管理员上架的模型目录。用户只能选择其中与当前任务和数据策略兼容的生成模型。',fields:[['id','UUID','PK','模型端点 ID'],['provider_id','UUID','FK → model_provider','所属供应商'],['public_name','TEXT','NOT NULL','用户看到的模型名称'],['provider_model_name','TEXT','NOT NULL','供应商模型标识'],['model_revision','TEXT','NOT NULL','不可变模型修订'],['capabilities','JSONB','受控集合','chat / vision / embedding / rerank / OCR'],['context_limit','INTEGER','CHECK > 0','上下文限制'],['input_price / output_price','NUMERIC','CHECK ≥ 0','计价单位必须同时记录'],['data_policy','JSONB','受控 schema','保留、训练、区域和允许数据级别'],['status','TEXT','受控状态','draft / published / disabled']]},
+'integration.model_secret_ref':{description:'密钥引用表。秘密原文只在服务端密钥存储，任何 API 和日志不得返回。',fields:[['id','UUID','PK','密钥引用 ID'],['provider_id','UUID','FK → model_provider','对应供应商'],['secret_uri','TEXT','NOT NULL','Vault/Docker secret 引用，不是密钥'],['version','INTEGER','NOT NULL','密钥版本'],['rotated_at','TIMESTAMPTZ','NULL','最近轮换时间'],['created_by','UUID','FK → user_account','配置管理员'],['created_at','TIMESTAMPTZ','NOT NULL','创建时间']]},
+'integration.model_access_policy':{description:'定义哪些角色、课程和任务可以使用模型，以及数据、额度和费用边界。',fields:[['id','UUID','PK','访问策略 ID'],['endpoint_id','UUID','FK → model_endpoint','目标模型'],['role_id / course_id / offering_id','UUID','范围 CHECK','角色、课程或教学班范围'],['allowed_tasks','JSONB','受控集合','问答、绘图、PPT、批改等'],['max_data_classification','TEXT','受控等级','允许处理的数据级别'],['daily_token_quota','BIGINT','CHECK ≥ 0','用户/课程每日 token 限额'],['concurrency_limit','INTEGER','CHECK ≥ 0','并发上限'],['monthly_cost_cap','NUMERIC','CHECK ≥ 0','月度费用硬限额'],['default_priority','INTEGER','NOT NULL','自动路由优先级']]},
+'agent.user_model_preference':{description:'用户选择管理员已上架的生成模型或自动路由，不保存任何凭据。',fields:[['user_id','UUID','PK/FK → user_account','用户'],['workspace_id','UUID','PK/FK → workspace','偏好作用工作区'],['endpoint_id','UUID','FK → model_endpoint；可空','NULL 表示自动推荐'],['updated_at','TIMESTAMPTZ','NOT NULL','最近修改时间']]},
+'integration.model_call':{description:'服务端实际模型调用记录，固定修订、成本与延迟，不保存密钥和非必要敏感 prompt。',fields:[['id','UUID','PK','调用记录 ID'],['agent_run_id','UUID','FK → agent_run','所属智能体运行'],['endpoint_id','UUID','FK → model_endpoint','实际调用端点'],['model_revision','TEXT','NOT NULL','实际模型修订'],['request_hash','TEXT','SHA-256','脱敏规范化请求哈希'],['input_tokens / output_tokens','INTEGER','CHECK ≥ 0',' token 用量'],['cost','NUMERIC','CHECK ≥ 0','按记录币种与价格计算'],['latency_ms','INTEGER','CHECK ≥ 0','调用延迟'],['status','TEXT','受控状态','成功、限流、失败等'],['created_at','TIMESTAMPTZ','NOT NULL','调用时间']]},
+'iam.reviewer_qualification':{description:'审核人的语言与数学资格。课程角色本身不足以证明能审核某语种教材。',fields:[['id','UUID','PK','资格记录 ID'],['user_id','UUID','FK → user_account','审核人'],['source_language','TEXT','BCP 47','源语言能力'],['target_language','TEXT','BCP 47；可空','目标语言能力，翻译审核必填'],['domain_code','TEXT','NOT NULL','数学领域资格'],['approved_by','UUID','FK → user_account','资格确认人'],['valid_from / valid_until','TIMESTAMPTZ','有效期检查','资格有效期'],['evidence_artifact_id','UUID','FK → artifact；可空','资格证明或授权记录']]}
+};
+const select=document.getElementById('tableSelect');
+Object.keys(tableSchemas).forEach((name,i)=>{const option=document.createElement('option');option.value=name;option.textContent=name;select.appendChild(option)});
+function renderTable(name){const schema=tableSchemas[name];document.getElementById('tableName').textContent=name;document.getElementById('tableDescription').textContent=schema.description;const body=document.getElementById('fieldRows');body.replaceChildren();schema.fields.forEach(row=>{const tr=document.createElement('tr');row.forEach(value=>{const td=document.createElement('td');const code=document.createElement('code');code.textContent=value;td.appendChild(code);tr.appendChild(td)});body.appendChild(tr)})}
+select.addEventListener('change',()=>renderTable(select.value));
+renderTable(select.value);
+</script>
+</body>
+</html>
