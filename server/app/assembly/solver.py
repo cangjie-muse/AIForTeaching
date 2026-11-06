@@ -293,8 +293,7 @@ class CpSatSolver:
             if requirement.max_count is not None:
                 model.Add(sum(terms) <= requirement.max_count)
 
-    @staticmethod
-    def _add_objectives(model, blueprint: BlueprintSnapshot, variables, candidates,
+    def _add_objectives(self, model, blueprint: BlueprintSnapshot, variables, candidates,
                         durations: dict | None = None) -> None:
         """整数软目标：全部转成"偏差 × 权重"的和，越小越好。
 

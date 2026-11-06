@@ -223,7 +223,7 @@ def test_timeout_without_a_solution_is_not_reported_as_infeasible() -> None:
     else:
         # 机器快、1 秒内解出来也算正常：此时必须是"有解"，且 reason 不是无解
         assert result.solution_sets
-        assert result.diagnostics["reason"] != "hard_constraints"
+        assert result.diagnostics.get("reason") != "hard_constraints"
 
 
 # ---------------------------------------------------------------------------

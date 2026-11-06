@@ -200,6 +200,33 @@ def test_candidate_manifest_does_not_import_the_solver() -> None:
     assert not [name for name in imported if "ortools" in name], imported
 
 
+def test_no_self_inside_static_methods_in_the_solver() -> None:
+    """`@staticmethod` 里不能出现 `self.`：这不是风格问题，是运行时的 NameError。
+
+    这条是给一次真机报错加的 —— 时长聚合改造时把 `self._total_duration(...)`
+    写进了被 `@staticmethod` 装饰的函数，直到服务器上跑到负载脚本才炸。
+    源码级断言，所以不需要装 ortools 也能跑。
+    """
+    import ast
+
+    source = (ROOT / "server" / "app" / "assembly" / "solver.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    offenders = []
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        is_static = any(
+            isinstance(item, ast.Name) and item.id == "staticmethod"
+            for item in node.decorator_list)
+        if not is_static:
+            continue
+        for inner in ast.walk(node):
+            if isinstance(inner, ast.Name) and inner.id == "self":
+                offenders.append(node.name)
+                break
+    assert not offenders, f"这些 staticmethod 里用了 self：{offenders}"
+
+
 def test_manifest_hash_is_stable_and_ignores_input_order() -> None:
     first = record(1)
     second = record(2)
