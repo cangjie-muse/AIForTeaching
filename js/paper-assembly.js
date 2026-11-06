@@ -664,8 +664,16 @@
       A.render();
       return Promise.resolve();
     }
+    // A/B 身份：配对成功后再建卷，把分组与字母一起交上去。
+    // 只在**已配成对**时才带身份——没配对就贴字母，等于给卷子写一个查不到来历的标签。
+    const pair = state.pair && !state.pair.error ? state.pair : null;
+    const variantGroup = pair ? (pair.variant_group_id || null) : null;
+    const variantLabel = pair && variantGroup
+      ? ((pair.labels || [])[index === 0 ? 0 : 1] || 'A')
+      : null;
     return run('select', () => A.api.assemblySolutionPaper(
-      state.run.assembly_run_id, index, newKey('solution')
+      state.run.assembly_run_id, index, newKey('solution'),
+      variantGroup, variantLabel
     ).then(draft => {
       state.created = draft;
       return '草稿卷已建好：还要过整卷校验与双人复核，才能提交审核。';

@@ -644,8 +644,9 @@
     assemblyPair: (runId, peerRunId, left, right, anchors) => request('GET',
       `/api/v1/assembly-runs/${encodeURIComponent(runId)}/ab-pair`
       + queryString({ peer_run_id: peerRunId, index: left, peer_index: right, anchors })),
-    assemblySolutionPaper: (runId, index, key) => request('POST',
-      `/api/v1/assembly-runs/${encodeURIComponent(runId)}/solutions/${index}/paper`,
+    assemblySolutionPaper: (runId, index, key, variantGroupId, variantLabel) => request('POST',
+      `/api/v1/assembly-runs/${encodeURIComponent(runId)}/solutions/${index}/paper`
+      + queryString({ variant_group_id: variantGroupId, variant_label: variantLabel }),
       { headers: { 'Idempotency-Key': key } }),
     coursewareChapters: (courseId) =>
       request('GET', `/api/v1/courseware/chapters${queryString({ course_id: courseId })}`),

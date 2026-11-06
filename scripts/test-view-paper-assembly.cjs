@@ -320,6 +320,15 @@ check('配对成功显示标签与固定措辞',
   pairedHtml.includes('已配成 A/B') && pairedHtml.includes('不代表统计等值'));
 check('配对成功说明还要分别送审', pairedHtml.includes('分别提交审核'));
 
+const pairWithGroup = App.paperAssemblyHtml(stateOf({
+  run: twoSolutions, runs: [twoSolutions],
+  pair: { labels: ['A', 'B'], note: '结构匹配的 A/B 卷；不代表统计等值',
+    variant_group_id: '5e5e0000-0000-4000-8000-000000000010',
+    next_step: 'A/B 两卷仍需分别提交审核、分别导出与发布' }
+}));
+check('配对结果带服务端派生的分组 id',
+  pairWithGroup.includes('已配成 A/B'));
+
 const rejectedPairHtml = App.paperAssemblyHtml(stateOf({
   run: twoSolutions, runs: [twoSolutions],
   pair: { error: '两个方案不能配成 A/B：shared_version_not_anchored',

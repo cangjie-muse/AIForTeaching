@@ -180,6 +180,30 @@ def test_missing_slot_in_peer_is_rejected() -> None:
         raise AssertionError("B 卷缺槽位不能配对")
 
 
+def test_variant_group_is_derived_and_stable() -> None:
+    """同一对方案必须得到同一个分组 id：重试不能造出两组互不相干的 A/B。"""
+    from app.assembly.ab import variant_group_id
+
+    bp = blueprint(BP, "50.00", "50.00")
+    first = solution(bp, (1, 2), label="A")
+    second = solution(bp, (3, 4), label="B")
+    group = variant_group_id(BP, first, second)
+    assert group == variant_group_id(BP, first, second)
+    # A/B 与 B/A 是同一对：排序后才算哈希，所以分组相同
+    assert group == variant_group_id(BP, second, first)
+    assert group != variant_group_id(OTHER_BP, first, second), "换蓝图就是另一组"
+    assert group != variant_group_id(BP, first, solution(bp, (5, 6), label="C"))
+
+
+def test_pair_payload_carries_the_group_id() -> None:
+    bp = blueprint(BP, "50.00", "50.00")
+    pair = pair_solutions(bp, solution(bp, (1, 2), label="A"),
+                          solution(bp, (3, 4), label="B"))
+    payload = pair.payload()
+    assert len(payload["variant_group_id"]) == 36, payload["variant_group_id"]
+    assert payload["labels"] == ["A", "B"]
+
+
 def test_pair_rejection_carries_issues_payload() -> None:
     bp = blueprint(BP, "100.00")
     first = solution(bp, (1,), label="A")

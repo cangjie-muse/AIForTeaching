@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Sequence
-from uuid import UUID
+from uuid import UUID, uuid5
 
 from .comparator import StructureComparison, compare_structure, issues_payload
 from .contracts import BlueprintSnapshot, SolutionManifest
@@ -36,6 +36,22 @@ class AbPairError(ValueError):
         self.code = code
         self.comparison = comparison
         self.issues = () if comparison is None else issues_payload(comparison)
+
+
+# 与 contracts.SLOT_NAMESPACE 同一个命名空间：派生 id 集中在 uuid5 里，不回表取号。
+AB_NAMESPACE = UUID("8f14e45f-ceea-567f-a1b2-3c4d5e6f7a80")
+
+
+def variant_group_id(blueprint_version_id: UUID, first: SolutionManifest,
+                     second: SolutionManifest) -> UUID:
+    """一对 A/B 卷的分组 id，由"蓝图版本 + 两个方案哈希（排序）"派生。
+
+    为什么派生而不是由调用方给：同一个配对重试两次必须得到同一个分组，否则
+    "重试"会造出两组互不相干的 A/B；而由前端临时生成的 uuid 每点一次都不同。
+    排序是为了让 A/B 与 B/A 得到同一个组。
+    """
+    hashes = sorted([first.manifest_hash, second.manifest_hash])
+    return uuid5(AB_NAMESPACE, f"ab-pair:{blueprint_version_id}:{hashes[0]}:{hashes[1]}")
 
 
 @dataclass(frozen=True)
@@ -55,6 +71,8 @@ class AbPair:
     def payload(self) -> dict:
         return {
             "blueprint_version_id": str(self.blueprint_version_id),
+            "variant_group_id": str(variant_group_id(
+                self.blueprint_version_id, self.primary, self.peer)),
             "labels": list(self.labels),
             "anchors": [str(item) for item in self.anchors],
             "structurally_matched": self.comparison.structurally_matched,
@@ -108,4 +126,4 @@ def pair_solutions(
     )
 
 
-__all__ = ["AbPair", "AbPairError", "pair_solutions"]
+__all__ = ["AB_NAMESPACE", "AbPair", "AbPairError", "pair_solutions", "variant_group_id"]

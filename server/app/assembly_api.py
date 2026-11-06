@@ -520,6 +520,8 @@ def ab_pair(
         raise _map_build_error(exc) from exc
     payload = pair.payload()
     return {
+        # 分组 id 由服务端派生（同一对方案永远同一个组）：前端不要自己编一个 uuid，
+        # 否则重试配对会给同一对卷子造出两个互不相干的分组。
         "assembly_run_id": str(run_id),
         "peer_run_id": str(peer_run_id),
         "left": index,
