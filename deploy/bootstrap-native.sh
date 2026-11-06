@@ -68,7 +68,9 @@ else
   ok ".env 已存在，保留"
 fi
 mkdir -p secrets
-DB_PASS="$(grep -oP '(?<=^DATABASE_URL=postgresql://[^:]+:)[^@]+' .env || true)"
+# 从 .env 里取口令。用 sed 而不是 grep -P：后者的 lookbehind 必须是定长，
+# 而这里要跳过可变长的用户名，PCRE 会直接报 "length of lookbehind assertion is not limited"。
+DB_PASS="$(sed -n 's#^DATABASE_URL=postgresql://[^:/@]*:\([^@]*\)@.*#\1#p' .env)"
 [ -n "$DB_PASS" ] || die ".env 里的 DATABASE_URL 格式看不懂（应为 postgresql://user:pass@host:port/db）"
 
 say "3. 建库与扩展"
