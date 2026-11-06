@@ -130,6 +130,34 @@
     return ISSUE_TEXT[code] || '未识别的诊断项（以服务端说明为准）';
   };
 
+  /**
+   * 这次运行的"一句话结论"。措辞只在这里写一次：界面、测试、将来的导出都取这一份。
+   *
+   * 四种结论必须分得开，因为它们对教师意味着完全不同的下一步：
+   *   optimal     → 已证明最优，可以选
+   *   feasible    → 有方案但没证明最优（敢不敢拿去考试，是教师自己判断）
+   *   infeasible  → 原硬约束无法满足，而且**系统不会自动放松**；要人改蓝图
+   *   timeout 无解 → 没找到方案，同样没有试卷
+   * 把 timeout 有解合并进 feasible 是可以的（有方案），但"超时"这件事要留在状态里。
+   */
+  A.paperAssemblyVerdict = function (run) {
+    if (!run) return '还没有运行记录。';
+    const solutions = (run.solutions || []).length;
+    if (run.status === 'optimal') return '已证明最优；可以选一个方案建卷。';
+    if (run.status === 'feasible') {
+      return '可行，未证明最优；可以选方案，但界面不会把它说成最优。';
+    }
+    if (run.status === 'timeout') {
+      return solutions
+        ? '超时；找到的方案可用，但没有最优性结论。'
+        : '超时，无可行解；未创建试卷。';
+    }
+    if (run.status === 'infeasible') return '原硬约束不可行；未自动放松，也未创建试卷。';
+    if (run.status === 'failed') return '这次运行失败；未创建试卷。';
+    if (run.status === 'cancelled') return '运行已取消；未创建试卷。';
+    return `运行进行中：${A.paperAssemblyStatus(run)}。`;
+  };
+
   A.paperAssemblyReasonText = function (reason) {
     return REASON_TEXT[reason] || '未识别的原因（以服务端说明为准）';
   };
@@ -409,7 +437,8 @@
     const header = run
       ? `<div class="assembly-head">${statusBadge(run)}
           <span class="muted">候选清单 ${escape(String(run.candidate_manifest_hash || '').slice(0, 12))}…
-          · 求解器 ${escape(run.solver_name || '')} ${escape(run.solver_version || '')}</span></div>`
+          · 求解器 ${escape(run.solver_name || '')} ${escape(run.solver_version || '')}</span></div>
+          <p class="assembly-verdict" role="status">${escape(A.paperAssemblyVerdict(run))}</p>`
       : '<p class="muted">还没有运行记录。</p>';
     const messages = `${current.error
       ? `<div class="alert" role="alert">${escape(current.error)}</div>` : ''}

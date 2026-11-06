@@ -133,6 +133,25 @@ check('最优是绿色、可行是蓝色、无解是红色',
 check('未知状态原样显示，不假装成功',
   App.paperAssemblyStatus({ status: 'cancelled' }) === '已取消');
 
+// 一句话结论：四种状态必须说清"下一步是什么、有没有建卷、有没有放松约束"。
+check('最优结论说可以选方案',
+  App.paperAssemblyVerdict(OPTIMAL_RUN).includes('已证明最优'));
+check('可行结论明确写「未证明最优」',
+  App.paperAssemblyVerdict(FEASIBLE_RUN).includes('可行，未证明最优'));
+check('无解结论写明没有自动放松、没有建卷',
+  App.paperAssemblyVerdict(INFEASIBLE_RUN).includes('未自动放松')
+  && App.paperAssemblyVerdict(INFEASIBLE_RUN).includes('未创建试卷'));
+check('超时无解结论写明未创建试卷',
+  App.paperAssemblyVerdict({ status: 'timeout', solutions: [] })
+    .includes('超时，无可行解；未创建试卷'));
+check('超时但有解时保留方案可用性',
+  App.paperAssemblyVerdict({ status: 'timeout', solutions: [{}] })
+    .includes('找到的方案可用'));
+check('失败结论写明未创建试卷',
+  App.paperAssemblyVerdict(FAILED_NO_SOLVER).includes('未创建试卷'));
+check('没有运行时给中性结论',
+  App.paperAssemblyVerdict(null).includes('还没有运行记录'));
+
 check('装了 ortools 时不算降级', App.paperAssemblyDegraded(OPTIMAL_RUN) === false);
 check('缺求解器的失败被识别为降级',
   App.paperAssemblyDegraded(FAILED_NO_SOLVER) === true);
