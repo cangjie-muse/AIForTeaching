@@ -8,7 +8,7 @@
 * 没有登记进 `npm run check`（没装依赖时它只能"跳过"，而跳过看起来像通过）；
 * 在依赖缺失时打印明确的"未验证"，并以退出码 0 结束——这是为了让
   `npm run check` 保持诚实（不把一个跑不了的东西算进通过数），**不是**在声称通过；
-* 装好依赖后应当用 `.venv/Scripts/python.exe server/tests/test_assembly_solver.py`
+* 装好依赖后应当用 `python server/tests/test_assembly_solver.py`
   单独跑，并看它是否真的全绿。
 
 要钉住的语义（都是规格里写死的）：
@@ -126,16 +126,23 @@ def test_decimal_score_conversion_has_no_float_error() -> None:
 
 
 def test_same_stable_exercise_is_never_placed_twice() -> None:
+    """两个槽位、两道候选：只能各用一道，同一 stable id 不能进两次。
+
+    这里只有两道题可选，所以结果必然是"两道都用上、各占一个槽位"——
+    要断言的是**互不相同**，不是"有一道没用上"（上一版断言写反了，
+    第一次真实运行就暴露了）。
+    """
     bp = blueprint([slot("A1", "50.00"), slot("A2", "50.00")])
     shared = candidate(1, stable=999)
     other = candidate(2, stable=998)
     result = CpSatSolver().solve(bp, manifest(bp, [shared, other]), config())
     selections = result.solution_sets[0].variants[0].selections
+    versions = [item.exercise_version_id for item in selections]
     stables = [item.stable_exercise_id for item in selections]
-    assert len(set(stables)) == 2, stables
-    assert shared.exercise_version_id not in {item.exercise_version_id for item in selections} \
-        or other.exercise_version_id not in {item.exercise_version_id for item in selections}, \
-        "两个槽位必须用两道不同的题（同一 stable id 不能进两次）"
+    assert len(versions) == 2, versions
+    assert len(set(versions)) == 2, f"同一道题进了两个槽位：{versions}"
+    assert len(set(stables)) == 2, f"同一 stable id 进了两个槽位：{stables}"
+    assert set(versions) == {shared.exercise_version_id, other.exercise_version_id}
 
 
 def test_blueprint_exclusion_group_allows_at_most_one() -> None:
@@ -225,13 +232,34 @@ def test_max_solutions_is_capped_at_three() -> None:
         raise AssertionError("方案数上限 3 必须由类型本身拒绝")
 
 
+# ---------------------------------------------------------------------------
+# 组合根：装了 ortools 就必须真的用它
+# ---------------------------------------------------------------------------
+
+def test_default_solver_uses_cp_sat_when_available() -> None:
+    """`default_solver()` 不能永远返回"不可用"——服务器上 ortools 已装。
+
+    这条断言是给一次真实事故加的：9.11 装不上的时期，`default_solver()` 被写成
+    "一律返回 UnavailableSolver"，等服务器装好 9.15 后，脚本仍在报
+    "本机未安装 ortools"，白查一轮。
+    """
+    from app.assembly.solver_port import UnavailableSolver, default_solver, ortools_version
+
+    solver = default_solver()
+    if ortools_version() is None:  # pragma: no cover - 只在没装依赖的机器上走
+        assert isinstance(solver, UnavailableSolver)
+    else:
+        assert isinstance(solver, CpSatSolver)
+        assert solver.solver_version not in ("", "unknown")
+
+
 def run_tests() -> int:
     if MISSING_DEPENDENCY is not None:
         print("⊘ 未验证：本机未安装 ortools，CP-SAT 求解器的断言一次都没有运行过。")
         print(f"  原因：{MISSING_DEPENDENCY}")
-        print("  安装后重新运行：.venv/Scripts/python.exe -m pip install"
+        print("  安装后重新运行：python -m pip install"
               " -r server/requirements-assembly.txt")
-        print("  然后：.venv/Scripts/python.exe server/tests/test_assembly_solver.py")
+        print("  然后：python server/tests/test_assembly_solver.py")
         # 退出码 0 是给"批量跑全部套件"用的：这不是通过，是"没跑"。本文件刻意
         # 不在 npm run check 的清单里，避免"跳过"被当成"通过"。
         return 0

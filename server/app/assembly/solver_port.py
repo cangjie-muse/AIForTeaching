@@ -55,21 +55,24 @@ class UnavailableSolver:
               peer: SolutionManifest | None = None) -> SolveResult:
         raise SolverUnavailableError(
             "CP-SAT 求解器不可用：本机未安装 ortools。"
-            f"安装方式：.venv/Scripts/python.exe -m pip install -r {REQUIREMENTS_FILE}"
+            f"安装方式：python -m pip install -r {REQUIREMENTS_FILE}"
         )
 
 
 def default_solver() -> Any:
-    """组合根用：当前一律返回明确失败的实现。
+    """组合根：装了 ortools 就用真的 CP-SAT，没装才退化成明确失败的实现。
 
-    这不是"暂时偷懒"：CP-SAT 实现（阶段 B 任务 2/3）在本机装不上 ortools，
-    写了也跑不了、更没有真实运行的证据。端口（`solve` 的签名与 `SolveResult`）
-    已经固定，接入时只需在这里返回真正的求解器，其余调用方不用改一行。
+    这条分支在服务器上已经被真实执行过（ortools 9.15.6755 + Python 3.14），
+    不再是"写了没跑"的代码：`scripts/load_assembly.py` 与
+    `server/tests/test_assembly_solver.py` 都走这里。
 
-    刻意不写 `from .solver import CpSatSolver`：那会造成一个只在装了 ortools 的
-    机器上才存在的 import 分支，而那条分支在本仓库从未被执行过——它一旦写错，
-    只会在别人的环境里炸。
+    退化路径保留着，是因为开发机可能装不上——那时运行会记 `failed` 并写清缺什么，
+    绝不产出"看起来可行"的方案。
     """
+    if ortools_version() is not None:
+        from .solver import CpSatSolver
+
+        return CpSatSolver()
     return UnavailableSolver()
 
 

@@ -316,7 +316,7 @@ class CpSatSolver:
             remaining -= int(solver.WallTime()) or 1
             if remaining <= 0 or index + 1 >= config.max_solutions:
                 break
-            self._forbid(model, selection)
+            self._forbid(model, built, selection)
         return solutions
 
     @staticmethod
@@ -325,7 +325,12 @@ class CpSatSolver:
         solver.parameters.max_time_in_seconds = float(max(1, seconds))
         solver.parameters.random_seed = config.random_seed
         # 单 worker：多 worker 下同一 seed 可能给出不同方案，"回放"就无从谈起。
-        solver.parameters.num_search_workers = 1
+        # 9.15 把参数名从 num_search_workers 改成了 num_workers，旧名还留着但会告警；
+        # 两个都试一遍，谁在就用谁——跨版本回放要的是"同一个"求解配置。
+        for name in ("num_workers", "num_search_workers"):
+            if hasattr(solver.parameters, name):
+                setattr(solver.parameters, name, 1)
+                break
         return solver
 
     @staticmethod
@@ -380,10 +385,20 @@ class CpSatSolver:
         )
 
     @staticmethod
-    def _forbid(model, selections) -> None:
-        """禁掉这一整组选择，逼下一次求解给出不同的方案。"""
-        model.AddForbiddenAssignments(
-            [f"x_{item.slot_code}_{item.exercise_version_id}" for item in selections])
+    def _forbid(model, built: "_Model", selections) -> None:
+        """禁掉这一整组选择，逼下一次求解给出不同的方案。
+
+        两个必须做对的地方（9.15 的第一次真实运行各踩过一次）：
+          * `AddForbiddenAssignments(variables, tuples)` 要**变量对象列表**，不是名字
+            字符串——传字符串会得到 "missing 1 required positional argument"；
+          * `tuples` 是被禁止的取值组合，布尔变量里 1 表示"选中"，所以要禁的是
+            全 1 的那一个元组。
+        """
+        variables = [
+            built.variables[(item.slot_code, item.exercise_version_id)]
+            for item in selections
+        ]
+        model.AddForbiddenAssignments(variables, [[1] * len(variables)])
 
 
 __all__ = ["CpSatSolver", "map_status"]
