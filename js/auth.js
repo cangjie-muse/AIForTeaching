@@ -23,6 +23,8 @@
     'paper-build': ['teacher', 'admin'],
     'paper-assembly': ['teacher', 'admin'],
     'online-exam': ['student', 'teacher', 'admin'],
+    'grading-review': ['teacher', 'admin'],
+    'student-feedback': ['student', 'teacher', 'admin'],
     'paper-editor': ['teacher', 'admin'],
     'paper-ops': ['teacher', 'admin'],
     classes: ['teacher', 'admin'],

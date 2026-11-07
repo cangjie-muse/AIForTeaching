@@ -645,6 +645,18 @@
       `/api/v1/assembly-runs/${encodeURIComponent(runId)}/ab-pair`
       + queryString({ peer_run_id: peerRunId, index: left, peer_index: right, anchors })),
     // 在线作答（阶段 C）：开始要幂等键；保存是 PATCH，冲突时服务端带回最新本人响应。
+    // 评分（阶段 D）：确认/发布/撤回/申诉；学生成绩只取已发布版本。
+    gradingConfirm: (submissionId, body) => request('POST',
+      `/api/v1/grading/submissions/${encodeURIComponent(submissionId)}/confirm`,
+      { body }),
+    gradingPublish: (submissionId, items, key) => request('POST',
+      `/api/v1/grading/submissions/${encodeURIComponent(submissionId)}/publish`,
+      { headers: { 'Idempotency-Key': key }, body: { expected_items: items } }),
+    gradingWithdraw: (submissionId, reason, key) => request('POST',
+      `/api/v1/grading/submissions/${encodeURIComponent(submissionId)}/withdraw`,
+      { headers: { 'Idempotency-Key': key }, body: { reason } }),
+    myGrades: () => request('GET', '/api/v1/grading/my-grades'),
+    gradingAppeal: body => request('POST', '/api/v1/grading/appeals', { body }),
     assignmentAttempt: assignmentId => request('GET',
       `/api/v1/assignments/${encodeURIComponent(assignmentId)}/attempt`),
     startAttempt: (assignmentId, key) => request('POST',
