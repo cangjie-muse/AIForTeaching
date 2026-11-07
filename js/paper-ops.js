@@ -224,6 +224,12 @@
       <input id="ops-due" type="datetime-local" data-input="ops-due">
       <label for="ops-close">硬关闭时间</label>
       <input id="ops-close" type="datetime-local" data-input="ops-close">
+      <label for="ops-distribution">分发方式</label>
+      <select id="ops-distribution" data-input="ops-distribution">
+        <option value="print">打印卷</option>
+        <option value="online">在线作答</option>
+        <option value="both">打印 + 在线</option>
+      </select>
       <div class="button-row">
         <button type="button" class="btn" data-action="ops-assignment-create">新建作业草稿</button>
       </div>
@@ -278,11 +284,16 @@
     const close = parse('close');
     if (!(visible < due)) throw new Error('可见时间必须早于截止时间');
     if (!(due <= close)) throw new Error('截止时间不能晚于硬关闭时间');
+    const distribution = String((form && form.distribution) || 'print');
+    if (!['print', 'online', 'both'].includes(distribution)) {
+      throw new Error('分发方式只允许 print / online / both');
+    }
     return {
       offering_ref: offering,
       visible_at: visible.toISOString(),
       due_at: due.toISOString(),
-      hard_close_at: close.toISOString()
+      hard_close_at: close.toISOString(),
+      distribution_kind: distribution
     };
   };
 

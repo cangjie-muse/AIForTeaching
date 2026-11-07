@@ -225,8 +225,20 @@ check('载荷带班级与三个 ISO 时间点', good.offering_ref === 'analysis-
   && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(good.visible_at)
   && !!good.hard_close_at);
 check('截止等于硬关闭是允许的', good.due_at === good.hard_close_at);
-check('只送四个字段', Object.keys(good).sort().join(',')
-  === 'due_at,hard_close_at,offering_ref,visible_at');
+// 阶段 C 起多一个 distribution_kind（默认 print）：字段集合必须**精确**，
+// 多传或少传都会让服务端 extra=forbid / 默认值判断失准。
+check('请求体字段精确', Object.keys(good).sort().join(',')
+  === 'distribution_kind,due_at,hard_close_at,offering_ref,visible_at');
+check('未选分发方式时默认打印卷', good.distribution_kind === 'print');
+check('可以选在线作答', App.paperOpsAssignmentPayload({
+  offering: 'analysis-2026a', visible: '2026-05-01T09:00',
+  due: '2026-05-08T09:00', close: '2026-05-08T09:00',
+  distribution: 'online'
+}).distribution_kind === 'online');
+check('非法分发方式被拒', throws(() => App.paperOpsAssignmentPayload({
+  offering: 'a', visible: '2026-05-01T09:00', due: '2026-05-08T09:00',
+  close: '2026-05-08T09:00', distribution: 'video'
+})) !== null);
 check('没选班级被拒', (throws(() => App.paperOpsAssignmentPayload(
   { visible: '2026-05-01T09:00', due: '2026-05-08T09:00', close: '2026-05-08T09:00' }))
   || {}).message === '先选一个班级');
