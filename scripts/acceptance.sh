@@ -69,16 +69,29 @@ else
   PY="python3"
 fi
 
+# 服务器通常只装 Python 依赖；node 工具链缺失时相关检查要显式 SKIP，而不是 FAIL。
+have_js_deps() { [ -d "node_modules/.bin" ]; }
+
 # ---------------------------------------------------------------------------
 say "一、代码与静态检查"
 # ---------------------------------------------------------------------------
-run_step "ESLint（js + scripts）" npx eslint js scripts
-run_step "脚本加载顺序" node scripts/test-script-order.cjs
+if have_js_deps; then
+  run_step "ESLint（js + scripts）" ./node_modules/.bin/eslint js scripts
+  run_step "脚本加载顺序" node scripts/test-script-order.cjs
+else
+  record SKIP "ESLint（js + scripts）" "服务器未安装 node 依赖（见 .node-deps 提示）"
+  record SKIP "脚本加载顺序" "同上"
+fi
 
 # ---------------------------------------------------------------------------
 say "二、数据库迁移（真引擎）"
 # ---------------------------------------------------------------------------
-run_step "迁移链与不变量断言" npm run test:migrations
+if have_js_deps; then
+  run_step "迁移链与不变量断言（PGlite）" node scripts/verify-migrations.cjs
+else
+  # PGlite 是 npm 依赖；没有它就只能在服务器上跳过"真引擎断言"（迁移本身已在第二步验证）
+  record SKIP "迁移链与不变量断言（PGlite）" "需要 npm ci（@electric-sql/pglite）"
+fi
 
 if [ -n "${DATABASE_URL:-}" ]; then
   run_step "线上库迁移状态（必须全部已应用）" \
@@ -95,10 +108,14 @@ run_step "全部 Python 测试套件" node scripts/test-python.cjs
 # ---------------------------------------------------------------------------
 say "四、前端视图测试"
 # ---------------------------------------------------------------------------
-for suite in paper-workbench paper-build paper-assembly paper-editor paper-ops \
-             online-exam grading qti; do
-  run_step "视图：$suite" node "scripts/test-view-$suite.cjs"
-done
+if have_js_deps; then
+  for suite in paper-workbench paper-build paper-assembly paper-editor paper-ops \
+               online-exam grading qti; do
+    run_step "视图：$suite" node "scripts/test-view-$suite.cjs"
+  done
+else
+  record SKIP "前端视图测试（8 套）" "服务器未安装 node 依赖"
+fi
 
 # ---------------------------------------------------------------------------
 say "五、API 冒烟（服务在跑才检查）"
