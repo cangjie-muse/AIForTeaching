@@ -36,6 +36,8 @@ from .homework import router as homework_router
 from .imports import router as imports_router
 from .assembly_api import router as assembly_router
 from .online_api import router as online_router
+from . import grading_api
+from .grading_api import router as grading_router
 from .paper_blueprints import router as paper_blueprints_router
 from .paper_renders import router as paper_renders_router
 from .paper_reviews import router as paper_reviews_router
@@ -124,6 +126,10 @@ app.include_router(assignment_router)
 app.include_router(workbench_router)
 app.include_router(assembly_router)
 app.include_router(online_router)
+app.include_router(grading_router)
+if APP_ENV != 'prod':
+    # 非生产环境装配内存版评分服务（重启即丢数据）；生产保持 503，等真仓储。
+    grading_api.wire_dev_fallback()
 
 
 _ROOT = Path(__file__).resolve().parents[2]
