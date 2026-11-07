@@ -16,6 +16,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "server"))
 
 from app import auth  # noqa: E402
 
+# 本套件测的是"身份解析的纯逻辑"，必须与运行环境的 AUTH_MODE 无关。
+# 服务器上 `set -a; . ./.env` 会把 AUTH_MODE=dev 与 AUTH_DEV_ROLES=admin 带进来，
+# dev 模式给未登录请求兜底 admin —— 于是"没头就是匿名"这类断言在服务器上会红，
+# 在本地却绿（本地没有 .env）。这不是权限漏洞，是测试没锁环境。
+# 这里显式把兜底角色清空，只测 resolve_header_actor 本身的语义。
+auth.DEV_ROLES = frozenset()
+
 passed = failed = 0
 
 
