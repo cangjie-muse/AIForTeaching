@@ -195,6 +195,10 @@ def export_qti(*, slots: Sequence[ExportSlot], paper_status: str,
     reasons: list[str] = []
     if paper_status != "approved":
         reasons.append(f"paper_status_{paper_status}")
+    if not slots:
+        # 空卷导出成功会让教师拿到一份"有文件但没题"的交换包，
+        # 到对方系统才发现是空的——比直接拒绝难查得多。
+        reasons.append("paper_has_no_slots")
     # 一个槽位可能同时缺题、缺来源、缺题干：三条都要报，而不是只报第一条。
     # 教师修完第一条再发现第二条，是最消耗耐心的失败方式。
     for slot in slots:

@@ -175,6 +175,15 @@ def test_export_lists_all_reasons_at_once() -> None:
         raise AssertionError("应一次列出全部原因，而不是只报第一个")
 
 
+def test_export_refuses_empty_paper() -> None:
+    try:
+        export_qti(slots=[], paper_status="approved", paper_title="空卷")
+    except QtiExportBlocked as error:
+        assert "paper_has_no_slots" in error.reasons
+    else:
+        raise AssertionError("空卷不能导出成功")
+
+
 def test_roundtrip_is_lossless_for_supported_items() -> None:
     exported = export_qti(slots=[slot(1, "A1", score="30.00"),
                                  slot(2, "A2", score="20.00")],
