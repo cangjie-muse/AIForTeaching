@@ -26,7 +26,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Iterator
+from typing import Literal, Iterator
 from contextlib import contextmanager
 from uuid import UUID
 
@@ -63,6 +63,12 @@ def _error(status_code: int, code: str, message: str) -> HTTPException:
 
 
 class AssignmentCreateIn(BaseModel):
+    """创建作业。
+
+    `distribution_kind` 默认 print（阶段 A 行为不变）；阶段 C 起允许 online / both，
+    否则在线作答链路在 API 层就没有入口——学生卷永远发不出去。
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     paper_version_id: UUID
@@ -70,6 +76,7 @@ class AssignmentCreateIn(BaseModel):
     visible_at: datetime
     due_at: datetime
     hard_close_at: datetime
+    distribution_kind: Literal["print", "online", "both"] = "print"
 
 
 class AssignmentWithdrawIn(BaseModel):
@@ -157,6 +164,7 @@ def create_assignment(
             visible_at=body.visible_at,
             due_at=body.due_at,
             hard_close_at=body.hard_close_at,
+            distribution_kind=body.distribution_kind,
             idempotency_key=key,
             actor_ref=actor.id,
         )

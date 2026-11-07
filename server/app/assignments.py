@@ -158,7 +158,8 @@ class AssignmentRow(ContractModel):
     visible_at: datetime
     due_at: datetime
     hard_close_at: datetime
-    # 阶段 A 只有打印卷；阶段 C 打开 online/both（0036 已扩 CHECK）。`n    distribution_kind: Literal["print", "online", "both"] = "print"
+    # 阶段 A 只有打印卷；阶段 C 打开 online/both（0036 已扩 CHECK）。
+    distribution_kind: Literal["print", "online", "both"] = "print"
     status: AssignmentStatus = "draft"
     created_by: UUID
     created_at: datetime
@@ -706,9 +707,13 @@ class AssignmentService:
         hard_close_at: datetime,
         idempotency_key: str,
         actor_ref: str | None = None,
+        distribution_kind: str = "print",
     ) -> AssignmentView:
         if self.repository is None:
             raise AssignmentError("缺少作业仓储：拒绝无持久化的发布")
+        if distribution_kind not in ("print", "online", "both"):
+            raise AssignmentInputError(
+                f"不支持的分发方式：{distribution_kind}（只允许 print/online/both）")
         key = _clean_key(idempotency_key)
         times = _clean_times(visible_at, due_at, hard_close_at)
 
@@ -719,6 +724,7 @@ class AssignmentService:
             "visible_at": times[0],
             "due_at": times[1],
             "hard_close_at": times[2],
+            "distribution_kind": distribution_kind,
         })
 
         with self.repository.unit_of_work() as uow:
@@ -753,6 +759,7 @@ class AssignmentService:
                 due_at=times[1],
                 hard_close_at=times[2],
                 status="draft",
+                distribution_kind=distribution_kind,
                 created_by=actor_id,
                 created_at=self._now(),
                 review_manifest_hash=paper.review_manifest_hash,
