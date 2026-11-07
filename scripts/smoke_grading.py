@@ -160,7 +160,9 @@ def main() -> int:
         return 2
     print("  ✓ 连接成功")
 
-    with psycopg.connect(args.url) as conn:
+    # psycopg 默认返回 tuple；这里全部按列名取值，所以统一注入 dict_row。
+    # （第一版忘了这一行，脚本在服务器上第一条查询就 TypeError —— 真机联调的价值。）
+    with psycopg.connect(args.url, row_factory=psycopg.rows.dict_row) as conn:
         conn.autocommit = False
         with conn.cursor() as cur:
             structure(cur, report)
