@@ -98,7 +98,10 @@ check('没有服务端版本时说明无法回退',
 check('空冲突返回空串', App.onlineExamConflictText(null) === '');
 
 // --- 页面渲染 -------------------------------------------------------------------
-const runningHtml = App.onlineExamHtml(stateOf({}));
+// 渲染断言不能用"写死的 2026-11-07 02:00"：随着真实时间流逝，考试会被判成已截止，
+// 于是"有交卷按钮"就随日期变化而失败（这条测试自己就抓到过）。用远期截止。
+const FUTURE = { ...DETAIL, server_deadline_at: '2099-01-01T00:00:00Z' };
+const runningHtml = App.onlineExamHtml(stateOf({ detail: FUTURE }));
 check('作答中显示状态徽章', runningHtml.includes('作答中'));
 check('作答中给出倒计时', runningHtml.includes('data-exam-clock'));
 check('作答中有交卷按钮', runningHtml.includes('exam-finalize'));
