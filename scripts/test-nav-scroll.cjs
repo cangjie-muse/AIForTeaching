@@ -97,7 +97,8 @@ check('记录下滚到底部', navScroller.scrollTop === 480);
 sandbox.location.hash = '#/accounts';
 App.render();
 check('换页后菜单没有被弹回顶部', navScroller.scrollTop === 480, `scrollTop=${navScroller.scrollTop}`);
-check('换页后菜单仍是同一块菜单', renderedHtml.includes('账号管理') && renderedHtml.includes('内容审核'));
+// 2026-11 重构后侧栏只剩三组；用「账号管理」+「建卷」证明仍是同一块菜单（内容审核已不再出现）。
+check('换页后菜单仍是同一块菜单', renderedHtml.includes('账号管理') && renderedHtml.includes('约束组卷'));
 
 navScroller.scrollTop = 120;
 sandbox.location.hash = '#/construction';

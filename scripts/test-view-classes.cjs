@@ -141,27 +141,25 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
   check('学生没有建班入口（这里有）', html.includes('data-action="classes-create"'));
 
   console.log('\n菜单分组：');
+  // 侧栏已按 2026-11 设计重排为三组：命题与考试 / 课程与班级 / 系统。
+  // 旧产品的「课程与学习」「教学与建设」「工作空间」不再渲染——这正是这次重构的目的。
   const teacherNav = html.slice(0, html.indexOf('<main'));
-  const teachingAt = teacherNav.indexOf('教学与建设');
-  check('内容审核在教学与建设分组里',
-    teacherNav.indexOf('内容审核') > teachingAt, '还在系统管理里');
-  check('班级与选课也在教学与建设分组里',
-    teacherNav.indexOf('班级与选课') > teachingAt, '没放进教学与建设');
-  check('教师看不到账号管理与模型接口配置',
-    !teacherNav.includes('账号管理') && !teacherNav.includes('模型接口配置'));
-  check('教师能在系统管理里看到学生可见范围',
-    teacherNav.includes('系统管理') && teacherNav.includes('学生可见范围'),
-    '可见范围是教师的活儿，不该只给管理员');
+  check('有「命题与考试」分组', teacherNav.includes('命题与考试'));
+  check('考试工作台在侧栏里', teacherNav.includes('考试工作台'));
+  check('建卷与约束组卷在侧栏里',
+    teacherNav.includes('建卷') && teacherNav.includes('约束组卷'));
+  check('「课程与班级」里有班级与选课', teacherNav.includes('班级与选课'));
+  check('旧分组不再出现',
+    !teacherNav.includes('教学与建设') && !teacherNav.includes('课程与学习'),
+    '旧产品的导航还在');
+  check('教师看不到账号管理',
+    !teacherNav.includes('账号管理'));
 
   App.state.auth = { actor: { id: 'acc-a', role: 'admin', display_name: '管理员' } };
   App.render();
   await wait(30);
   const adminNav = elements.get('app').innerHTML;
-  const adminSection = adminNav.slice(adminNav.indexOf('系统管理'), adminNav.indexOf('<main'));
-  check('管理员能看到系统管理', adminNav.includes('系统管理'));
-  check('系统管理里是可见范围 + 账号管理 + 模型接口配置',
-    adminSection.includes('账号管理') && adminSection.includes('学生可见范围')
-    && !adminSection.includes('内容审核'), '内容审核没搬走');
+  check('管理员能看到账号管理', adminNav.includes('账号管理'));
   // 后面的用例要用教师身份继续
   App.state.auth = { actor: { id: 'acc-t', role: 'teacher', display_name: '张老师' } };
 

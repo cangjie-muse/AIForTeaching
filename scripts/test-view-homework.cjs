@@ -228,7 +228,10 @@ App.toast = message => { toasts.push(message); };
 
   console.log('\n入口与权限：');
   const shell = read('js/app.js');
-  check('侧边栏有作业批改入口', shell.includes("navItem('homework'") && shell.includes("'作业批改'"), '');
+  // 2026-11 重构：旧产品的「作业批改」不再出现在侧栏（它属于被替换掉的旧系统）。
+  // 页面本身还在（旧数据仍可查），但产品入口只保留命题与考试这条主线。
+  check('侧边栏不再出现作业批改入口',
+    !shell.includes("navItem('homework'"), '旧产品入口还挂在侧栏上');
   check('面包屑标题有作业批改', shell.includes("homework: '作业批改'"), '');
   const auth = read('js/auth.js');
   check('学生可以打开作业页', /homework:\s*\['student'/.test(auth), '');
