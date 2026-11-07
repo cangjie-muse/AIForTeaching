@@ -32,13 +32,18 @@ from ..contracts.common import ContractModel, Score
 from ..contracts.hashing import canonical_hash
 from ..releases import utcnow
 from .contracts import (
+    GradeError as _ContractGradeError,
     GradeRevision,
     SubmissionGradeView,
 )
 
 
-class GradingError(ValueError):
-    code = "grading_error"
+GradingError = _ContractGradeError
+"""与 contracts.GradeError 完全同一个类。
+
+曾经这里与 contracts 各定义了一个 GradeError：两个同名类导致
+`except GradingError` 抓不住发布模块抛出的错误——测试当场就红了。
+"""
 
 
 class ReviewIncomplete(GradingError):
@@ -206,6 +211,17 @@ class GradingService:
 
         now = self._now()
         total = sum((entry.score for entry in command.decisions), Decimal("0"))
+        if previous is not None and previous.status == "draft":
+            # 重评（regrade）产生的草稿版本：教师的确认应当落在**这一版**上，
+            # 而不是再追加一版——否则一次申诉会留下两个几乎相同的版本，
+            # 回执与申诉号也对不上。
+            revision = previous.model_copy(update={
+                "total_score": total, "status": "confirmed",
+                "reason": command.change_reason or previous.reason,
+            })
+            self.repository.save_revision(revision)
+            self._save_decisions(command, revision, actor_id, now)
+            return revision
         revision = GradeRevision(
             id=self._new_id(), submission_id=command.submission_id,
             revision_no=(previous.revision_no + 1) if previous else 1,
@@ -214,6 +230,11 @@ class GradingService:
             previous_revision_id=previous.id if previous else None, created_at=now,
         )
         self.repository.save_revision(revision)
+        self._save_decisions(command, revision, actor_id, now)
+        return revision
+
+    def _save_decisions(self, command: ConfirmCommand, revision: GradeRevision,
+                        actor_id: UUID, now: datetime) -> None:
         for entry in command.decisions:
             # 序号由服务端确定：同一提交项在第二版里必须用新号（DB 的唯一键是
             # (提交项, 序号)），并指回上一版那条，改分链因此可追溯。
@@ -227,7 +248,6 @@ class GradingService:
                 rationale=entry.rationale,
                 supersedes_id=previous_decision.id if previous_decision else None,
             ))
-        return revision
 
     # -- AI 分组建议（永远只是建议） -------------------------------------
     def suggest_groups(self, *, submission_id: UUID,
