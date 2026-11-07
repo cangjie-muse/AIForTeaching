@@ -103,7 +103,7 @@ App.featuredCourse = () => App.courses.find(course => course.id === 'course-symp
 // 需要"先选课程"的页面。以前这些链接带着 A.featuredCourse() 的默认课程id，
 // 点「知识图谱」会直接掉进辛几何那门课——像是平台替你选了课，实际上你还没选。
 // 现在没有当前课程时，它们一律指向 #/pick/<page>（选课页）。
-App.coursePages = ['overview', 'outline', 'graph', 'exercises', 'ai', 'qa',
+App.coursePages = ['exam', 'overview', 'outline', 'graph', 'exercises', 'ai', 'qa',
   'resources', 'teaching', 'courseware', 'analytics', 'workbench',
   'paper-build', 'paper-assembly', 'paper-editor', 'paper-ops', 'online-exam', 'grading-review', 'student-feedback', 'qti-transfer'];
 // 路由解析抽成纯函数：`#/course/x/graph`、`#/pick/graph`、`#/catalog` 三种形态

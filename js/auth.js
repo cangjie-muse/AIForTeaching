@@ -25,6 +25,7 @@
     'online-exam': ['student', 'teacher', 'admin'],
     'grading-review': ['teacher', 'admin'],
     'qti-transfer': ['teacher', 'admin'],
+    exam: ['teacher', 'admin'],
     'student-feedback': ['student', 'teacher', 'admin'],
     'paper-editor': ['teacher', 'admin'],
     'paper-ops': ['teacher', 'admin'],
