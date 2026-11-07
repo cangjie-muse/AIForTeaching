@@ -1,6 +1,6 @@
 (function () {
   const A = App, e = A.escape;
-  const labels = { catalog: '课程中心', overview: '课程概览', outline: '课程大纲', graph: '知识图谱', exercises: '习题与测验', ai: 'AI 学习助手', resources: '课程资源', teaching: '教学工作台', courseware: '课件生成与修改', analytics: '建设与学习分析', study: '我的学习', content: '课程内容', import: '课程内容', generate: '课程内容', construction: '建设进度汇总', 'api-config': '模型接口配置', review: '内容审核', classes: '班级与选课', visibility: '学生可见范围', accounts: '账号管理', login: '登录', pick: '选择课程', homework: '作业批改', workbench: '组卷工作台', 'paper-build': '建卷', 'paper-assembly': '约束组卷', 'online-exam': '在线作答', 'grading-review': '教师复核台', 'student-feedback': '我的成绩', 'paper-editor': '卷面编辑', 'paper-ops': '整卷审核与发布' };
+  const labels = { catalog: '课程中心', overview: '课程概览', outline: '课程大纲', graph: '知识图谱', exercises: '习题与测验', ai: 'AI 学习助手', resources: '课程资源', teaching: '教学工作台', courseware: '课件生成与修改', analytics: '建设与学习分析', study: '我的学习', content: '课程内容', import: '课程内容', generate: '课程内容', construction: '建设进度汇总', 'api-config': '模型接口配置', review: '内容审核', classes: '班级与选课', visibility: '学生可见范围', accounts: '账号管理', login: '登录', pick: '选择课程', homework: '作业批改', workbench: '组卷工作台', 'paper-build': '建卷', 'paper-assembly': '约束组卷', 'online-exam': '在线作答', 'grading-review': '教师复核台', 'student-feedback': '我的成绩', 'qti-transfer': 'QTI 导入导出', 'paper-editor': '卷面编辑', 'paper-ops': '整卷审核与发布' };
   function navItem(page, title, icon, courseId, tag = '') {
     // 没权限的入口直接不渲染：菜单里留一堆 403 入口比不显示更糟。
     if (A.auth && !A.auth.can(page)) return '';
