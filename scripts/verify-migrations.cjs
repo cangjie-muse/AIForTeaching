@@ -36,7 +36,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
-const checkReviewEvidence = require('./verify-paper-review-behaviour.cjs'), checkAssignmentPublishFields = require('./verify-assignment-publish-behaviour.cjs'), checkAssemblyRunBehaviour = require('./verify-assembly-run-behaviour.cjs'), checkSlotAndItemRules = require('./verify-slot-and-item-behaviour.cjs'), checkPaperProvenance = require('./verify-paper-provenance-behaviour.cjs'), checkAssemblyJobKind = require('./verify-assembly-job-kind.cjs'), checkAttemptBehaviour = require('./verify-attempt-behaviour.cjs');  // 迁移行为断言拆成独立文件，本文件已到 max-lines 上限
+const checkReviewEvidence = require('./verify-paper-review-behaviour.cjs'), checkAssignmentPublishFields = require('./verify-assignment-publish-behaviour.cjs'), checkAssemblyRunBehaviour = require('./verify-assembly-run-behaviour.cjs'), checkSlotAndItemRules = require('./verify-slot-and-item-behaviour.cjs'), checkPaperProvenance = require('./verify-paper-provenance-behaviour.cjs'), checkAssemblyJobKind = require('./verify-assembly-job-kind.cjs'), checkAttemptBehaviour = require('./verify-attempt-behaviour.cjs'), checkGradingBehaviour = require('./verify-grading-behaviour.cjs');  // 迁移行为断言拆成独立文件，本文件已到 max-lines 上限
 
 const root = path.resolve(__dirname, '..');
 const MIGRATIONS_DIR = path.join(root, 'db', 'migrations');
@@ -539,15 +539,18 @@ async function checkNumericScale(db, ids) {
     assert.equal(found.length, 1, `assessment.${tbl}.${col} 不存在或不是 numeric 列`);
     assert.equal(found[0].type, 'numeric(8,2)', `assessment.${tbl}.${col} 实际声明为 ${found[0].type}`);
   }
+  // 不变量：所有分值/成绩列都必须是 numeric(8,2)；只有明确登记的历史列可以例外。
+  // 扫全表而不是逐列列全：每加一张评分表都要改期望，久了就会「顺手把新列也加进
+  // 期望」——那条断言就失去意义了。现在它拦的是「有人用了 (5,2)/(10,4)」。
+  const LEGACY = [['attempt_policy_version', 'practice_penalty', 'numeric(5,2)']];
+  const allowedLegacy = (row) => LEGACY.some(([tbl, col, type]) =>
+    tbl === row.tbl && col === row.col && type === row.type);
   const unexpected = numericColumns
-    .filter((row) => !expected.some(([tbl, col]) => tbl === row.tbl && col === row.col))
-    .map((row) => `${row.tbl}.${row.col} ${row.type}`);
-  // 0036 起 submission_item.suggested_score 也是 numeric(8,2)（学生卷上的建议分）。
-  // 期望里逐项列清楚：新增第三列时这条会红，逼人来确认而不是默默通过。
-  assert.deepEqual(unexpected,
-    ['attempt_policy_version.practice_penalty numeric(5,2)',
-     'submission_item.suggested_score numeric(8,2)'],
-    `assessment 里出现了未预期的 numeric 列：${unexpected.join('、') || '（空）'}`);
+    .filter((row) => row.type !== 'numeric(8,2)' && !allowedLegacy(row))
+    .map((row) => row.tbl + '.' + row.col + ' ' + row.type);
+  assert.deepEqual(unexpected, [],
+    '这些 numeric 列不是 numeric(8,2) 且未登记为历史列（标度可能截断分值）：'
+    + (unexpected.join('、') || '（空）'));
 
   const overflow = await expectSqlError(db, 'UPDATE assessment.paper_slot SET score = 1000000.00 WHERE id = $1', [ids.slot1]);
   assert.equal(overflow.code, '22003', `1000000.00 应数值溢出（22003），实际 SQLSTATE ${overflow.code}`);
@@ -642,7 +645,8 @@ function buildChecks(ids) {
     { title: '0034 求解运行：无解不许带方案 + 最多 3 个 + 组卷来源成对', run: (db) => checkAssemblyRunBehaviour(db, ids, expectSqlError) },
     { title: '0034 落卷来源：组卷成对、手工两列仍空、单边补写被拒', run: (db) => checkPaperProvenance(db, ids) },
     { title: '0035 求解可以入队：paper-assembly 是合法 kind 且 worker 会领', run: (db) => checkAssemblyJobKind(db) },
-    { title: '0036 在线作答：一份进行中 + 响应幂等 + 交卷后不可改 + RLS', run: (db) => checkAttemptBehaviour(db, ids, expectSqlError) }
+    { title: '0036 在线作答：一份进行中 + 响应幂等 + 交卷后不可改 + RLS', run: (db) => checkAttemptBehaviour(db, ids, expectSqlError) },
+    { title: '0037 成绩追加：分数不可原位改 + 逐项判定 append-only + 练习投影隔离', run: (db) => checkGradingBehaviour(db, ids, expectSqlError) }
   ];
 }
 
