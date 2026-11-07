@@ -45,21 +45,30 @@ const suites = ['server/tests/test_policy.py', 'server/tests/test_source_parse.p
   'server/tests/test_qti_api.py',
   'server/tests/test_assembly_api.py', 'server/tests/test_assembly_worker.py', 'server/tests/test_worker_describe.py', 'server/tests/test_load_assembly.py'];
 let failed = 0;
+const failures = [];
 
 for (const suite of suites) {
   const result = spawnSync(python, [suite], {
     cwd: root,
     env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
-    stdio: 'inherit'
+    encoding: 'utf-8'
   });
+  const output = (result.stdout || '') + (result.stderr || '');
+  process.stdout.write(output);
   if (result.status !== 0) {
     failed += 1;
-    console.error(`\n${suite} 失败（退出码 ${result.status}）`);
+    failures.push(suite);
+    // 只打印这个套件里"✗"开头的行：服务器日志很长，教师/工程师需要第一眼看到
+    // 到底哪条断言红了，而不是整屏输出里自己找。
+    const red = output.split('\n').filter(line => line.includes('✗')).slice(0, 5);
+    console.error(`\n[FAIL] ${suite}（退出码 ${result.status}）`);
+    red.forEach(line => console.error('       ' + line.trim()));
   }
 }
 
 if (failed) {
-  console.error(`\n${failed} 个 Python 测试套件未通过`);
+  console.error(`\n${failed} 个 Python 测试套件未通过：`);
+  failures.forEach(name => console.error(`  - ${name}`));
   process.exit(1);
 }
 console.log('\nPython 单元测试全部通过。');

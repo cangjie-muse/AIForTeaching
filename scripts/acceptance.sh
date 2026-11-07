@@ -122,8 +122,18 @@ say "五、API 冒烟（服务在跑才检查）"
 # ---------------------------------------------------------------------------
 if curl -fsS -o /dev/null --max-time 3 "$API_BASE/api/v1/health"; then
   run_step "健康检查" curl -fsS --max-time 5 "$API_BASE/api/v1/health"
-  run_step "学生成绩接口鉴权（未登录应 401/403）" \
-    bash -c "code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 \"$API_BASE/api/v1/grading/my-grades\"); [ \"\$code\" = 401 ] || [ \"\$code\" = 403 ]"
+  # 鉴权验收只对"真正会拒绝"的环境有意义：
+  # AUTH_MODE=dev + AUTH_DEV_ROLES 会让未登录请求拿到兜底角色（演示用），
+  # 这时断言 401/403 必然失败——那是环境语义，不是权限漏洞。
+  auth_mode="$(curl -s --max-time 5 "$API_BASE/api/v1/auth/providers" \
+    | grep -o '"auth_mode":"[^"]*"' | head -1 | cut -d'"' -f4)"
+  if [ "$auth_mode" = "dev" ]; then
+    record SKIP "学生成绩接口鉴权（未登录应 401/403）" \
+      "AUTH_MODE=dev：未登录请求会拿到兜底角色，鉴权验收需在 password/cas 模式跑"
+  else
+    run_step "学生成绩接口鉴权（未登录应 401/403）" \
+      bash -c "code=\$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 \"$API_BASE/api/v1/grading/my-grades\"); [ \"\$code\" = 401 ] || [ \"\$code\" = 403 ]"
+  fi
   if [ "$QUICK" -eq 0 ]; then
     run_step "300×30 组卷负载" \
       bash -c "$PY scripts/load_assembly.py --slots 30 --candidates 300 --seconds 60 || true; exit 0"
